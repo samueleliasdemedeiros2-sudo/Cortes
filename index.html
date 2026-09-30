@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIDEOAUTO.YT - YouTube Clips AI V3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090d16',
+                        darkCard: '#111827',
+                        darkBorder: '#1f293d',
+                        primary: '#db2777',
+                        primaryHover: '#be185d'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-primary selection:text-white">
+
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3"></div>
+
+    <!-- Modal Login / Configuração da API Backend -->
+    <div id="login-modal" class="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-darkCard border border-darkBorder w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-primary/20 text-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">VIDEOAUTO<span class="text-primary">.YT</span></h1>
+                <p class="text-slate-400 text-sm mt-1">Configuração de Conexão com o Backend (Render)</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">URL do Backend (Ex: https://cortes-fbca.onrender.com)</label>
+                    <input type="text" id="backend-url" required placeholder="https://seu-backend.com" class="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Seu Nome / Equipe</label>
+                    <input type="text" id="user-name" required placeholder="Criador" class="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition">
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-primaryHover text-white font-medium py-3 rounded-xl transition shadow-lg shadow-primary/25 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rocket"></i> Salvar e Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-darkCard border-r border-darkBorder hidden md:flex flex-col justify-between p-4">
+            <div>
+                <div class="flex items-center gap-3 px-3 py-4 mb-6 border-b border-darkBorder">
+                    <div class="w-10 h-10 bg-primary/20 text-primary rounded-xl flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm tracking-wide">VIDEOAUTO<span class="text-primary">.YT</span></h2>
+                        <span class="text-xs text-emerald-400 flex items-center gap-1 mt-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sistema Ativo</span>
+                    </div>
+                </div>
+                <nav class="space-y-1">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition bg-primary text-white shadow-lg shadow-primary/20">
+                        <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+                    </button>
+                    <button onclick="switchTab('history')" id="nav-history" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-400 hover:text-white hover:bg-darkBorder/50">
+                        <i class="fa-solid fa-clock-rotate-left w-5"></i> Histórico
+                    </button>
+                </nav>
+            </div>
+            <div class="pt-4 border-t border-darkBorder flex items-center justify-between px-2">
+                <span class="text-xs font-bold truncate max-w-[130px]" id="sidebar-user-name">Usuário</span>
+                <button onclick="logout()" class="text-slate-400 hover:text-red-400 p-2" title="Alterar Configurações"><i class="fa-solid fa-gear"></i></button>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <header class="h-16 border-b border-darkBorder bg-darkCard/50 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-30">
+                <h1 class="text-lg font-bold" id="page-title">Automated Video Creation & Clips</h1>
+                <div class="flex items-center gap-4 text-xs">
+                    <div class="bg-darkCard border border-darkBorder px-3 py-1.5 rounded-xl">Cortes: <span id="counter-clips" class="font-bold text-primary">0</span></div>
+                    <div class="bg-darkCard border border-darkBorder px-3 py-1.5 rounded-xl">Downloads: <span id="counter-downloads" class="font-bold text-emerald-400">0</span></div>
+                </div>
+            </header>
+
+            <div class="p-6 max-w-7xl w-full mx-auto flex-1">
+                <!-- TAB DASHBOARD -->
+                <div id="tab-dashboard" class="space-y-6">
+                    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-xl">
+                        <h2 class="text-base font-bold mb-4 flex items-center gap-2 text-primary">
+                            <i class="fa-solid fa-link"></i> Analisar Novo Vídeo do YouTube com IA
+                        </h2>
+                        <form id="analyze-form" class="space-y-4">
+                            <div class="flex gap-2">
+                                <input type="url" id="youtube-url" required placeholder="https://www.youtube.com/watch?v=..." class="flex-1 bg-darkBg border border-darkBorder rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary">
+                                <button type="submit" class="bg-primary hover:bg-primaryHover text-white font-medium px-6 py-3 rounded-xl transition flex items-center gap-2 shadow-lg shadow-primary/20">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Analisar
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <select id="clip-quantity" class="bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm">
+                                    <option value="3">3 Cortes</option>
+                                    <option value="5" selected>5 Cortes</option>
+                                    <option value="8">8 Cortes</option>
+                                </select>
+                                <select id="clip-duration" class="bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm">
+                                    <option value="15">15 Segundos</option>
+                                    <option value="30" selected>30 Segundos</option>
+                                    <option value="60">60 Segundos</option>
+                                </select>
+                                <select id="clip-format" class="bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm">
+                                    <option value="9:16" selected>9:16 (Vertical / Reels)</option>
+                                    <option value="1:1">1:1 (Quadrado)</option>
+                                    <option value="16:9">16:9 (Horizontal)</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="loading-state" class="hidden bg-darkCard border border-darkBorder rounded-2xl p-12 text-center space-y-4">
+                        <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                        <h3 class="font-bold text-lg">A IA está a analisar os melhores momentos...</h3>
+                    </div>
+
+                    <div id="results-section" class="space-y-6 hidden">
+                        <div id="preview-container" class="bg-darkCard border border-darkBorder rounded-2xl p-4 hidden">
+                            <div class="flex justify-between mb-3">
+                                <h4 class="font-bold text-sm text-primary" id="preview-title">Pré-visualização do Momento</h4>
+                                <button onclick="closePreview()" class="text-slate-400 hover:text-white text-sm">Fechar</button>
+                            </div>
+                            <div class="aspect-video w-full bg-black rounded-xl overflow-hidden">
+                                <iframe id="youtube-player" class="w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
+                            </div>
+                        </div>
+                        <div id="clips-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                    </div>
+                </div>
+
+                <!-- TAB HISTÓRICO -->
+                <div id="tab-history" class="space-y-6 hidden">
+                    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+                        <h2 class="text-lg font-bold mb-4 text-primary">Histórico de Downloads</h2>
+                        <div id="history-list" class="space-y-3">
+                            <p class="text-slate-400 text-sm py-8 text-center">Nenhum histórico registado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let appState = {
+            backendUrl: localStorage.getItem('videoauto_backend') || '',
+            user: localStorage.getItem('videoauto_user') || '',
+            clipsCount: parseInt(localStorage.getItem('videoauto_count') || '0'),
+            downloadsCount: parseInt(localStorage.getItem('videoauto_downloads') || '0'),
+            history: JSON.parse(localStorage.getItem('videoauto_history') || '[]'),
+            currentVideoUrl: '',
+            currentClips: []
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!appState.user || !appState.backendUrl) {
+                document.getElementById('login-modal').classList.remove('hidden');
+            } else {
+                document.getElementById('sidebar-user-name').innerText = appState.user;
+            }
+            updateCounters();
+            renderHistory();
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('user-name').value.trim();
+            let backend = document.getElementById('backend-url').value.trim();
+            if (backend.endsWith('/')) backend = backend.slice(0, -1);
+
+            if (name && backend) {
+                appState.user = name;
+                appState.backendUrl = backend;
+                localStorage.setItem('videoauto_user', name);
+                localStorage.setItem('videoauto_backend', backend);
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('sidebar-user-name').innerText = name;
+                showToast('Configurações salvas com sucesso!', 'success');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('videoauto_user');
+            localStorage.removeItem('videoauto_backend');
+            location.reload();
+        }
+
+        function switchTab(tab) {
+            ['dashboard', 'history'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-400 hover:text-white';
+            });
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-${tab}`).className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition bg-primary text-white shadow-lg shadow-primary/20';
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `${type === 'success' ? 'bg-emerald-600' : 'bg-red-600'} text-white px-4 py-3 rounded-xl shadow-xl text-sm flex items-center gap-2`;
+            toast.innerHTML = `<span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function updateCounters() {
+            document.getElementById('counter-clips').innerText = appState.clipsCount;
+            document.getElementById('counter-downloads').innerText = appState.downloadsCount;
+            localStorage.setItem('videoauto_count', appState.clipsCount);
+            localStorage.setItem('videoauto_downloads', appState.downloadsCount);
+        }
+
+        function extractYouTubeId(url) {
+            const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        document.getElementById('analyze-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = document.getElementById('youtube-url').value.trim();
+            const videoId = extractYouTubeId(url);
+            if (!videoId) { showToast('URL do YouTube inválida.', 'error'); return; }
+
+            appState.currentVideoUrl = url;
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${appState.backendUrl}/api/analisar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        youtubeUrl: url,
+                        videoId,
+                        quantity: document.getElementById('clip-quantity').value,
+                        duration: document.getElementById('clip-duration').value,
+                        format: document.getElementById('clip-format').value
+                    })
+                });
+                const data = await res.json();
+                document.getElementById('loading-state').classList.add('hidden');
+                if (data.success) {
+                    appState.currentClips = data.clips;
+                    appState.clipsCount += data.clips.length;
+                    updateCounters();
+                    renderClips(data.clips, videoId);
+                    document.getElementById('results-section').classList.remove('hidden');
+                    showToast('Cortes sugeridos com sucesso!');
+                } else {
+                    showToast(data.error || 'Erro na análise.', 'error');
+                }
+            } catch (err) {
+                document.getElementById('loading-state').classList.add('hidden');
+                showToast('Falha de conexão com o backend.', 'error');
+            }
+        });
+
+        function renderClips(clips, videoId) {
+            const grid = document.getElementById('clips-grid');
+            grid.innerHTML = '';
+            clips.forEach((clip, index) => {
+                const card = document.createElement('div');
+                card.className = 'bg-darkCard border border-darkBorder rounded-2xl p-5 flex flex-col justify-between shadow-lg';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between mb-3">
+                            <span class="bg-primary/20 text-primary text-xs font-bold px-2.5 py-1 rounded-lg">Sugestão #${index + 1}</span>
+                            <span class="text-emerald-400 text-xs font-semibold">Potencial ${clip.potential || '95%'}</span>
+                        </div>
+                        <h4 class="font-bold text-sm mb-3">${clip.title}</h4>
+                        <div class="grid grid-cols-3 gap-2 text-xs text-slate-400 bg-darkBg p-3 rounded-xl mb-4">
+                            <div>Início: ${clip.startTime || clip.start}s</div>
+                            <div>Fim: ${clip.endTime || clip.end}s</div>
+                            <div>${clip.duration || clip.duracao}s</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t border-darkBorder">
+                        <button onclick="playClip('${videoId}', ${clip.start || clip.inicio})" class="flex-1 bg-darkBg hover:bg-darkBorder text-xs py-2.5 rounded-xl border border-darkBorder">Assistir</button>
+                        <button onclick="downloadClip(${index}, ${clip.start || clip.inicio}, ${clip.end || clip.fim}, ${clip.duration || clip.duracao})" id="dl-btn-${index}" class="flex-1 bg-primary hover:bg-primaryHover text-white text-xs py-2.5 rounded-xl shadow-md">Baixar MP4</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function playClip(videoId, start) {
+            document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${videoId}?start=${start}&autoplay=1`;
+            document.getElementById('preview-container').classList.remove('hidden');
+        }
+
+        function closePreview() {
+            document.getElementById('youtube-player').src = '';
+            document.getElementById('preview-container').classList.add('hidden');
+        }
+
+        async function downloadClip(index, start, end, duration) {
+            const btn = document.getElementById(`dl-btn-${index}`);
+            btn.disabled = true;
+            btn.innerHTML = `A renderizar...`;
+            showToast('A processar corte real via FFmpeg...');
+
+            try {
+                const res = await fetch(`${appState.backendUrl}/api/render`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        youtubeUrl: appState.currentVideoUrl,
+                        start,
+                        end,
+                        duration,
+                        format: document.getElementById('clip-format').value
+                    })
+                });
+
+                if (!res.ok) throw new Error('Erro na renderização.');
+
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `YouTube_Clip_${Date.now()}.mp4`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                appState.downloadsCount++;
+                updateCounters();
+                appState.history.unshift({ title: appState.currentClips[index].title, date: new Date().toLocaleString(), duration });
+                localStorage.setItem('videoauto_history', JSON.stringify(appState.history));
+                renderHistory();
+                showToast('Download do MP4 concluído!');
+            } catch (err) {
+                showToast('Erro ao baixar o corte do servidor.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `Baixar MP4`;
+            }
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            if (!appState.history.length) return;
+            list.innerHTML = '';
+            appState.history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-darkBg border border-darkBorder rounded-xl p-4 flex justify-between text-sm';
+                div.innerHTML = `<div><h4 class="font-bold">${item.title}</h4><span class="text-xs text-slate-400">${item.date}</span></div><span class="text-emerald-400 text-xs">Baixado</span>`;
+                list.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
