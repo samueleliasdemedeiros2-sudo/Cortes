@@ -96,14 +96,14 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// DOWNLOAD COM AGUARDO AUTOMÁTICO (Elimina o erro 404)
+// Endpoint seguro de geração na RapidAPI
 app.get("/api/download-rapid", async (req, res) => {
   const { videoId } = req.query;
-  if (!videoId) return res.status(400).send("videoId em falta.");
+  if (!videoId) return res.status(400).json({ success: false, error: "videoId em falta." });
 
   try {
-    // 1. Solicita a geração do ficheiro à RapidAPI
-    const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=137`;
+    // Solicita o vídeo com áudio em 720p (quality=22) para renderização rápida
+    const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=22`;
     const apiRes = await fetch(apiUrl, {
       method: "GET",
       headers: {
@@ -117,18 +117,18 @@ app.get("/api/download-rapid", async (req, res) => {
     const downloadUrl = data.file || data.url || data.link || (data.data && data.data.file);
 
     if (!downloadUrl) {
-      console.error("Resposta da API:", data);
-      return res.status(500).send("Não foi possível gerar o link na RapidAPI.");
+      console.error("Resposta RapidAPI:", data);
+      return res.status(500).json({ success: false, error: "Link não gerado pela API." });
     }
 
-    // 2. Aguarda até que o ficheiro fique pronto nos servidores da API (evita o erro 404 imediato)
+    // Aguarda até o ficheiro estar pronto nos servidores da RapidAPI
     let isReady = false;
     let attempts = 0;
-    const maxAttempts = 10; // até ~30 segundos
+    const maxAttempts = 8; // até ~24 segundos
 
     while (!isReady && attempts < maxAttempts) {
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 3000)); // espera 3s entre tentativas
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       try {
         const checkRes = await fetch(downloadUrl, { method: "HEAD" });
@@ -136,17 +136,15 @@ app.get("/api/download-rapid", async (req, res) => {
           isReady = true;
           break;
         }
-      } catch (e) {
-        // Continua a tentar até o servidor responder 200
-      }
+      } catch (e) {}
     }
 
-    // 3. Redireciona o telemóvel para o download com o ficheiro 100% pronto
-    return res.redirect(downloadUrl);
+    // Retorna a URL direta para o frontend descarregar no telemóvel
+    return res.json({ success: true, downloadUrl });
 
   } catch (err) {
-    console.error("Falha ao preparar download:", err.message);
-    return res.status(500).send("Erro ao processar o vídeo na RapidAPI. Tente novamente.");
+    console.error("Erro RapidAPI:", err.message);
+    return res.status(500).json({ success: false, error: "Falha na comunicação com a API." });
   }
 });
 
