@@ -82,7 +82,7 @@
     <main>
         <section class="card">
             <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
-            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica os momentos virais e gera o ficheiro limpo para download.</p>
+            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica os momentos virais e permite download direto.</p>
 
             <form id="analyze-form">
                 <div class="form-row">
@@ -149,7 +149,7 @@
     </main>
 
     <footer>
-        CLIPFORGE Studio &bull; Pipeline de Produção
+        CLIPFORGE Studio &bull; Download Direto
     </footer>
 
     <script>
@@ -246,9 +246,9 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" onclick="baixarViaStream('${videoId}', this)">
+                        <a href="${BACKEND_URL}/api/download-direct?videoId=${videoId}" class="btn-download" download>
                             <i class="fa-solid fa-download"></i> Baixar MP4
-                        </button>
+                        </a>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -266,55 +266,6 @@
         function closePreview() {
             document.getElementById('youtube-player').src = '';
             document.getElementById('preview-container').style.display = 'none';
-        }
-
-        // Extrai o stream limpo sem passar pelo Render e sem anúncios
-        async function baixarViaStream(videoId, btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A obter...`;
-            btn.disabled = true;
-            showToast('A obter link do vídeo via stream...');
-
-            try {
-                // Instância de extração direta sem bloqueio de IP
-                const res = await fetch('https://api.cobalt.tools', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        url: `https://www.youtube.com/watch?v=${videoId}`,
-                        videoQuality: '720',
-                        downloadMode: 'auto'
-                    })
-                });
-
-                const data = await res.json();
-
-                if (data && (data.url || (data.picker && data.picker[0]?.url))) {
-                    const downloadUrl = data.url || data.picker[0].url;
-                    
-                    // Inicia o download nativo do arquivo no celular/PC
-                    const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    a.download = `Clip_${videoId}.mp4`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    showToast('Download iniciado no navegador!', 'success');
-                } else {
-                    // Fallback direto de stream
-                    window.open(`https://co.wuk.sh/api/stream?url=https://www.youtube.com/watch?v=${videoId}`, '_blank');
-                    showToast('A transferir via stream secundário...');
-                }
-            } catch (err) {
-                // Se houver restrição momentânea de CORS, abre o descarregador limpo direto
-                window.open(`https://cobalt.tools/#https://www.youtube.com/watch?v=${videoId}`, '_blank');
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
         }
     </script>
 </body>
