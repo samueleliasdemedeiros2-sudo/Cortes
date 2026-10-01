@@ -199,7 +199,6 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Função de download com verificação de todos os formatos possíveis da API
     async function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
@@ -221,33 +220,33 @@
         const resposta = await fetch(urlApi, opcoes);
         const dados = await resposta.json();
 
-        let linkDownload = null;
+        // Janela de teste para vermos a estrutura retornada
+        alert("RESPOSTA DA API:\n" + JSON.stringify(dados));
 
-        if (typeof dados === "string" && dados.startsWith("http")) {
-          linkDownload = dados;
-        } else if (dados.url) {
-          linkDownload = dados.url;
-        } else if (dados.download_url) {
-          linkDownload = dados.download_url;
-        } else if (dados.link) {
-          linkDownload = dados.link;
-        } else if (Array.isArray(dados.formats) && dados.formats.length > 0) {
-          const formato = dados.formats.find(f => f.hasVideo && f.hasAudio) || dados.formats[0];
-          linkDownload = formato.url;
-        } else if (Array.isArray(dados) && dados.length > 0) {
-          linkDownload = dados[0].url || dados[0].link;
-        } else if (dados.data) {
-          linkDownload = dados.data.url || dados.data.download_url || dados.data.link;
+        function acharLink(obj) {
+          if (!obj) return null;
+          if (typeof obj === 'string' && (obj.startsWith('http://') || obj.startsWith('https://')) && !obj.includes('rapidapi.com')) {
+            return obj;
+          }
+          if (typeof obj === 'object') {
+            for (let k in obj) {
+              const res = acharLink(obj[k]);
+              if (res) return res;
+            }
+          }
+          return null;
         }
+
+        const linkDownload = acharLink(dados);
 
         if (linkDownload) {
           window.open(linkDownload, '_blank');
         } else {
-          showStatus("Não foi possível gerar o link de download direto.", "error");
+          showStatus("API respondeu sem link de vídeo válido.", "error");
         }
       } catch (erro) {
-        console.error("Erro na API:", erro);
-        showStatus("Erro ao comunicar com o servidor de download.", "error");
+        alert("ERRO NA CHAMADA:\n" + erro.message);
+        showStatus("Erro ao comunicar com o servidor.", "error");
       } finally {
         if (btn) {
           btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Baixar Corte</span>`;
