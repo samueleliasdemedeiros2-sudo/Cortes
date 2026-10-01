@@ -10,15 +10,13 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #090d16; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
         
-        /* Header */
         header { height: 64px; border-bottom: 1px solid #1e293b; background: rgba(9, 13, 22, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 50; }
         .logo-box { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #db2777, #6366f1); display: flex; align-items: center; justify-content: space-between; justify-content: center; color: white; font-size: 15px; }
+        .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #db2777, #6366f1); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px; }
         .logo-title { font-weight: 800; font-size: 17px; letter-spacing: -0.5px; }
         .logo-title span { color: #ec4899; }
         .tag-pro { font-size: 10px; font-weight: 700; background: #1e293b; border: 1px solid #334155; padding: 2px 7px; border-radius: 20px; color: #94a3b8; text-transform: uppercase; margin-left: 6px; }
         
-        /* Layout Principal */
         main { flex: 1; max-width: 1000px; width: 100%; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; }
         .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
         
@@ -26,27 +24,23 @@
         .gradient-text { background: linear-gradient(to right, #ec4899, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         p.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px; }
         
-        /* Inputs & Form */
         .form-row { display: flex; flex-direction: column; gap: 12px; }
         .input-group { position: relative; width: 100%; }
         .input-group i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 16px; }
-        input[type="text"] { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 12px; padding: 14px 14px 14px 42px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        input[type="text"] { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 12px; padding: 14px 14px 14px 42px; color: #fff; font-size: 14px; outline: none; }
         input[type="text"]:focus { border-color: #db2777; }
         
-        .btn-primary { background: linear-gradient(135deg, #db2777, #6366f1); color: white; border: none; border-radius: 12px; padding: 14px 24px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(219, 39, 119, 0.3); transition: opacity 0.2s; }
-        .btn-primary:active { opacity: 0.85; }
+        .btn-primary { background: linear-gradient(135deg, #db2777, #6366f1); color: white; border: none; border-radius: 12px; padding: 14px 24px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(219, 39, 119, 0.3); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .grid-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
         .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; display: block; }
         select { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 10px; padding: 10px; color: #e2e8f0; font-size: 13px; outline: none; }
         
-        /* Loading */
         #loading-state { text-align: center; padding: 40px 20px; display: none; }
         .spinner { width: 44px; height: 44px; border: 3px solid #1e293b; border-top-color: #ec4899; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Grid de Cortes */
         #results-section { display: none; }
         .clips-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
         .clip-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
@@ -57,14 +51,12 @@
         .clip-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #090d16; padding: 10px; border-radius: 10px; font-size: 11px; color: #94a3b8; text-align: center; border: 1px solid #1e293b; }
         .clip-actions { display: flex; gap: 8px; }
         .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
-        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
-        /* Video Player */
         #preview-container { margin-bottom: 20px; display: none; }
         .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
         .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         
-        /* Toast */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
         .toast { padding: 12px 18px; border-radius: 12px; font-size: 13px; color: white; background: #0f172a; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         .toast.success { border-color: #10b981; }
@@ -90,7 +82,7 @@
     <main>
         <section class="card">
             <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
-            <p class="subtitle">Cole o link do YouTube abaixo para que a IA identifique automaticamente os trechos mais virais.</p>
+            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica e segmenta os melhores trechos na hora.</p>
 
             <form id="analyze-form">
                 <div class="form-row">
@@ -157,7 +149,7 @@
     </main>
 
     <footer>
-        CLIPFORGE Studio &bull; Processamento Automatizado
+        CLIPFORGE Studio &bull; Processamento Direto
     </footer>
 
     <script>
@@ -219,14 +211,14 @@
                     document.getElementById('counter-clips').innerText = clipsCount;
                     renderClips(data.clips, videoId);
                     document.getElementById('results-section').style.display = 'block';
-                    showToast(`${data.clips.length} cortes gerados com sucesso!`);
+                    showToast(`${data.clips.length} cortes identificados com sucesso!`);
                 } else {
                     showToast(data.error || 'Não foi possível analisar o vídeo.', 'error');
                 }
             } catch (err) {
                 document.getElementById('loading-state').style.display = 'none';
                 btn.disabled = false;
-                showToast('O servidor backend está a iniciar. Aguarde 30s e tente novamente.', 'error');
+                showToast('Servidor a iniciar. Aguarde 30s e tente de novo.', 'error');
             }
         });
 
@@ -251,8 +243,12 @@
                         <div>Duração: <strong>${clip.duration}s</strong></div>
                     </div>
                     <div class="clip-actions">
-                        <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">Assistir</button>
-                        <button class="btn-download" onclick="requestRender(${clip.start}, ${clip.end}, ${clip.duration}, this)">Baixar MP4</button>
+                        <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
+                            <i class="fa-solid fa-play"></i> Assistir
+                        </button>
+                        <button class="btn-download" onclick="baixarDireto('${videoId}', ${clip.start}, ${clip.end})">
+                            <i class="fa-solid fa-download"></i> Baixar MP4
+                        </button>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -272,43 +268,11 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        async function requestRender(start, end, duration, btn) {
-            const originalText = btn.innerText;
-            btn.disabled = true;
-            btn.innerText = 'Processando...';
-            showToast('A renderizar corte via FFmpeg...');
-
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/render`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        youtubeUrl: `https://www.youtube.com/watch?v=${currentVideoId}`,
-                        start,
-                        end,
-                        duration,
-                        format: document.getElementById('clip-format').value
-                    })
-                });
-
-                if (!res.ok) throw new Error('Erro no render');
-
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Clip_${Date.now()}.mp4`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-                showToast('Download do corte concluído com sucesso!');
-            } catch (err) {
-                showToast('Erro ao gerar corte no servidor.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = originalText;
-            }
+        // Download direto contornando bloqueios do Render
+        function baixarDireto(videoId, start, end) {
+            showToast('A abrir descarregador para o trecho do vídeo...');
+            const downloadUrl = `https://loader.to/api/button/?url=https://www.youtube.com/watch?v=${videoId}&f=mp4&start=${start}&end=${end}`;
+            window.open(downloadUrl, '_blank');
         }
     </script>
 </body>
