@@ -12,7 +12,7 @@ try {
 
 const app = express();
 
-// Permite leitura dos cabeçalhos binários pelo frontend/navegador
+// Permite a leitura dos cabeçalhos de transferência pelo navegador
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -46,9 +46,9 @@ const metricas = {
 const pagamentos = new Map();
 
 // ----------------------------------------------------
-// ROTAS DE STATUS E ADMIN
+// ROTAS DE ESTADO E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '7.0.0-FINAL-SYNC' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '7.1.0-SMOOTH-KEYFRAME' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -152,7 +152,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR DE RESOLUÇÃO COM RAPIDAPI (OBTÉM URL COM SOM E IMAGEM)
+// MOTOR DE RESOLUÇÃO COM RAPIDAPI
 // ----------------------------------------------------
 async function extrairStreamOficial(videoId) {
   try {
@@ -171,7 +171,6 @@ async function extrairStreamOficial(videoId) {
 
     const data = response.data;
 
-    // Prioriza formatos completos com áudio e vídeo juntos
     if (Array.isArray(data?.formats)) {
       const formatoAudioVideo = data.formats.find(f => 
         f.url && 
@@ -199,7 +198,7 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// CORTE CIRÚRGICO, LEVE, SINCRONIZADO E IMEDIATO
+// CORTE FLUIDO, LEVE (4-7 MB) E SEM PARAGENS
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -207,7 +206,7 @@ app.get('/api/download', async (req, res) => {
   const duration = parseInt(req.query.duration || 55, 10);
 
   if (!videoId || videoId.length < 5) {
-    return res.status(400).json({ error: 'ID do vídeo inválido.' });
+    return res.status(400).json({ error: 'Identificador de vídeo inválido.' });
   }
 
   try {
@@ -221,20 +220,28 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // Execução ultra-eficiente:
-    // -ss no input: busca imediata do ponto de corte sem esperar download prévio
-    // -map 0:v:0? -map 0:a:0?: garante inclusão obrigatória de áudio e vídeo
-    // -c copy: mantém 100% da sincronização e qualidade sem consumir CPU do Render
-    // -avoid_negative_ts make_zero: impede que o início fique congelado no celular
-    // -movflags frag_keyframe...: permite streaming contínuo sem corromper o arquivo
+    // Configuração para eliminar o congelamento e reduzir o peso:
+    // 1. -ss antes do -i: salto imediato sem processar o vídeo completo
+    // 2. scale=-2:360: reduz a resolução para 360p, baixando o peso para ~4 MB a 7 MB
+    // 3. -g 15 -keyint_min 15: insere keyframes frequentes para reprodução instantânea
+    // 4. -preset ultrafast -tune zerolatency: transmissão em tempo real sem estourar a CPU
+    // 5. -c:a aac -b:a 96k: som estéreo universal sincronizado
     const ffmpeg = spawn('ffmpeg', [
       '-ss', String(start),
       '-i', directStreamUrl,
       '-t', String(duration),
-      '-map', '0:v:0?',
-      '-map', '0:a:0?',
-      '-c', 'copy',
-      '-avoid_negative_ts', 'make_zero',
+      '-vf', 'scale=-2:360',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-tune', 'zerolatency',
+      '-crf', '32',
+      '-pix_fmt', 'yuv420p',
+      '-g', '15',
+      '-keyint_min', '15',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-ac', '2',
+      '-ar', '44100',
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       '-f', 'mp4',
       'pipe:1'
@@ -257,15 +264,15 @@ app.get('/api/download', async (req, res) => {
   } catch (error) {
     console.error('[Download Stream Error]:', error.message);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro temporário na transmissão do corte.' });
+      res.status(500).json({ error: 'Erro temporário no processamento do ficheiro.' });
     }
   }
 });
 
 // ----------------------------------------------------
-// INICIALIZAÇÃO DO SERVIDOR
+// INICIALIZAÇÃO
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v7.0.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v7.1.0]`);
 });
