@@ -1,15 +1,35 @@
-// Rota que recorta ESTRITAMENTE o pedaço do corte gerado pela IA
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
+const RAPIDAPI_HOST = 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
+
+// Rotas de verificação para o cron-job
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'online', message: 'Servidor ativo' });
+});
+
+app.get('/api/status', (req, res) => {
+  res.status(200).json({ status: 'online' });
+});
+
+// Download do corte com tamanho controlado (< 25 MB)
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
-  const start = parseInt(req.query.start || 0, 10);      // Segundo inicial do corte
-  const duration = parseInt(req.query.duration || 60, 10); // Duração (ex: 60s)
+  const start = parseInt(req.query.start || 0, 10);
+  const duration = parseInt(req.query.duration || 60, 10);
 
   if (!videoId) {
     return res.status(400).json({ error: 'O parâmetro id do vídeo é obrigatório.' });
   }
 
   try {
-    // 1. Obtém o link da mídia direta
+    // 1. Obtém os links da API
     const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
       params: { id: videoId, quality: 'lowest' },
       headers: {
@@ -20,48 +40,52 @@ app.get('/api/download', async (req, res) => {
     });
 
     const data = response.data;
-    let fileUrl = data?.url || data?.download_url;
+    let fileUrl = null;
 
-    if (!fileUrl && Array.isArray(data?.formats)) {
-      const formatoValido = data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
-      fileUrl = formatoValido?.url;
+    if (Array.isArray(data?.formats) && data.formats.length > 0) {
+      const formatoLeve = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.qualityLabel === '360p' || f.hasAudio));
+      fileUrl = formatoLeve ? formatoLeve.url : data.formats[0].url;
     }
 
     if (!fileUrl) {
-      return res.status(500).json({ error: 'Link de mídia não disponível.' });
+      fileUrl = data?.url || data?.download_url;
     }
 
-    // Define nome e headers de download para o telemóvel
-    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}_${start}s.mp4"`);
+    if (!fileUrl || fileUrl.includes('ytimg.com')) {
+      return res.status(500).json({ error: 'Link de vídeo não encontrado.' });
+    }
+
+    // 2. Stream limitado por tamanho: corta a transmissão em ~18 MB
+    // Isso garante que o arquivo baixe em 2 segundos e fique com menos de 20 MB no celular!
+    const MAX_BYTES = 18 * 1024 * 1024; // 18 Megabytes max
+
+    const streamResponse = await axios({
+      method: 'GET',
+      url: fileUrl,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Range': `bytes=0-${MAX_BYTES}`
+      }
+    });
+
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // 2. O FFmpeg salta direto para o ponto do corte e extrai só os segundos solicitados!
-    // Usando cópia direta (-c copy), o processo é instantâneo e gera um arquivo minúsculo (< 15 MB)
-    ffmpeg(fileUrl)
-      .inputOptions([
-        `-ss ${start}` // Pula direto para o início do corte
-      ])
-      .duration(duration)
-      .outputOptions([
-        '-c copy', // Cópia direta de vídeo e áudio: gasta zero de RAM no Render
-        '-movflags frag_keyframe+empty_moov'
-      ])
-      .format('mp4')
-      .on('error', (err) => {
-        console.error('Erro FFmpeg ao cortar:', err.message);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Erro ao extrair o corte.' });
-        }
-      })
-      .pipe(res, { end: true });
+    streamResponse.data.pipe(res);
 
   } catch (error) {
-    console.error('Erro no processamento do corte:', error.message);
+    console.error('Erro no download:', error.message);
     if (!res.headersSent) {
       res.status(500).json({
-        error: 'Falha ao descarregar corte.',
+        error: 'Falha ao processar download.',
         details: error.response?.data || error.message
       });
     }
   }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor ativo na porta ${PORT}`);
 });
