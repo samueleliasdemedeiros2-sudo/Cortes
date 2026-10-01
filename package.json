@@ -1,7 +1,7 @@
 {
   "name": "clipforge-server",
-  "version": "1.0.0",
-  "description": "Servidor ClipForge",
+  "version": "1.0.1",
+  "description": "ClipForge Server v1.0.1 - Cortes Rápidos e Leves",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
