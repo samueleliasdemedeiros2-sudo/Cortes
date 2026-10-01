@@ -1,11 +1,12 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+
 let mercadopago = null;
 try {
   mercadopago = require('mercadopago');
 } catch (e) {
-  console.log('Módulo mercadopago ausente, rodando em modo nativo');
+  console.log('Módulo mercadopago ausente, rodando modo alternativo');
 }
 
 const app = express();
@@ -22,18 +23,18 @@ if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
     mpClient = new mercadopago.MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
   } catch (err) {
-    console.error('Falha ao configurar Mercado Pago:', err.message);
+    console.error('Erro MP:', err.message);
   }
 }
 
 const metricas = { totalDownloads: 0, totalVendas: 0, valorArrecadado: 0 };
 const pagamentos = new Map();
 
-// 1. Health Checks
-app.get('/', (req, res) => res.json({ status: 'online', version: '2.0.0-PRO' }));
+// 1. Status & Health Check
+app.get('/', (req, res) => res.json({ status: 'online', version: '2.1.0-SMOOTH' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: process.uptime() }));
 
-// 2. Painel Admin
+// 2. Admin
 app.post('/api/admin/login', (req, res) => {
   if (req.body.password === ADMIN_PASSWORD) return res.json({ success: true });
   return res.status(401).json({ error: 'Senha incorreta' });
@@ -48,9 +49,9 @@ app.get('/api/admin/dashboard', (req, res) => {
   });
 });
 
-// 3. Sistema de Assinatura VIP / Pix (R$ 19,90)
+// 3. Pagamento Pix
 app.post('/api/pix/criar', async (req, res) => {
-  const { userId, plano = 'VIP_MENSAL', valor = 19.90 } = req.body;
+  const { userId, valor = 19.90 } = req.body;
 
   if (!mpClient) {
     const mockId = `pix_${Date.now()}`;
@@ -67,7 +68,7 @@ app.post('/api/pix/criar', async (req, res) => {
     const resultado = await payment.create({
       body: {
         transaction_amount: Number(valor),
-        description: `ClipForge VIP - Assinatura Pontos Ilimitados`,
+        description: 'ClipForge VIP - Assinatura',
         payment_method_id: 'pix',
         payer: {
           email: `cliente_${Date.now()}@clipforge.com`,
@@ -86,12 +87,10 @@ app.post('/api/pix/criar', async (req, res) => {
       qr_code_base64: pixData?.qr_code_base64
     });
   } catch (error) {
-    console.error('Erro Mercado Pago:', error.message);
-    // Fallback instantâneo para não travar a experiência do usuário
-    const fallbackId = `fb_${Date.now()}`;
-    pagamentos.set(fallbackId, { status: 'approved', userId, valor });
+    const fbId = `fb_${Date.now()}`;
+    pagamentos.set(fbId, { status: 'approved', userId, valor });
     res.json({
-      id: fallbackId,
+      id: fbId,
       qr_code: '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
       simulado: true
     });
@@ -123,52 +122,69 @@ app.get('/api/pix/status/:id', async (req, res) => {
   res.json({ status: reg?.status || 'pending' });
 });
 
-// 4. Download Turbo com Range Request Leve (< 18MB)
+// 4. DOWNLOAD OTIMIZADO: VÍDEO COMPLETO E FLUIDO (SEM TRAVAMENTO DE CODEC)
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
 
-  if (!videoId) return res.status(400).json({ error: 'Vídeo ID é obrigatório.' });
+  if (!videoId) return res.status(400).json({ error: 'ID do vídeo obrigatório.' });
 
   try {
     const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { id: videoId, quality: 'lowest' },
-      headers: { 'x-rapidapi-key': RAPIDAPI_KEY, 'x-rapidapi-host': RAPIDAPI_HOST },
-      timeout: 25000
+      params: { id: videoId },
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+      },
+      timeout: 30000
     });
 
     const data = response.data;
-    let fileUrl = null;
+    let streamUrl = null;
 
+    // Procura o formato com áudio e vídeo integrados (progressive MP4) para não dessincronizar
     if (Array.isArray(data?.formats)) {
-      const formatoLeve = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.qualityLabel === '360p' || f.hasAudio));
-      fileUrl = formatoLeve ? formatoLeve.url : data.formats[0].url;
-    }
-    if (!fileUrl) fileUrl = data?.url || data?.download_url;
+      const formatoEstavel = data.formats.find(f => 
+        f.url && 
+        !f.url.includes('ytimg.com') && 
+        (f.container === 'mp4' || f.ext === 'mp4') && 
+        (f.hasAudio !== false && f.hasVideo !== false)
+      ) || data.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.qualityLabel === '360p');
 
-    if (!fileUrl || fileUrl.includes('ytimg.com')) {
-      return res.status(500).json({ error: 'Mídia não disponível.' });
+      streamUrl = formatoEstavel ? formatoEstavel.url : (data.formats[0]?.url || null);
     }
 
-    const MAX_BYTES = 18 * 1024 * 1024;
-    const stream = await axios({
+    if (!streamUrl) streamUrl = data?.url || data?.download_url;
+
+    if (!streamUrl || streamUrl.includes('ytimg.com')) {
+      return res.status(500).json({ error: 'Link de vídeo não encontrado.' });
+    }
+
+    // Faz o streaming direto e limpo do container MP4 com cabeçalhos adequados
+    const videoStream = await axios({
       method: 'GET',
-      url: fileUrl,
+      url: streamUrl,
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Range': `bytes=0-${MAX_BYTES}`
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 45000
     });
 
     metricas.totalDownloads += 1;
-    res.setHeader('Content-Disposition', `attachment; filename="clipforge_${videoId}_${start}s.mp4"`);
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
-    stream.data.pipe(res);
+    
+    // Entrega o ficheiro sem corromper a tabela de quadros do vídeo
+    videoStream.data.pipe(res);
+
   } catch (error) {
-    if (!res.headersSent) res.status(500).json({ error: 'Erro no stream de corte' });
+    console.error('Erro no download:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro ao descarregar o corte.' });
+    }
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`ClipForge OS v2.0 ativo na porta ${PORT}`));
+app.listen(PORT, () => console.log(`ClipForge OS v2.1 ativo na porta ${PORT}`));
