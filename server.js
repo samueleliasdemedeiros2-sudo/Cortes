@@ -1,10 +1,6 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
 
 let mercadopago = null;
 try {
@@ -48,7 +44,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '5.0.0-BUFFERED-CUT' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '6.1.0-DIRECT-STREAM' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -152,7 +148,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR RAPIDAPI
+// MOTOR RAPIDAPI: EXTRAI STREAM LEVE JÁ COM ÁUDIO + VÍDEO
 // ----------------------------------------------------
 async function extrairStreamOficial(videoId) {
   try {
@@ -171,19 +167,23 @@ async function extrairStreamOficial(videoId) {
 
     const data = response.data;
 
+    // Procura formatos completos já multiplexados (som + imagem juntos)
+    if (Array.isArray(data?.formats)) {
+      const streamCompleto = data.formats.find(f => 
+        f.url && 
+        !f.url.includes('ytimg.com') && 
+        f.hasAudio !== false && 
+        f.hasVideo !== false
+      );
+      if (streamCompleto?.url) return streamCompleto.url;
+    }
+
     if (data?.url && typeof data.url === 'string' && !data.url.includes('ytimg.com')) {
       return data.url;
     }
     if (data?.download_url && !data.download_url.includes('ytimg.com')) {
       return data.download_url;
     }
-
-    if (Array.isArray(data?.formats)) {
-      const formatoCompleto = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
-                           || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
-      if (formatoCompleto?.url) return formatoCompleto.url;
-    }
-
     if (data?.format_id && data?.url) {
       return data.url;
     }
@@ -195,19 +195,15 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// CORTE LOCAL RÁPIDO: SEM TIMEOUT, LEVE E DIRETO AO CELULAR
+// DOWNLOAD DIRETO POR CANALIZAÇÃO BINÁRIA (SEM TRAVAR O RENDER)
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
-  const duration = parseInt(req.query.duration || 55, 10);
 
   if (!videoId || videoId.length < 5) {
     return res.status(400).json({ error: 'ID do vídeo inválido.' });
   }
-
-  const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const tempOutput = path.join(os.tmpdir(), `corte_${safeId}_${Date.now()}.mp4`);
 
   try {
     const directStreamUrl = await extrairStreamOficial(videoId);
@@ -216,58 +212,41 @@ app.get('/api/download', async (req, res) => {
       return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
     }
 
-    // Faz o corte em arquivo temporário com seek pré-input rápido e -avoid_negative_ts make_zero
-    // Isso conserta o travamento do início do vídeo e não sobrecarrega a CPU do Render
-    const ffmpeg = spawn('ffmpeg', [
-      '-ss', String(start),
-      '-i', directStreamUrl,
-      '-t', String(duration),
-      '-c', 'copy',
-      '-avoid_negative_ts', 'make_zero',
-      '-movflags', '+faststart',
-      '-y',
-      tempOutput
-    ]);
+    const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
 
-    ffmpeg.on('close', (code) => {
-      if (code === 0 && fs.existsSync(tempOutput)) {
-        metricas.totalDownloads += 1;
+    // Força o navegador a disparar o download nativo imediatamente
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
+    res.setHeader('Content-Type', 'video/mp4');
 
-        // res.download envia os headers de tamanho exato e ativa o download nativo imediatamente
-        res.download(tempOutput, `corte_${safeId}_${start}s.mp4`, (err) => {
-          // Remove o arquivo temporário após o envio
-          try {
-            if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-          } catch (e) {}
-        });
-      } else {
-        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Falha ao gerar corte.' });
-        }
-      }
+    // Faz streaming em tempo real: zero consumo de disco ou CPU do Render
+    const responseStream = await axios({
+      method: 'GET',
+      url: directStreamUrl,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 60000
     });
 
-    ffmpeg.on('error', (err) => {
-      console.error('[FFmpeg Process Error]:', err);
-      if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Erro no processamento do vídeo.' });
-      }
-    });
+    if (responseStream.headers['content-length']) {
+      res.setHeader('Content-Length', responseStream.headers['content-length']);
+    }
+
+    metricas.totalDownloads += 1;
+
+    responseStream.data.pipe(res);
 
     req.on('close', () => {
-      try {
-        ffmpeg.kill('SIGKILL');
-        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-      } catch (e) {}
+      if (responseStream.data && typeof responseStream.data.destroy === 'function') {
+        responseStream.data.destroy();
+      }
     });
 
   } catch (error) {
     console.error('[Download Stream Error]:', error.message);
-    if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro temporário na transmissão do arquivo.' });
+      res.status(500).json({ error: 'Erro temporário na transmissão do ficheiro.' });
     }
   }
 });
@@ -277,5 +256,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional com corte assíncrono na porta ${PORT} [v5.0.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v6.1.0]`);
 });
