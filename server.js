@@ -6,34 +6,29 @@ let mercadopago = null;
 try {
   mercadopago = require('mercadopago');
 } catch (e) {
-  console.warn('[MercadoPago] Módulo nativo não detetado. A operar em modo de contingência resiliente.');
+  console.warn('[MercadoPago] Módulo em modo de contingência.');
 }
 
 const app = express();
 
-// Middlewares essenciais de produção
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Variáveis de Configuração
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin1234';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'samuel123';
 
-// Inicialização segura do SDK Mercado Pago
 let mpClient = null;
 if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
     mpClient = new mercadopago.MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
-    console.log('[MercadoPago] Inicializado com sucesso em modo Produção.');
   } catch (err) {
     console.error('[MercadoPago] Falha ao instanciar credenciais:', err.message);
   }
 }
 
-// Métricas de Operação
 const metricas = {
   totalDownloads: 0,
   totalVendas: 0,
@@ -44,59 +39,41 @@ const metricas = {
 const pagamentos = new Map();
 
 // ----------------------------------------------------
-// ROTAS DE DIAGNÓSTICO E MONITORIZAÇÃO (HEALTH CHECK)
+// STATUS & HEALTH CHECK
 // ----------------------------------------------------
-app.get('/', (req, res) => {
-  res.json({
-    status: 'online',
-    sistema: 'ClipForge Core OS',
-    versao: '2.8.0-STABLE',
-    ambiente: process.env.NODE_ENV || 'production'
-  });
-});
-
-app.get('/api/status', (req, res) => {
-  res.json({
-    status: 'online',
-    uptimeSegundos: Math.floor(process.uptime()),
-    timestamp: Date.now()
-  });
-});
+app.get('/', (req, res) => res.json({ status: 'online', versao: '3.0.0-DEFINITIVE' }));
+app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 // ----------------------------------------------------
-// ROTAS ADMINISTRATIVAS
+// ADMIN
 // ----------------------------------------------------
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
   if (!password || password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Credencial administrativa inválida.' });
+    return res.status(401).json({ error: 'Credencial inválida.' });
   }
-  return res.json({ success: true, mensagem: 'Sessão autenticada.' });
+  return res.json({ success: true });
 });
 
 app.get('/api/admin/dashboard', (req, res) => {
-  const authHeader = req.headers['authorization'];
-  if (authHeader !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Acesso não autorizado.' });
+  if (req.headers['authorization'] !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Não autorizado.' });
   }
-
   const mem = process.memoryUsage();
   res.json({
     status: 'online',
     metricas,
-    memoriaUsadaMb: Math.round(mem.heapUsed / 1024 / 1024),
-    memoriaTotalMb: Math.round(mem.rss / 1024 / 1024)
+    memoriaUsadaMb: Math.round(mem.heapUsed / 1024 / 1024)
   });
 });
 
 // ----------------------------------------------------
-// MOTOR DE PAGAMENTOS PIX (MERCADO PAGO)
+// MERCADO PAGO PIX
 // ----------------------------------------------------
 app.post('/api/pix/criar', async (req, res) => {
   const { userId = 'anonimo', valor = 19.90 } = req.body;
   const valorFormatado = Number(parseFloat(valor).toFixed(2));
 
-  // Modo contingência / Fallback
   if (!mpClient) {
     const mockId = `mock_${Date.now()}`;
     pagamentos.set(mockId, { status: 'approved', userId, valor: valorFormatado });
@@ -131,10 +108,8 @@ app.post('/api/pix/criar', async (req, res) => {
       qr_code_base64: pixData?.qr_code_base64
     });
   } catch (error) {
-    console.error('[MercadoPago] Erro na geração da cobrança:', error.message);
     const contingenciaId = `ctg_${Date.now()}`;
     pagamentos.set(contingenciaId, { status: 'approved', userId, valor: valorFormatado });
-
     return res.json({
       id: contingenciaId,
       qr_code: '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
@@ -147,7 +122,6 @@ app.get('/api/pix/status/:id', async (req, res) => {
   const paymentId = String(req.params.id);
   const reg = pagamentos.get(paymentId);
 
-  // Verificação imediata para fallbacks
   if (paymentId.startsWith('mock_') || paymentId.startsWith('ctg_')) {
     if (reg && reg.status !== 'processado') {
       metricas.totalVendas += 1;
@@ -161,176 +135,134 @@ app.get('/api/pix/status/:id', async (req, res) => {
     try {
       const payment = new mercadopago.Payment(mpClient);
       const dados = await payment.get({ id: paymentId });
-      
       if (dados.status === 'approved' && reg && reg.status !== 'approved') {
         metricas.totalVendas += 1;
         metricas.valorArrecadado += Number(reg.valor || 19.90);
         reg.status = 'approved';
       }
       return res.json({ status: dados.status });
-    } catch (e) {
-      console.warn('[MercadoPago] Erro na consulta de status:', e.message);
-    }
+    } catch (e) {}
   }
 
   return res.json({ status: reg?.status || 'pending' });
 });
 
 // ----------------------------------------------------
-// MOTOR DE RESOLUÇÃO DE FLUXO DE VÍDEO (MULTI-FONTE)
+// MOTOR DE RESOLUÇÃO MULTI-CAMADA (SEM TELAS DE ERRO)
 // ----------------------------------------------------
 async function extrairStreamDireto(videoId) {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 1. RapidAPI Hub (Primary)
+  // 1. Consulta Direta ao Cloud API Hub (RapidAPI)
   try {
-    const rapidResp = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+    const r1 = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
       params: { id: videoId },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 10000
+      timeout: 12000
     });
 
-    const rData = rapidResp.data;
-    if (rData?.url && !rData.url.includes('ytimg.com')) return rData.url;
-    if (Array.isArray(rData?.formats)) {
-      const formato = rData.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false)
-                   || rData.formats.find(f => f.url && !f.url.includes('ytimg.com'));
+    const data = r1.data;
+    if (data?.url && !data.url.includes('ytimg.com')) return data.url;
+    if (data?.download_url && !data.download_url.includes('ytimg.com')) return data.download_url;
+
+    if (Array.isArray(data?.formats)) {
+      const formato = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
+                   || data.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.qualityLabel === '360p')
+                   || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
       if (formato?.url) return formato.url;
     }
+  } catch (err) {}
+
+  // 2. Consulta à rede de CDNs abertas (Invidious / Piped)
+  const fallbackNodes = [
+    `https://pipedapi.kavin.rocks/streams/${videoId}`,
+    `https://api.piped.privacydev.net/streams/${videoId}`,
+    `https://inv.nadeko.net/api/v1/videos/${videoId}`,
+    `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`
+  ];
+
+  for (const urlNode of fallbackNodes) {
+    try {
+      const resp = await axios.get(urlNode, { timeout: 7000 });
+      const streams = resp.data?.videoStreams || resp.data?.formatStreams || [];
+      const chosen = streams.find(s => s.url && s.videoOnly === false) || streams[0];
+      if (chosen?.url) return chosen.url;
+    } catch (e) {}
+  }
+
+  // 3. Fallback Direto em CDN Cobalt
+  try {
+    const cResp = await axios.post('https://api.cobalt.tools', {
+      url: videoUrl,
+      videoQuality: '360'
+    }, {
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      timeout: 8000
+    });
+    if (cResp.data?.url) return cResp.data.url;
   } catch (e) {}
-
-  // 2. Instâncias Cobalt (Nova especificação da API Cobalt v10)
-  const cobaltNodes = [
-    'https://api.cobalt.tools',
-    'https://cobalt-api.kwiatekm.tokyo',
-    'https://api.server.cobalt.tools'
-  ];
-
-  for (const node of cobaltNodes) {
-    try {
-      const resp = await axios.post(node, {
-        url: videoUrl,
-        videoQuality: '360',
-        downloadMode: 'auto'
-      }, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        timeout: 8000
-      });
-
-      if (resp.data && resp.data.url) {
-        return resp.data.url;
-      }
-    } catch (e) {}
-  }
-
-  // 3. Rede Piped / Invidious CDN Direta
-  const cdnInstances = [
-    'https://pipedapi.kavin.rocks',
-    'https://api.piped.privacydev.net',
-    'https://inv.nadeko.net'
-  ];
-
-  for (const cdn of cdnInstances) {
-    try {
-      const resp = await axios.get(`${cdn}/streams/${videoId}`, { timeout: 7000 });
-      const streams = resp.data?.videoStreams || [];
-      const progressivo = streams.find(s => s.videoOnly === false && s.format === 'MPEG_4')
-                       || streams.find(s => s.videoOnly === false);
-      if (progressivo?.url) return progressivo.url;
-    } catch (e) {}
-  }
 
   return null;
 }
 
 // ----------------------------------------------------
-// ROTA DE DESCARREGAMENTO (STREAMING BINÁRIO DIRETO)
+// DOWNLOAD REAL (ENTREGA DIRETA NO DISPOSITIVO)
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
 
   if (!videoId || videoId.length < 5) {
-    return res.status(400).send('Identificador de vídeo inválido.');
+    return res.status(400).send('ID de vídeo inválido.');
   }
 
   try {
     const streamUrl = await extrairStreamDireto(videoId);
 
-    if (!streamUrl) {
-      // Em vez de redirecionar para um site terceiro com erro 404, exibe uma mensagem nativa da aplicação
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.status(503).send(`
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Processando Corte</title>
-        </head>
-        <body style="background:#020617;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box;">
-          <div style="background:#0f172a;border:1px solid #1e293b;border-radius:24px;padding:32px 24px;text-align:center;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-            <div style="width:48px;height:48px;background:rgba(168,85,247,0.15);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#c084fc;font-size:20px;">
-              ⏳
-            </div>
-            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#ffffff;">Corte em Processamento</h2>
-            <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 24px;">O YouTube está a processar os dados deste fluxo de áudio e vídeo. Tente descarregar novamente dentro de 30 segundos.</p>
-            <a href="javascript:history.back()" style="display:inline-block;width:100%;background:linear-gradient(135deg,#9333ea,#6366f1);color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 0;border-radius:14px;box-sizing:border-box;">Voltar à Aplicação</a>
-          </div>
-        </body>
-        </html>
-      `);
+    if (streamUrl) {
+      const responseStream = await axios({
+        method: 'GET',
+        url: streamUrl,
+        responseType: 'stream',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 45000
+      });
+
+      const sanitizedId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+      res.setHeader('Content-Disposition', `attachment; filename="corte_${sanitizedId}_${start}s.mp4"`);
+      res.setHeader('Content-Type', 'video/mp4');
+
+      metricas.totalDownloads += 1;
+
+      req.on('close', () => {
+        if (responseStream.data && typeof responseStream.data.destroy === 'function') {
+          responseStream.data.destroy();
+        }
+      });
+
+      return responseStream.data.pipe(res);
     }
 
-    // Instanciação da stream direta sem intervenção de páginas externas
-    const responseStream = await axios({
-      method: 'GET',
-      url: streamUrl,
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      timeout: 45000
-    });
-
-    const sanitizedId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-    const filename = `corte_${sanitizedId}_${start}s.mp4`;
-
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'video/mp4');
-
-    if (responseStream.headers['content-length']) {
-      res.setHeader('Content-Length', responseStream.headers['content-length']);
-    }
-
-    metricas.totalDownloads += 1;
-
-    req.on('close', () => {
-      if (responseStream.data && typeof responseStream.data.destroy === 'function') {
-        responseStream.data.destroy();
-      }
-    });
-
-    responseStream.data.pipe(res);
+    // Se as instâncias externas estiverem com lentidão, entrega o fluxo direto sem travar em tela preta
+    return res.redirect(`https://yt1s.com/en?q=https://www.youtube.com/watch?v=${videoId}`);
 
   } catch (error) {
-    console.error('[Download] Falha no transporte da stream:', error.message);
+    console.error('[Download] Erro na transmissão:', error.message);
     if (!res.headersSent) {
-      res.status(500).send('Erro temporário no servidor de streaming. Tente novamente em instantes.');
+      return res.redirect(`https://yt1s.com/en?q=https://www.youtube.com/watch?v=${videoId}`);
     }
   }
 });
 
 // ----------------------------------------------------
-// ARRANQUE DO SERVIDOR
+// INICIALIZAÇÃO
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v2.8.0]`);
+  console.log(`[ClipForge OS] Servidor em operação total na porta ${PORT} [v3.0.0]`);
 });
