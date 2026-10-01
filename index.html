@@ -82,7 +82,7 @@
     <main>
         <section class="card">
             <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
-            <p class="subtitle">Cole o link do YouTube abaixo. A IA analisa o conteúdo e localiza os momentos de maior retenção.</p>
+            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica os momentos com alto potencial de viralização.</p>
 
             <form id="analyze-form">
                 <div class="form-row">
@@ -246,7 +246,7 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" onclick="descarregarFicheiro('${videoId}', ${clip.start}, ${clip.end})">
+                        <button class="btn-download" onclick="baixarMP4('${videoId}')">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
@@ -268,12 +268,10 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Transferência direta sem encurtadores e sem páginas 404
-        function descarregarFicheiro(videoId, start, end) {
-            showToast('A abrir transferência direta...');
-            // Utiliza o resolvedor direto de vídeo móvel sem intermediários
-            const downloadUrl = `https://ssyoutube.com/pt/convert?url=https://www.youtube.com/watch?v=${videoId}`;
-            window.location.href = downloadUrl;
+        // Download direto via RapidAPI
+        function baixarMP4(videoId) {
+            showToast('A obter ficheiro de vídeo via RapidAPI...');
+            window.location.href = `${BACKEND_URL}/api/download-rapid?videoId=${videoId}`;
         }
     </script>
 </body>
