@@ -42,10 +42,10 @@ function extractId(url) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Análise e identificação com IA Gemini
+// Análise com Gemini
 async function gerarCortesComIA(videoId, quantity, duration) {
   if (!GEMINI_API_KEY) {
-    throw new Error("Chave GEMINI_API_KEY não configurada.");
+    throw new Error("Chave GEMINI_API_KEY ausente.");
   }
 
   const prompt = `
@@ -94,7 +94,6 @@ Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
   return Array.isArray(parsed) ? parsed : (parsed.clips || []);
 }
 
-// Rota de Análise
 app.post("/api/analisar", async (req, res) => {
   const { youtubeUrl, quantity = 5, duration = 30 } = req.body || {};
   const videoId = extractId(youtubeUrl);
@@ -122,7 +121,7 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Rota de Renderização com Download em Seções
+// Renderização: Extrai os URLs do stream e corta diretamente via FFmpeg
 app.post("/api/render", async (req, res) => {
   const { youtubeUrl, start = 0, duration = 30, format = "9:16" } = req.body || {};
   const videoId = extractId(youtubeUrl);
@@ -133,35 +132,36 @@ app.post("/api/render", async (req, res) => {
 
   const safeStart = Number(start) || 0;
   const safeDuration = Number(duration) || 30;
-  const safeEnd = safeStart + safeDuration;
-
   const job = uuidv4();
   const dir = path.join(JOB_DIR, job);
-  const partFile = path.join(dir, "part.mp4");
   const outputFile = path.join(dir, "clip.mp4");
 
   try {
     await fs.mkdir(dir, { recursive: true });
 
-    // Descarrega apenas os segundos solicitados para poupar memória e evitar bloqueios
-    await exec("yt-dlp", [
+    // 1. Obtém o URL direto do stream de vídeo/áudio sem descarregar o ficheiro inteiro
+    const { stdout: streamUrl } = await exec("yt-dlp", [
       "--no-playlist",
       "--no-warnings",
-      "--force-overwrites",
-      "--download-sections", `*${safeStart}-${safeEnd}`,
+      "--extractor-args", "youtube:player_client=ios,web",
       "-f", "best[ext=mp4]/best",
-      "-o", partFile,
+      "-g",
       `https://www.youtube.com/watch?v=${videoId}`
     ]);
 
+    const targetUrl = streamUrl.trim().split("\n")[0];
+    if (!targetUrl) throw new Error("Não foi possível resolver o stream.");
+
+    // Formato de enquadramento
     const filter = format === "9:16"
       ? "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2"
       : "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2";
 
-    // Processamento rápido com FFmpeg
+    // 2. O FFmpeg acede remotamente ao stream e corta apenas os segundos necessários
     await exec("ffmpeg", [
       "-y",
-      "-i", partFile,
+      "-ss", String(safeStart),
+      "-i", targetUrl,
       "-t", String(safeDuration),
       "-vf", filter,
       "-c:v", "libx264",
@@ -175,10 +175,11 @@ app.post("/api/render", async (req, res) => {
     return res.download(outputFile, `Corte_${videoId}_${safeStart}s.mp4`, async () => {
       try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
     });
+
   } catch (err) {
-    console.error("Falha ao renderizar:", err.message);
+    console.error("Falha ao gerar o corte:", err.message);
     try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
-    return res.status(500).json({ error: "Falha ao gerar o corte.", detalhe: err.message });
+    return res.status(500).json({ error: "Erro ao processar stream do vídeo.", detalhe: err.message });
   }
 });
 
