@@ -1,82 +1,66 @@
 const express = require('express');
+const axios = require('axios');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 app.use(express.json());
 
-// Rota 1: Gerar e pontuar os trechos com IA
-app.post('/api/analisar', (req, res) => {
-  const { youtubeUrl, quantity, duration } = req.body;
-  if (!youtubeUrl) {
-    return res.status(400).json({ success: false, error: 'URL necessária' });
-  }
+const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
+const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
 
-  const qtd = Number(quantity) || 3;
-  const dur = Number(duration) || 60;
-  const clips = [];
+// Rota para processar e descarregar o vídeo/corte
+app.get('/api/download', async (req, res) => {
+  const videoId = req.query.id;
 
-  for (let i = 1; i <= qtd; i++) {
-    const start = (i - 1) * (dur + 20) + 15;
-    clips.push({
-      id: i,
-      title: `Corte Viral #${i} - Ponto Alto`,
-      start: start,
-      end: start + dur,
-      duration: dur,
-      potential: `${Math.floor(Math.random() * 6) + 93}%`,
-      originalUrl: youtubeUrl
-    });
-  }
-
-  return res.json({ success: true, clips });
-});
-
-// Rota 2: Gerar corte/download funcional direto
-app.get('/api/gerar-corte', async (req, res) => {
-  const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).json({ error: 'URL do vídeo em falta' });
+  if (!videoId) {
+    return res.status(400).json({ error: 'O parâmetro id do vídeo é obrigatório.' });
   }
 
   try {
-    // Usamos um resolvedor rápido de stream público para entregar o MP4
-    const response = await fetch('https://api.cobalt.tools/', {
-      method: 'POST',
+    // 1. Consulta a RapidAPI para obter o link direto de descarregamento
+    const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+      params: { id: videoId },
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
       },
-      body: JSON.stringify({
-        url: url,
-        videoQuality: '720',
-        filenamePattern: 'basic'
-      })
+      timeout: 15000
     });
 
-    const data = await response.json();
+    const fileUrl = response.data?.url || response.data?.link || response.data?.downloadUrl;
 
-    if (data && data.url) {
-      return res.json({
-        success: true,
-        downloadUrl: data.url
-      });
-    } else {
-      // Fallback seguro caso a instância esteja cheia
-      return res.json({
-        success: true,
-        downloadUrl: `https://yt-download.org/api/button/mp4?url=${encodeURIComponent(url)}`
-      });
+    if (!fileUrl) {
+      return res.status(500).json({ error: 'A API não forneceu um link válido para o vídeo.' });
     }
-  } catch (err) {
-    console.error('Erro na geração:', err);
-    return res.status(500).json({ error: 'Falha ao processar o vídeo.' });
+
+    // 2. Faz o stream do ficheiro diretamente para o dispositivo do utilizador
+    // Isto contorna o bloqueio de conexão fechada (ERR_CONNECTION_CLOSED) no telemóvel
+    const streamResponse = await axios({
+      method: 'GET',
+      url: fileUrl,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}.mp4"`);
+    res.setHeader('Content-Type', 'video/mp4');
+
+    // Conecta o fluxo recebido diretamente à resposta enviada ao utilizador
+    streamResponse.data.pipe(res);
+
+  } catch (error) {
+    console.error('Erro ao processar o descarregamento:', error.message);
+    res.status(500).json({
+      error: 'Não foi possível descarregar o vídeo.',
+      details: error.response?.data || error.message
+    });
   }
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Backend ativo na porta ${PORT}`);
+  console.log(`Servidor a correr na porta ${PORT}`);
 });
