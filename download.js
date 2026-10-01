@@ -5,48 +5,38 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'ID do vídeo obrigatório.' });
   }
 
-  const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
-  const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
+  // Instâncias públicas da API do Piped (sem anúncios, sem encurtadores, stream limpo)
+  const instances = [
+    'https://pipedapi.kavin.rocks',
+    'https://api.piped.privacydev.net',
+    'https://pipedapi.leptons.xyz',
+    'https://api.piped.projectsegfau.lt'
+  ];
 
-  try {
-    // 1. Pede o link de download direto para a sua RapidAPI
-    const apiUrl = `https://${RAPIDAPI_HOST}/download?id=${id}`;
-    const apiRes = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST
-      }
-    });
-
-    const data = await apiRes.json();
-    const downloadUrl = data?.url || data?.link || data?.downloadUrl;
-
-    if (!downloadUrl) {
-      return res.status(500).json({ 
-        error: 'Não foi possível extrair o link da API.', 
-        detalhes: data 
+  for (const instance of instances) {
+    try {
+      const response = await fetch(`${instance}/streams/${id}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(5000)
       });
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+
+      // Procura por streams que já venham com vídeo e áudio combinados (MP4)
+      const stream = data.videoStreams?.find(s => s.format === 'MPEG_4' && !s.videoOnly)
+                  || data.videoStreams?.find(s => s.format === 'MPEG_4');
+
+      if (stream && stream.url) {
+        // Redireciona diretamente para o link de stream do vídeo do YouTube
+        return res.redirect(stream.url);
+      }
+    } catch (err) {
+      console.warn(`Falha na instância ${instance}, tentando próxima...`);
     }
-
-    // 2. Busca o vídeo diretamente e joga os dados pro celular baixar limpo
-    const videoStream = await fetch(downloadUrl);
-
-    if (!videoStream.ok) {
-      // Se o link direto exigir redirecionamento imediato
-      return res.redirect(downloadUrl);
-    }
-
-    // Configura o cabeçalho para baixar como arquivo no celular
-    res.setHeader('Content-Disposition', `attachment; filename="corte_${id}.mp4"`);
-    res.setHeader('Content-Type', 'video/mp4');
-
-    // Transmite os bytes do vídeo direto pro celular
-    const buffer = await videoStream.arrayBuffer();
-    return res.send(Buffer.from(buffer));
-
-  } catch (err) {
-    console.error('Erro no download:', err);
-    return res.status(500).json({ error: 'Erro ao processar download', details: err.message });
   }
+
+  // Fallback para download web direto se as instâncias oscilarem
+  return res.redirect(`https://yewtu.be/latest_version?id=${id}&itag=22`);
 }
