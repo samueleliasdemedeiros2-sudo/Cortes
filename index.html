@@ -29,7 +29,7 @@
         </div>
         <div>
           <span class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500">ClipForge Pro</span>
-          <span class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">v2.3</span>
+          <span class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">v2.4</span>
         </div>
       </div>
       
@@ -106,7 +106,7 @@
     <!-- Loading -->
     <div id="loading" class="hidden text-center py-12">
       <div class="inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="text-sm text-slate-400">A IA está analisando a transcrição e selecionando os ganchos com maior retenção...</p>
+      <p class="text-sm text-slate-400">A IA está a analisar o vídeo e a selecionar os melhores ganchos virais...</p>
     </div>
 
     <!-- Lista de Cortes -->
@@ -123,7 +123,7 @@
     </div>
   </main>
 
-  <!-- MODAL DE PLANO VIP (DESIGN PROFISSIONAL) -->
+  <!-- MODAL DE PLANO VIP -->
   <div id="modalPlanos" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
     <div class="bg-slate-900 border border-amber-500/30 w-full max-w-md rounded-3xl p-6 relative shadow-2xl shadow-amber-950/20">
       <button onclick="fecharPlanosModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
@@ -164,9 +164,9 @@
           </div>
           <ul class="text-slate-300 space-y-2 text-xs">
             <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>Pontos Infinitos</b> (baixe quando quiser)</span></li>
-            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>IA Anti-Silêncio</b> (remove pausas chatas)</span></li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>IA Anti-Silêncio</b> (remove pausas)</span></li>
             <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>Legendas Dinâmicas</b> no formato Shorts</span></li>
-            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>Qualidade Full HD 1080p</b> Prioritária</span></li>
+            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400 text-xs"></i> <span><b>Velocidade Prioritária</b> no Servidor</span></li>
           </ul>
         </div>
       </div>
@@ -190,7 +190,7 @@
       </div>
       
       <h3 class="text-lg font-bold text-white mb-1">Pagamento Pix</h3>
-      <p class="text-xs text-slate-400 mb-4">Pague <b>R$ 19,90</b> no seu aplicativo bancário. O VIP será ativado automaticamente.</p>
+      <p class="text-xs text-slate-400 mb-4">Pague <b>R$ 19,90</b> na sua aplicação bancária. O VIP será ativado automaticamente.</p>
 
       <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4 flex flex-col items-center">
         <div id="pixQrContainer" class="w-40 h-40 bg-white p-2 rounded-xl flex items-center justify-center mb-3">
@@ -253,7 +253,7 @@
   </div>
 
   <footer class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    <p>ClipForge Pro • v2.3 Oficial • Plataforma de Clipes Inteligentes</p>
+    <p>ClipForge Pro • v2.4 Oficial • Plataforma de Clipes Inteligentes</p>
   </footer>
 
   <script>
@@ -305,7 +305,7 @@
     function resgatarBonusDiario() {
       const hoje = new Date().toDateString();
       if (usuario.ultimoBonus === hoje) {
-        mostrarToast('Bônus Diário', 'Você já resgatou o bônus de hoje! Volte amanhã para mais +50 pts.', 'aviso');
+        mostrarToast('Bônus Diário', 'Já resgatou o bônus de hoje! Volte amanhã para mais +50 pts.', 'aviso');
         return;
       }
       usuario.pontos += 50;
@@ -315,27 +315,33 @@
       mostrarToast('Bônus Resgatado!', '+50 pontos foram adicionados à sua conta.');
     }
 
+    // Suporte universal a qualquer formato de link do YouTube (móvel, shorts, si, etc.)
     function extrairVideoId(url) {
       if (!url) return null;
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const match = url.trim().match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
+      const limpo = url.trim();
+      const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = limpo.match(regExp);
+      return (match && match[1]) ? match[1] : null;
     }
 
     function gerarCortes() {
       const input = document.getElementById('videoUrl');
       const id = extrairVideoId(input.value);
-      if (!id) return mostrarToast('Atenção', 'Informe um link válido do YouTube para continuar.', 'aviso');
+      if (!id) return mostrarToast('Atenção', 'Insira um link válido do YouTube para continuar.', 'aviso');
       
       videoAtualId = id;
-      document.getElementById('loading').classList.remove('hidden');
-      document.getElementById('cortesArea').classList.add('hidden');
+      const loading = document.getElementById('loading');
+      const cortesArea = document.getElementById('cortesArea');
+
+      loading.classList.remove('hidden');
+      cortesArea.classList.add('hidden');
 
       setTimeout(() => {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('cortesArea').classList.remove('hidden');
+        loading.classList.add('hidden');
+        cortesArea.classList.remove('hidden');
         renderizarCards(id);
-      }, 1000);
+        cortesArea.scrollIntoView({ behavior: 'smooth' });
+      }, 900);
     }
 
     function renderizarCards(videoId) {
@@ -374,11 +380,11 @@
       });
     }
 
-    // DOWNLOAD DIRETO NATIVO (ACIO NA O BALÃOZINHO DO NAVEGADOR SEM SAIR DA PÁGINA)
+    // DISPARO NATIVO INFALÍVEL (ACIONA A NOTIFICAÇÃO NATIVA DO ANDROID/IOS IMEDIATAMENTE)
     function baixarComPontos(start, duration, btn) {
       if (!usuario.isVip) {
         if (usuario.pontos < 50) {
-          mostrarToast('Pontos Insuficientes', 'Seus pontos acabaram! Torne-se VIP para downloads infinitos.', 'aviso');
+          mostrarToast('Pontos Insuficientes', 'Os seus pontos acabaram! Torne-se VIP para downloads infinitos.', 'aviso');
           abrirPlanosModal();
           return;
         }
@@ -387,26 +393,17 @@
       }
 
       const textoOriginal = btn.innerHTML;
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>A iniciar...</span>`;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>A preparar corte...</span>`;
       btn.classList.add('pointer-events-none', 'opacity-70');
 
-      mostrarToast('Download Iniciado', 'O arquivo está a ser transferido para o seu telemóvel.');
+      mostrarToast('Download Iniciado', 'A transferência começará em instantes no seu telemóvel.');
 
-      // Gatilho direto em segundo plano via iframe invisível:
-      // O navegador mobile captura a resposta e exibe a barra/balão de download nativo imediatamente!
-      let iframe = document.getElementById('downloadFrame');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'downloadFrame';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-      }
+      // O comando assign aciona o gestor de descargas nativo sem recarregar nem sair da aplicação
+      window.location.assign(`${BACKEND_URL}/api/download?id=${videoAtualId}&start=${start}&duration=${duration}`);
 
-      iframe.src = `${BACKEND_URL}/api/download?id=${videoAtualId}&start=${start}&duration=${duration}`;
-
-      // Restaura o botão após 3 segundos
+      // Restabelece o estado do botão
       setTimeout(() => {
-        btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>Baixando!</span>`;
+        btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>A transferir!</span>`;
         setTimeout(() => {
           btn.innerHTML = textoOriginal;
           btn.classList.remove('pointer-events-none', 'opacity-70');
@@ -476,7 +473,7 @@
       const input = document.getElementById('pixCopiaCola');
       input.select();
       navigator.clipboard.writeText(input.value);
-      mostrarToast('Pix Copiado!', 'Cole no seu app do banco para pagar.');
+      mostrarToast('Pix Copiado!', 'Cole na sua aplicação do banco para efetuar o pagamento.');
     }
 
     function abrirAdminModal() { document.getElementById('modalAdmin').classList.remove('hidden'); }
