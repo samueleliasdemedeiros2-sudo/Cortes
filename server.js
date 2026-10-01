@@ -11,6 +11,7 @@ try {
 
 const app = express();
 
+// Permite leitura dos cabeçalhos binários pelo Blob do frontend
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -18,11 +19,13 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Variáveis de Ambiente
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'samuel123';
 
+// SDK Mercado Pago
 let mpClient = null;
 if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
@@ -44,7 +47,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '3.6.0-RAPID-FOCUS' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.0.0-RAPID-OFFICIAL' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -148,72 +151,54 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR EXCLUSIVO RAPIDAPI COM PARÂMETROS CORRETOS
-> // ----------------------------------------------------
-async function resolverUrlDiretaVideo(videoId) {
-  const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-  // 1. Tenta varrer a RapidAPI por ID
+// MOTOR DE RESOLUÇÃO COM A ROTA OFICIAL DA RAPIDAPI
+// ----------------------------------------------------
+async function extrairStreamOficial(videoId) {
   try {
-    const resp = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { id: videoId },
+    const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+      params: {
+        id: videoId,
+        quality: 'lowest',
+        filter: 'audioandvideo'
+      },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 15000
+      timeout: 20000
     });
 
-    const data = resp.data;
-    if (data?.url && !data.url.includes('ytimg.com')) return data.url;
-    if (data?.download_url && !data.download_url.includes('ytimg.com')) return data.download_url;
-    if (data?.link && !data.link.includes('ytimg.com')) return data.link;
+    const data = response.data;
 
+    // 1. Link direto presente na raiz
+    if (data?.url && typeof data.url === 'string' && !data.url.includes('ytimg.com')) {
+      return data.url;
+    }
+    if (data?.download_url && !data.download_url.includes('ytimg.com')) {
+      return data.download_url;
+    }
+
+    // 2. Extração da lista de formatos devolvida
     if (Array.isArray(data?.formats)) {
-      const best = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false)
-                || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
-      if (best?.url) return best.url;
+      const formatoCompleto = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
+                           || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
+      if (formatoCompleto?.url) return formatoCompleto.url;
     }
-  } catch (e) {}
 
-  // 2. Tenta varrer a RapidAPI passando a URL completa
-  try {
-    const respUrl = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { url: targetUrl },
-      headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST
-      },
-      timeout: 15000
-    });
-
-    const data2 = respUrl.data;
-    if (data2?.url && !data2.url.includes('ytimg.com')) return data2.url;
-    if (data2?.download_url && !data2.download_url.includes('ytimg.com')) return data2.download_url;
-    
-    if (Array.isArray(data2?.formats)) {
-      const best2 = data2.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false);
-      if (best2?.url) return best2.url;
+    // 3. Objeto direto de formato
+    if (data?.format_id && data?.url) {
+      return data.url;
     }
-  } catch (e) {}
 
-  // 3. Fallback de Contingência Direta (Cobalt Oficial)
-  try {
-    const cResp = await axios.post('https://api.cobalt.tools', {
-      url: targetUrl,
-      videoQuality: '360'
-    }, {
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      timeout: 8000
-    });
-    if (cResp.data?.url) return cResp.data.url;
-  } catch (e) {}
+  } catch (error) {
+    console.error('[RapidAPI Error]:', error.message);
+  }
 
   return null;
 }
 
 // ----------------------------------------------------
-// DOWNLOAD DIRETO BINÁRIO
+// DESCARREGAMENTO DIRETO VIA PIPE
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -224,7 +209,7 @@ app.get('/api/download', async (req, res) => {
   }
 
   try {
-    const directStreamUrl = await resolverUrlDiretaVideo(videoId);
+    const directStreamUrl = await extrairStreamOficial(videoId);
 
     if (!directStreamUrl) {
       return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
@@ -235,7 +220,7 @@ app.get('/api/download', async (req, res) => {
       url: directStreamUrl,
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
       timeout: 50000
     });
@@ -259,17 +244,17 @@ app.get('/api/download', async (req, res) => {
     return responseStream.data.pipe(res);
 
   } catch (error) {
-    console.error('[Download] Erro na transmissão:', error.message);
+    console.error('[Download Stream Error]:', error.message);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Falha temporária na transferência do vídeo.' });
+      res.status(500).json({ error: 'Erro temporário na transmissão do ficheiro.' });
     }
   }
 });
 
 // ----------------------------------------------------
-// INICIALIZAÇÃO
+// ARRANQUE DO SERVIDOR
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v3.6.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.0.0]`);
 });
