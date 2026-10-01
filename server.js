@@ -96,14 +96,15 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Download via YouTube Video FAST Downloader 24/7 (RapidAPI)
+// DOWNLOAD COM AGUARDO AUTOMÁTICO (Elimina o erro 404)
 app.get("/api/download-rapid", async (req, res) => {
   const { videoId } = req.query;
-  if (!videoId) return res.status(400).json({ error: "videoId em falta" });
+  if (!videoId) return res.status(400).send("videoId em falta.");
 
   try {
-    // Chamada à rota de download da API
-    const response = await fetch(`https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=137`, {
+    // 1. Solicita a geração do ficheiro à RapidAPI
+    const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=137`;
+    const apiRes = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "x-rapidapi-key": RAPIDAPI_KEY,
@@ -112,18 +113,40 @@ app.get("/api/download-rapid", async (req, res) => {
       }
     });
 
-    const data = await response.json();
+    const data = await apiRes.json();
     const downloadUrl = data.file || data.url || data.link || (data.data && data.data.file);
 
-    if (downloadUrl) {
-      return res.redirect(downloadUrl);
-    } else {
-      console.error("Estrutura da API:", data);
-      return res.status(500).send("Ficheiro em processamento na API. Tente dentro de alguns segundos.");
+    if (!downloadUrl) {
+      console.error("Resposta da API:", data);
+      return res.status(500).send("Não foi possível gerar o link na RapidAPI.");
     }
+
+    // 2. Aguarda até que o ficheiro fique pronto nos servidores da API (evita o erro 404 imediato)
+    let isReady = false;
+    let attempts = 0;
+    const maxAttempts = 10; // até ~30 segundos
+
+    while (!isReady && attempts < maxAttempts) {
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 3000)); // espera 3s entre tentativas
+
+      try {
+        const checkRes = await fetch(downloadUrl, { method: "HEAD" });
+        if (checkRes.status === 200) {
+          isReady = true;
+          break;
+        }
+      } catch (e) {
+        // Continua a tentar até o servidor responder 200
+      }
+    }
+
+    // 3. Redireciona o telemóvel para o download com o ficheiro 100% pronto
+    return res.redirect(downloadUrl);
+
   } catch (err) {
-    console.error("Falha na RapidAPI:", err.message);
-    return res.status(500).send("Erro na comunicação com a RapidAPI.");
+    console.error("Falha ao preparar download:", err.message);
+    return res.status(500).send("Erro ao processar o vídeo na RapidAPI. Tente novamente.");
   }
 });
 
