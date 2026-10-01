@@ -42,7 +42,7 @@ function extractId(url) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Análise e identificação com IA
+// Análise e identificação com IA Gemini
 async function gerarCortesComIA(videoId, quantity, duration) {
   if (!GEMINI_API_KEY) {
     throw new Error("Chave GEMINI_API_KEY não configurada.");
@@ -55,7 +55,7 @@ Analisa o vídeo do YouTube com ID: "${videoId}" (URL: https://www.youtube.com/w
 Gera exatamente ${quantity} sugestões de cortes virais de aproximadamente ${duration} segundos cada.
 Prioriza partes com ganchos fortes, momentos de pico, humor ou lições de alto impacto.
 
-Retorna APENAS JSON puro no seguinte formato, sem blocos de código nem formatação markdown:
+Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
 [
   {
     "title": "Gancho chamativo do corte",
@@ -94,7 +94,7 @@ Retorna APENAS JSON puro no seguinte formato, sem blocos de código nem formata�
   return Array.isArray(parsed) ? parsed : (parsed.clips || []);
 }
 
-// Endpoint de Análise
+// Rota de Análise
 app.post("/api/analisar", async (req, res) => {
   const { youtubeUrl, quantity = 5, duration = 30 } = req.body || {};
   const videoId = extractId(youtubeUrl);
@@ -107,7 +107,7 @@ app.post("/api/analisar", async (req, res) => {
     const clips = await gerarCortesComIA(videoId, quantity, duration);
     return res.json({ success: true, videoId, clips });
   } catch (error) {
-    console.error("Erro na análise da IA, aplicando fallback:", error.message);
+    console.error("Erro na IA, aplicando fallback:", error.message);
     const q = Number(quantity) || 5;
     const d = Number(duration) || 30;
     const fallback = Array.from({ length: q }, (_, i) => ({
@@ -122,7 +122,7 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Endpoint de Renderização e Download
+// Rota de Renderização com Download em Seções
 app.post("/api/render", async (req, res) => {
   const { youtubeUrl, start = 0, duration = 30, format = "9:16" } = req.body || {};
   const videoId = extractId(youtubeUrl);
@@ -133,52 +133,52 @@ app.post("/api/render", async (req, res) => {
 
   const safeStart = Number(start) || 0;
   const safeDuration = Number(duration) || 30;
+  const safeEnd = safeStart + safeDuration;
+
   const job = uuidv4();
   const dir = path.join(JOB_DIR, job);
-  const input = path.join(dir, "source.mp4");
-  const output = path.join(dir, "clip.mp4");
+  const partFile = path.join(dir, "part.mp4");
+  const outputFile = path.join(dir, "clip.mp4");
 
   try {
     await fs.mkdir(dir, { recursive: true });
 
-    // Download com parâmetros para evitar bloqueio 403 do YouTube
+    // Descarrega apenas os segundos solicitados para poupar memória e evitar bloqueios
     await exec("yt-dlp", [
       "--no-playlist",
       "--no-warnings",
-      "--extractor-args", "youtube:player_client=android,web",
-      "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best",
-      "--merge-output-format", "mp4",
-      "-o", input,
+      "--force-overwrites",
+      "--download-sections", `*${safeStart}-${safeEnd}`,
+      "-f", "best[ext=mp4]/best",
+      "-o", partFile,
       `https://www.youtube.com/watch?v=${videoId}`
     ]);
 
-    // Filtros de formato (9:16 vertical ou 16:9 widescreen)
-    const filter = format === "9:16" 
-      ? "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" 
-      : "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2";
+    const filter = format === "9:16"
+      ? "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2"
+      : "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2";
 
-    // Corte via FFmpeg
+    // Processamento rápido com FFmpeg
     await exec("ffmpeg", [
       "-y",
-      "-ss", String(safeStart),
-      "-i", input,
+      "-i", partFile,
       "-t", String(safeDuration),
       "-vf", filter,
       "-c:v", "libx264",
       "-preset", "ultrafast",
-      "-crf", "26",
+      "-crf", "28",
       "-c:a", "aac",
-      "-b:a", "128k",
-      output
+      "-b:a", "96k",
+      outputFile
     ]);
 
-    return res.download(output, `Corte_${videoId}_${safeStart}s.mp4`, async () => {
+    return res.download(outputFile, `Corte_${videoId}_${safeStart}s.mp4`, async () => {
       try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
     });
   } catch (err) {
-    console.error("Falha ao gerar o corte:", err.message);
+    console.error("Falha ao renderizar:", err.message);
     try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
-    return res.status(500).json({ error: "Falha ao renderizar o vídeo no servidor.", detalhe: err.message });
+    return res.status(500).json({ error: "Falha ao gerar o corte.", detalhe: err.message });
   }
 });
 
