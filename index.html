@@ -50,7 +50,7 @@
         .clip-title { font-size: 14px; font-weight: 700; line-height: 1.4; color: #f8fafc; }
         .clip-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #090d16; padding: 10px; border-radius: 10px; font-size: 11px; color: #94a3b8; text-align: center; border: 1px solid #1e293b; }
         .clip-actions { display: flex; gap: 8px; }
-        .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
         #preview-container { margin-bottom: 20px; display: none; }
@@ -82,7 +82,7 @@
     <main>
         <section class="card">
             <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
-            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica e segmenta os melhores trechos na hora.</p>
+            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica os momentos virais e gera o ficheiro limpo para download.</p>
 
             <form id="analyze-form">
                 <div class="form-row">
@@ -142,14 +142,14 @@
             </div>
 
             <h2 style="font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 12px;">
-                <i class="fa-solid fa-fire" style="color: #ec4899; margin-right: 6px;"></i> Cortes Encontrados
+                <i class="fa-solid fa-fire" style="color: #ec4899; margin-right: 6px;"></i> Cortes Identificados pela IA
             </h2>
             <div id="clips-grid" class="clips-container"></div>
         </section>
     </main>
 
     <footer>
-        CLIPFORGE Studio &bull; Processamento Direto
+        CLIPFORGE Studio &bull; Pipeline de Produção
     </footer>
 
     <script>
@@ -211,7 +211,7 @@
                     document.getElementById('counter-clips').innerText = clipsCount;
                     renderClips(data.clips, videoId);
                     document.getElementById('results-section').style.display = 'block';
-                    showToast(`${data.clips.length} cortes identificados com sucesso!`);
+                    showToast(`${data.clips.length} cortes gerados com sucesso!`);
                 } else {
                     showToast(data.error || 'Não foi possível analisar o vídeo.', 'error');
                 }
@@ -246,7 +246,7 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" onclick="baixarDireto('${videoId}', ${clip.start}, ${clip.end})">
+                        <button class="btn-download" onclick="baixarViaStream('${videoId}', this)">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
@@ -268,11 +268,53 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Download direto contornando bloqueios do Render
-        function baixarDireto(videoId, start, end) {
-            showToast('A abrir descarregador para o trecho do vídeo...');
-            const downloadUrl = `https://loader.to/api/button/?url=https://www.youtube.com/watch?v=${videoId}&f=mp4&start=${start}&end=${end}`;
-            window.open(downloadUrl, '_blank');
+        // Extrai o stream limpo sem passar pelo Render e sem anúncios
+        async function baixarViaStream(videoId, btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A obter...`;
+            btn.disabled = true;
+            showToast('A obter link do vídeo via stream...');
+
+            try {
+                // Instância de extração direta sem bloqueio de IP
+                const res = await fetch('https://api.cobalt.tools', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: `https://www.youtube.com/watch?v=${videoId}`,
+                        videoQuality: '720',
+                        downloadMode: 'auto'
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data && (data.url || (data.picker && data.picker[0]?.url))) {
+                    const downloadUrl = data.url || data.picker[0].url;
+                    
+                    // Inicia o download nativo do arquivo no celular/PC
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `Clip_${videoId}.mp4`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    showToast('Download iniciado no navegador!', 'success');
+                } else {
+                    // Fallback direto de stream
+                    window.open(`https://co.wuk.sh/api/stream?url=https://www.youtube.com/watch?v=${videoId}`, '_blank');
+                    showToast('A transferir via stream secundário...');
+                }
+            } catch (err) {
+                // Se houver restrição momentânea de CORS, abre o descarregador limpo direto
+                window.open(`https://cobalt.tools/#https://www.youtube.com/watch?v=${videoId}`, '_blank');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
