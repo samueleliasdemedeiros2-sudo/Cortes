@@ -166,7 +166,7 @@
             toast.className = `toast ${type}`;
             toast.innerText = msg;
             container.appendChild(toast);
-            setTimeout(() => toast.remove(), 5000);
+            setTimeout(() => toast.remove(), 6000);
         }
 
         function extractYouTubeId(url) {
@@ -247,7 +247,7 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" id="dl-btn-${index}" onclick="baixarComFeedback('${videoId}', 'dl-btn-${index}')">
+                        <button class="btn-download" id="dl-btn-${index}" onclick="baixarComFeedback('${videoId}', ${clip.start}, ${clip.duration}, 'dl-btn-${index}')">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
@@ -269,34 +269,34 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Requisição com indicador de progresso ativo
-        async function baixarComFeedback(videoId, btnId) {
+        // Aguarda a confirmação do ficheiro pronto e inicia o download
+        async function baixarComFeedback(videoId, start, duration, btnId) {
             const btn = document.getElementById(btnId);
             const originalHTML = btn.innerHTML;
 
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A preparar (~15s)...`;
-            showToast('A processar o ficheiro na RapidAPI. Aguarde ~15 segundos...');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A renderizar corte (~20s)...`;
+            showToast('A preparar e a cortar o MP4 na RapidAPI. Por favor, aguarde cerca de 20s...');
 
             try {
-                const res = await fetch(`${BACKEND_URL}/api/download-rapid?videoId=${videoId}`);
+                const res = await fetch(`${BACKEND_URL}/api/download-rapid?videoId=${videoId}&start=${start}&duration=${duration}`);
                 const data = await res.json();
 
                 if (data.success && data.downloadUrl) {
-                    showToast('Ficheiro pronto! A iniciar transferência...', 'success');
+                    showToast('Corte concluído! A iniciar download...', 'success');
                     
-                    // Dispara a transferência do ficheiro MP4
+                    // Inicia o download nativo no telemóvel
                     const a = document.createElement('a');
                     a.href = data.downloadUrl;
-                    a.setAttribute('download', `Corte_${videoId}.mp4`);
+                    a.setAttribute('download', `Corte_${videoId}_${start}s.mp4`);
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                 } else {
-                    showToast(data.error || 'A API ainda está a renderizar. Tente de novo em instantes.', 'error');
+                    showToast(data.error || 'A API ainda está a processar. Tente de novo em instantes.', 'error');
                 }
             } catch (err) {
-                showToast('Tempo limite excedido. Tente novamente.', 'error');
+                showToast('Erro ao contactar o servidor. Tente novamente.', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHTML;
