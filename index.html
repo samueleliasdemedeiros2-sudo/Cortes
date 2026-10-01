@@ -1,46 +1,52 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipForge - Criador de Cortes e Shorts com IA</title>
+  <title>ClipForge Pro - Cortes com IA & Monetização</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
 
-  <!-- Cabeçalho -->
-  <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+  <!-- Header com Botão de Acesso Admin -->
+  <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
           <i class="fa-solid fa-scissors text-white text-sm"></i>
         </div>
-        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-300">ClipForge</span>
+        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-300">ClipForge Pro</span>
       </div>
-      <div class="flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Servidor Online</span>
+      
+      <div class="flex items-center gap-3">
+        <button onclick="abrirAdminModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-shield-halved text-purple-400"></i>
+          <span>Admin</span>
+        </button>
+        <div class="flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Online</span>
+        </div>
       </div>
     </div>
   </header>
 
   <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-    <!-- Apresentação -->
     <div class="text-center mb-8">
       <span class="inline-block py-1 px-3 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold uppercase tracking-wider mb-3">
-        Processamento Turbo v1.0.1
+        Versão Comercial 1.1.0 • Entrega Direta
       </span>
       <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-        Transforme Vídeos Longos em <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500">Shorts Virais</span>
+        Gere Cortes Virais e Baixe em <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500">Alta Velocidade</span>
       </h1>
       <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
-        Cole o link de um vídeo do YouTube. A nossa IA deteta os melhores momentos e gera clipes leves (< 20 MB) prontos para descarregar no telemóvel.
+        Cole o link do YouTube, selecione o momento viral e receba o download automático após o Pix (< 20 MB).
       </p>
     </div>
 
-    <!-- Caixa de Entrada de URL -->
+    <!-- Barra de Entrada de URL -->
     <div class="bg-slate-900 border border-slate-800 p-2 sm:p-3 rounded-2xl shadow-xl shadow-purple-950/10 mb-8">
       <div class="flex flex-col sm:flex-row gap-2">
         <div class="relative flex-1">
@@ -48,7 +54,7 @@
           <input 
             type="text" 
             id="videoUrl" 
-            placeholder="https://www.youtube.com/watch?v=..." 
+            placeholder="Cole o link do YouTube aqui..." 
             class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white placeholder-slate-500 transition-all"
           >
         </div>
@@ -63,52 +69,114 @@
       </div>
     </div>
 
-    <!-- Indicador de Carregamento -->
+    <!-- Indicador de Processamento -->
     <div id="loading" class="hidden text-center py-12">
       <div class="inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="text-sm text-slate-400">A analisar vídeo e a detetar os momentos virais...</p>
+      <p class="text-sm text-slate-400">A IA está a processar o vídeo e a isolar os momentos com mais retenção...</p>
     </div>
 
-    <!-- Pré-visualização do Vídeo Principal -->
-    <div id="previewArea" class="hidden mb-10">
-      <h2 class="text-base font-semibold text-slate-300 mb-3 flex items-center gap-2">
-        <i class="fa-solid fa-play text-purple-400"></i> Vídeo Selecionado
-      </h2>
-      <div class="aspect-video w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl">
-        <iframe id="videoIframe" class="w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
-      </div>
-    </div>
-
-    <!-- Lista de Cortes Encontrados -->
+    <!-- Apresentação dos Cortes -->
     <div id="cortesArea" class="hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-scissors text-purple-400"></i> Cortes Encontrados
+          <i class="fa-solid fa-scissors text-purple-400"></i> Cortes Identificados
         </h2>
         <span class="text-xs bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2.5 py-0.5 rounded-full font-medium">
           3 cortes gerados
         </span>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="cardsContainer">
-        <!-- Os cartões são inseridos via JavaScript -->
-      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="cardsContainer"></div>
     </div>
   </main>
 
-  <!-- Rodapé Oficial v1.0.1 -->
-  <footer class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    <div class="max-w-4xl mx-auto px-4">
-      <p class="mb-1 font-medium text-slate-400">ClipForge • Versão 1.0.1 (Estável)</p>
-      <p>Desenvolvido para transferências ultrarrápidas em dispositivos móveis (< 20 MB por corte).</p>
+  <!-- MODAL PIX (COM AUTO-DOWNLOAD NO PAGAMENTO) -->
+  <div id="modalPix" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-6 text-center relative shadow-2xl">
+      <button onclick="fecharPixModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+      
+      <div class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/20">
+        <i class="fa-brands fa-pix text-2xl"></i>
+      </div>
+      
+      <h3 class="text-lg font-bold text-white mb-1">Acesso ao Corte</h3>
+      <p class="text-xs text-slate-400 mb-4">Efetue o Pix de <b>R$ 4,90</b>. O vídeo descarregará sozinho assim que o pagamento for detetado.</p>
+
+      <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-4 flex flex-col items-center">
+        <div id="pixQrContainer" class="w-40 h-40 bg-white p-2 rounded-lg flex items-center justify-center mb-3">
+          <i class="fa-solid fa-qrcode text-slate-800 text-4xl animate-pulse"></i>
+        </div>
+        <p class="text-[11px] text-slate-500 mb-2">Código Pix Copia e Cola:</p>
+        <div class="flex w-full gap-1">
+          <input id="pixCopiaCola" type="text" readonly class="w-full bg-slate-900 text-xs px-2 py-1.5 rounded border border-slate-700 text-slate-300 font-mono">
+          <button onclick="copiarPix()" class="bg-purple-600 hover:bg-purple-500 px-3 rounded text-xs font-semibold transition">Copiar</button>
+        </div>
+      </div>
+
+      <div id="pixStatusText" class="flex items-center justify-center gap-2 text-xs text-slate-400">
+        <div class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+        <span>A monitorizar pagamento em tempo real...</span>
+      </div>
     </div>
+  </div>
+
+  <!-- MODAL ADMIN -->
+  <div id="modalAdmin" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 relative shadow-2xl">
+      <button onclick="fecharAdminModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div id="adminLogin">
+        <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-purple-400"></i> Painel de Administração
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Introduza a sua chave de administração:</p>
+        <input id="adminPass" type="password" placeholder="Chave Mestra" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm mb-3 text-white focus:outline-none focus:border-purple-500">
+        <button onclick="entrarAdmin()" class="w-full bg-purple-600 hover:bg-purple-500 py-2.5 rounded-xl font-medium text-sm transition">Autenticar</button>
+      </div>
+
+      <div id="adminPainel" class="hidden">
+        <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-emerald-400"></i> Métricas em Produção
+        </h3>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400">Receita Total Pix</span>
+            <p id="admFaturamento" class="text-xl font-bold text-emerald-400">R$ 0,00</p>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400">Vendas Confirmadas</span>
+            <p id="admVendas" class="text-xl font-bold text-white">0</p>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400">Downloads Feitos</span>
+            <p id="admDownloads" class="text-xl font-bold text-purple-400">0</p>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400">RAM Servidor Render</span>
+            <p id="admRam" class="text-xl font-bold text-indigo-400">0 MB</p>
+          </div>
+        </div>
+        <button onclick="atualizarMetricas()" class="w-full bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-rotate mr-1"></i> Atualizar Métricas
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
+    <p>ClipForge Pro • v1.1.0 • Processamento Contínuo e Entrega Direta</p>
   </footer>
 
   <script>
-    // URL do seu backend ativo no Render
     const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
+    let videoAtualId = null;
+    let corteSelecionado = null;
+    let pollingInterval = null;
+    let adminTokenSalvo = null;
 
-    // Extrai o ID do vídeo a partir de múltiplos formatos de link
     function extrairVideoId(url) {
       if (!url) return null;
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -116,101 +184,158 @@
       return (match && match[2].length === 11) ? match[2] : null;
     }
 
-    // Processamento do clique no botão "Gerar Cortes"
     function gerarCortes() {
       const input = document.getElementById('videoUrl');
-      const videoId = extrairVideoId(input.value);
+      const id = extrairVideoId(input.value);
+      if (!id) return alert('Por favor, introduza um link válido do YouTube.');
+      
+      videoAtualId = id;
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('cortesArea').classList.add('hidden');
 
-      if (!videoId) {
-        alert('Por favor, introduza um link válido do YouTube.');
-        return;
-      }
-
-      const loading = document.getElementById('loading');
-      const previewArea = document.getElementById('previewArea');
-      const cortesArea = document.getElementById('cortesArea');
-      const iframe = document.getElementById('videoIframe');
-      const btnGerar = document.getElementById('btnGerar');
-
-      btnGerar.disabled = true;
-      btnGerar.classList.add('opacity-50', 'pointer-events-none');
-      loading.classList.remove('hidden');
-      previewArea.classList.add('hidden');
-      cortesArea.classList.add('hidden');
-
-      iframe.src = `https://www.youtube.com/embed/${videoId}`;
-
-      // Simulação rápida da deteção de momentos altos pela IA
       setTimeout(() => {
-        loading.classList.add('hidden');
-        previewArea.classList.remove('hidden');
-        cortesArea.classList.remove('hidden');
-        btnGerar.disabled = false;
-        btnGerar.classList.remove('opacity-50', 'pointer-events-none');
-
-        renderizarCortes(videoId);
-      }, 1200);
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('cortesArea').classList.remove('hidden');
+        renderizarCards(id);
+      }, 1000);
     }
 
-    // Constrói os 3 cartões de corte
-    function renderizarCortes(videoId) {
+    function renderizarCards(videoId) {
       const container = document.getElementById('cardsContainer');
       container.innerHTML = '';
-
       const cortes = [
         { id: 1, inicio: '01:15', fim: '02:10', startSeg: 75, duracao: 55, score: '98%' },
         { id: 2, inicio: '03:40', fim: '04:30', startSeg: 220, duracao: 50, score: '95%' },
         { id: 3, inicio: '06:10', fim: '07:05', startSeg: 370, duracao: 55, score: '92%' }
       ];
 
-      cortes.forEach(corte => {
+      cortes.forEach(c => {
         const card = document.createElement('div');
         card.className = "bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition";
         card.innerHTML = `
           <div>
             <div class="flex items-center justify-between text-xs mb-3">
               <span class="font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                Corte #${corte.id} • ${corte.inicio} - ${corte.fim}
+                Corte #${c.id} • ${c.inicio} - ${c.fim}
               </span>
-              <span class="text-emerald-400 font-medium">
-                <i class="fa-solid fa-arrow-trend-up"></i> ${corte.score}
-              </span>
+              <span class="text-emerald-400 font-medium">${c.score} Viral</span>
             </div>
             <div class="aspect-[9/16] bg-slate-950 rounded-lg overflow-hidden relative mb-4 border border-slate-800 flex items-center justify-center">
               <img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" class="w-full h-full object-cover opacity-60">
-              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-              <span class="absolute bottom-3 left-3 text-xs bg-black/60 px-2 py-1 rounded backdrop-blur font-mono text-slate-300">
-                ${corte.duracao}s • MP4 Leve
+              <span class="absolute bottom-2 left-2 text-xs bg-black/60 px-2 py-1 rounded text-slate-300">
+                ${c.duracao}s • MP4 Leve
               </span>
             </div>
           </div>
-          <button 
-            onclick="baixarCorte('${videoId}', ${corte.startSeg}, ${corte.duracao}, this)"
-            class="w-full bg-slate-800 hover:bg-purple-600 text-white font-medium py-2.5 rounded-lg transition duration-200 flex items-center justify-center gap-2 text-sm shadow-md active:scale-95"
-          >
-            <i class="fa-solid fa-download"></i>
-            <span>Baixar Corte</span>
+          <button onclick="iniciarCheckout(${c.startSeg}, ${c.duracao})" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-950 flex items-center justify-center gap-2 active:scale-95">
+            <i class="fa-brands fa-pix"></i>
+            <span>Liberar Corte (R$ 4,90)</span>
           </button>
         `;
         container.appendChild(card);
       });
     }
 
-    // Descarrega o trecho correspondente através do backend
-    function baixarCorte(videoId, start, duration, btn) {
-      const textoOriginal = btn.innerHTML;
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>A preparar download...</span>`;
-      btn.classList.add('pointer-events-none', 'opacity-70');
+    // Fluxo de Pagamento Pix com Auto-Download
+    async function iniciarCheckout(start, duration) {
+      corteSelecionado = { start, duration };
+      document.getElementById('modalPix').classList.remove('hidden');
 
-      // Chama a rota otimizada no servidor Render
-      const downloadUrl = `${BACKEND_URL}/api/download?id=${videoId}&start=${start}&duration=${duration}`;
-      window.location.href = downloadUrl;
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/pix/criar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId: videoAtualId, valor: 4.90 })
+        });
+        const data = await res.json();
 
-      // Restaura o botão após o início do pedido
-      setTimeout(() => {
-        btn.innerHTML = textoOriginal;
-        btn.classList.remove('pointer-events-none', 'opacity-70');
-      }, 4000);
+        if (data.qr_code) {
+          document.getElementById('pixCopiaCola').value = data.qr_code;
+          document.getElementById('pixQrContainer').innerHTML = `
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.qr_code)}" class="w-36 h-36">
+          `;
+          iniciarMonitoramentoPix(data.id);
+        }
+      } catch (e) {
+        alert('Não foi possível inicializar o pagamento. Verifique a ligação ao servidor.');
+      }
+    }
+
+    function iniciarMonitoramentoPix(paymentId) {
+      if (pollingInterval) clearInterval(pollingInterval);
+
+      pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/pix/status/${paymentId}`);
+          const data = await res.json();
+
+          if (data.status === 'approved') {
+            clearInterval(pollingInterval);
+            
+            // Atualiza status do modal
+            const statusArea = document.getElementById('pixStatusText');
+            statusArea.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Pagamento Aprovado! A iniciar download...</span>`;
+
+            // Executa o download automático sem necessidade de novos cliques
+            setTimeout(() => {
+              fecharPixModal();
+              window.location.href = `${BACKEND_URL}/api/download?id=${videoAtualId}&start=${corteSelecionado.start}&duration=${corteSelecionado.duration}`;
+            }, 1200);
+          }
+        } catch (err) {}
+      }, 3000);
+    }
+
+    function fecharPixModal() {
+      if (pollingInterval) clearInterval(pollingInterval);
+      document.getElementById('modalPix').classList.add('hidden');
+    }
+
+    function copiarPix() {
+      const input = document.getElementById('pixCopiaCola');
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      alert('Código Pix copiado para a área de transferência!');
+    }
+
+    // Painel Administrativo
+    function abrirAdminModal() {
+      document.getElementById('modalAdmin').classList.remove('hidden');
+    }
+    function fecharAdminModal() {
+      document.getElementById('modalAdmin').classList.add('hidden');
+    }
+
+    async function entrarAdmin() {
+      const pass = document.getElementById('adminPass').value;
+      const res = await fetch(`${BACKEND_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      });
+
+      if (res.ok) {
+        adminTokenSalvo = pass;
+        document.getElementById('adminLogin').classList.add('hidden');
+        document.getElementById('adminPainel').classList.remove('hidden');
+        atualizarMetricas();
+      } else {
+        alert('Chave de administrador incorreta.');
+      }
+    }
+
+    async function atualizarMetricas() {
+      if (!adminTokenSalvo) return;
+      const res = await fetch(`${BACKEND_URL}/api/admin/dashboard`, {
+        headers: { 'Authorization': adminTokenSalvo }
+      });
+      if (res.ok) {
+        const d = await res.json();
+        document.getElementById('admFaturamento').innerText = `R$ ${d.metricas.valorArrecadado.toFixed(2)}`;
+        document.getElementById('admVendas').innerText = d.metricas.totalVendas;
+        document.getElementById('admDownloads').innerText = d.metricas.totalDownloads;
+        document.getElementById('admRam').innerText = `${d.memoriaUsadaMb} MB`;
+      }
     }
   </script>
 </body>
