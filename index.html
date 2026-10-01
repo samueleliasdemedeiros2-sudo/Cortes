@@ -51,20 +51,13 @@
         .clip-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #090d16; padding: 10px; border-radius: 10px; font-size: 11px; color: #94a3b8; text-align: center; border: 1px solid #1e293b; }
         .clip-actions { display: flex; gap: 8px; }
         .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
         #preview-container { margin-bottom: 20px; display: none; }
         .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
         .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         
-        /* Modal Limpo de Download */
-        #dl-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
-        .modal-box { background: #0f172a; border: 1px solid #334155; border-radius: 20px; max-width: 440px; width: 100%; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
-        .modal-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 12px; font-size: 13px; font-weight: 700; text-decoration: none; margin-top: 10px; cursor: pointer; border: none; }
-        .btn-green { background: #10b981; color: white; }
-        .btn-outline { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
-        
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 120; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
         .toast { padding: 12px 18px; border-radius: 12px; font-size: 13px; color: white; background: #0f172a; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         .toast.success { border-color: #10b981; }
         .toast.error { border-color: #ef4444; }
@@ -75,33 +68,6 @@
 <body>
 
     <div id="toast-container"></div>
-
-    <!-- Modal Limpo de Download -->
-    <div id="dl-modal">
-        <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="font-size:16px; font-weight:800; color:#fff;" id="modal-title">Descarregar Corte</h3>
-                <button onclick="closeModal()" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p style="font-size:12px; color:#94a3b8; margin-bottom:16px;" id="modal-desc">
-                Minutagem selecionada pela IA: <strong id="modal-time" style="color:#ec4899;">0s - 30s</strong>.
-            </p>
-
-            <!-- Botão 1: Baixar Vídeo Completo em MP4 720p Direto -->
-            <a id="btn-stream-direct" target="_blank" class="modal-btn btn-green">
-                <i class="fa-solid fa-cloud-arrow-down"></i> Baixar Arquivo MP4
-            </a>
-
-            <!-- Botão 2: Baixar Trecho Específico -->
-            <a id="btn-cutter-direct" target="_blank" class="modal-btn btn-outline">
-                <i class="fa-solid fa-scissors"></i> Exportar Trecho Exato
-            </a>
-
-            <button onclick="closeModal()" class="modal-btn" style="background:transparent; color:#64748b; font-size:12px; margin-top:6px;">
-                Cancelar
-            </button>
-        </div>
-    </div>
 
     <header>
         <div class="logo-box">
@@ -280,7 +246,7 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" onclick="openDownloadModal('${videoId}', ${clip.start}, ${clip.end}, '${encodeURIComponent(clip.title)}')">
+                        <button class="btn-download" onclick="baixarMP4('${videoId}')">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
@@ -302,22 +268,9 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Modal Nativo de Download
-        function openDownloadModal(videoId, start, end, title) {
-            document.getElementById('modal-title').innerText = decodeURIComponent(title);
-            document.getElementById('modal-time').innerText = `${start}s até ${end}s`;
-            
-            // Link 1: Download direto via stream nativo (Invidious / Piped API)
-            document.getElementById('btn-stream-direct').href = `https://piped.video/watch?v=${videoId}`;
-            
-            // Link 2: Cortador direto pelo navegador
-            document.getElementById('btn-cutter-direct').href = `https://ytcutter.com/watch?v=${videoId}`;
-            
-            document.getElementById('dl-modal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('dl-modal').style.display = 'none';
+        function baixarMP4(videoId) {
+            showToast('A iniciar transferência do MP4...');
+            window.location.href = `${BACKEND_URL}/api/download?videoId=${videoId}`;
         }
     </script>
 </body>
