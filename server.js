@@ -6,11 +6,10 @@ let mercadopago = null;
 try {
   mercadopago = require('mercadopago');
 } catch (e) {
-  console.warn('[MercadoPago] Módulo em modo de contingência.');
+  console.warn('[MercadoPago] Módulo nativo não instalado.');
 }
 
 const app = express();
-
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -25,7 +24,7 @@ if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
     mpClient = new mercadopago.MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
   } catch (err) {
-    console.error('[MercadoPago] Falha ao instanciar credenciais:', err.message);
+    console.error('[MercadoPago] Erro de configuração:', err.message);
   }
 }
 
@@ -39,14 +38,11 @@ const metricas = {
 const pagamentos = new Map();
 
 // ----------------------------------------------------
-// STATUS & HEALTH CHECK
+// ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '3.0.0-DEFINITIVE' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '3.1.0-POLL-PRO' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
-// ----------------------------------------------------
-// ADMIN
-// ----------------------------------------------------
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
   if (!password || password !== ADMIN_PASSWORD) {
@@ -148,121 +144,136 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR DE RESOLUÇÃO MULTI-CAMADA (SEM TELAS DE ERRO)
+// MOTOR DE DOWNLOAD COM POLLING AUTOMÁTICO (SEM REDIRECTS QUEBRADOS)
 // ----------------------------------------------------
-async function extrairStreamDireto(videoId) {
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+async function resolverMp4ComPolling(videoId) {
+  const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 1. Consulta Direta ao Cloud API Hub (RapidAPI)
+  // 1. Inicia conversão na RapidAPI
   try {
-    const r1 = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+    const initResp = await axios.get(`https://${RAPIDAPI_HOST}/ajax/download.php`, {
+      params: { url: targetUrl, format: '360' },
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+      },
+      timeout: 10000
+    });
+
+    const initData = initResp.data;
+
+    // Se já veio pronto
+    if (initData?.download_url) return initData.download_url;
+
+    // Se devolveu progress_url, faz polling até 6 segundos
+    if (initData?.progress_url) {
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 1200));
+        const check = await axios.get(initData.progress_url, { timeout: 6000 });
+        if (check.data?.download_url) {
+          return check.data.download_url;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Consulta pelo endpoint direto padrão (/download)
+  try {
+    const r2 = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
       params: { id: videoId },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 12000
+      timeout: 10000
     });
 
-    const data = r1.data;
-    if (data?.url && !data.url.includes('ytimg.com')) return data.url;
-    if (data?.download_url && !data.download_url.includes('ytimg.com')) return data.download_url;
-
-    if (Array.isArray(data?.formats)) {
-      const formato = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
-                   || data.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.qualityLabel === '360p')
-                   || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
-      if (formato?.url) return formato.url;
+    const d2 = r2.data;
+    if (d2?.url && !d2.url.includes('ytimg.com')) return d2.url;
+    if (Array.isArray(d2?.formats)) {
+      const f = d2.formats.find(x => x.url && !x.url.includes('ytimg.com') && x.hasAudio !== false) || d2.formats[0];
+      if (f?.url) return f.url;
     }
-  } catch (err) {}
+  } catch (e) {}
 
-  // 2. Consulta à rede de CDNs abertas (Invidious / Piped)
-  const fallbackNodes = [
-    `https://pipedapi.kavin.rocks/streams/${videoId}`,
-    `https://api.piped.privacydev.net/streams/${videoId}`,
+  // 3. Consulta em nós Invidious estáveis (CDN Direta)
+  const invidiousNodes = [
     `https://inv.nadeko.net/api/v1/videos/${videoId}`,
     `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`
   ];
 
-  for (const urlNode of fallbackNodes) {
+  for (const node of invidiousNodes) {
     try {
-      const resp = await axios.get(urlNode, { timeout: 7000 });
-      const streams = resp.data?.videoStreams || resp.data?.formatStreams || [];
-      const chosen = streams.find(s => s.url && s.videoOnly === false) || streams[0];
-      if (chosen?.url) return chosen.url;
+      const resNode = await axios.get(node, { timeout: 6000 });
+      const formatStreams = resNode.data?.formatStreams || [];
+      const best = formatStreams.find(s => s.resolution === '360p' || s.resolution === '720p') || formatStreams[0];
+      if (best?.url) return best.url;
     } catch (e) {}
   }
-
-  // 3. Fallback Direto em CDN Cobalt
-  try {
-    const cResp = await axios.post('https://api.cobalt.tools', {
-      url: videoUrl,
-      videoQuality: '360'
-    }, {
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      timeout: 8000
-    });
-    if (cResp.data?.url) return cResp.data.url;
-  } catch (e) {}
 
   return null;
 }
 
 // ----------------------------------------------------
-// DOWNLOAD REAL (ENTREGA DIRETA NO DISPOSITIVO)
+// ROTA DE DOWNLOAD FINAL: TRANSMISSÃO DIRETA DO MP4
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
 
   if (!videoId || videoId.length < 5) {
-    return res.status(400).send('ID de vídeo inválido.');
+    return res.status(400).send('ID do vídeo inválido.');
   }
 
   try {
-    const streamUrl = await extrairStreamDireto(videoId);
+    const directMp4Url = await resolverMp4ComPolling(videoId);
 
-    if (streamUrl) {
-      const responseStream = await axios({
-        method: 'GET',
-        url: streamUrl,
-        responseType: 'stream',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 45000
-      });
-
-      const sanitizedId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-      res.setHeader('Content-Disposition', `attachment; filename="corte_${sanitizedId}_${start}s.mp4"`);
-      res.setHeader('Content-Type', 'video/mp4');
-
-      metricas.totalDownloads += 1;
-
-      req.on('close', () => {
-        if (responseStream.data && typeof responseStream.data.destroy === 'function') {
-          responseStream.data.destroy();
-        }
-      });
-
-      return responseStream.data.pipe(res);
+    if (!directMp4Url) {
+      // Se demorar muito, em vez de 404 em site chinês, faz o download seguro via CDN direta
+      return res.redirect(`https://api.vevioz.com/apis/widget?url=https://www.youtube.com/watch?v=${videoId}`);
     }
 
-    // Se as instâncias externas estiverem com lentidão, entrega o fluxo direto sem travar em tela preta
-    return res.redirect(`https://yt1s.com/en?q=https://www.youtube.com/watch?v=${videoId}`);
+    // Faz o streaming direto do binário MP4 para o celular do usuário
+    const videoStream = await axios({
+      method: 'GET',
+      url: directMp4Url,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 45000
+    });
+
+    const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
+    res.setHeader('Content-Type', 'video/mp4');
+
+    if (videoStream.headers['content-length']) {
+      res.setHeader('Content-Length', videoStream.headers['content-length']);
+    }
+
+    metricas.totalDownloads += 1;
+
+    req.on('close', () => {
+      if (videoStream.data && typeof videoStream.data.destroy === 'function') {
+        videoStream.data.destroy();
+      }
+    });
+
+    return videoStream.data.pipe(res);
 
   } catch (error) {
-    console.error('[Download] Erro na transmissão:', error.message);
+    console.error('[Download] Falha no streaming:', error.message);
     if (!res.headersSent) {
-      return res.redirect(`https://yt1s.com/en?q=https://www.youtube.com/watch?v=${videoId}`);
+      return res.redirect(`https://api.vevioz.com/apis/widget?url=https://www.youtube.com/watch?v=${videoId}`);
     }
   }
 });
 
 // ----------------------------------------------------
-// INICIALIZAÇÃO
+// ARRANQUE DO SERVIDOR
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge OS] Servidor em operação total na porta ${PORT} [v3.0.0]`);
+  console.log(`[ClipForge] Sistema operacional pronto na porta ${PORT} [v3.1.0]`);
 });
