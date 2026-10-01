@@ -185,7 +185,6 @@
       loadingState.classList.remove('hidden');
       resultsSection.classList.add('hidden');
 
-      // Gera os cortes do vídeo
       setTimeout(() => {
         renderMockResults(videoId);
         btnSubmit.disabled = false;
@@ -200,7 +199,6 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Chama a rota /api/download diretamente na Vercel
     function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
@@ -209,7 +207,6 @@
         lucide.createIcons();
       }
 
-      // Chama a rota interna da própria Vercel
       window.location.href = `/api/download?id=${videoId}`;
 
       setTimeout(() => {
