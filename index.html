@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClipForge Studio — Automação de Cortes Inteligentes</title>
     <meta name="theme-color" content="#0b0f19">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css)">
     
-    <!-- Vercel Performance Scripts -->
-    <script defer src="/_vercel/speed-insights/script.js"></script>
-    <script defer src="/_vercel/insights/script.js"></script>
-
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -19,7 +15,6 @@
                 extend: {
                     colors: {
                         brand: {
-                            50: '#fdf2f8',
                             500: '#ec4899',
                             600: '#db2777',
                             700: '#be185d'
@@ -30,9 +25,6 @@
                             subtle: '#1e293b',
                             border: '#334155'
                         }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
                     }
                 }
             }
@@ -43,7 +35,7 @@
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- Header Superior -->
+    <!-- Header -->
     <header class="h-16 border-b border-surface-border/60 bg-surface-base/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -56,9 +48,9 @@
         </div>
 
         <div class="flex items-center gap-4 text-xs font-medium">
-            <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border/70 text-slate-300">
+            <div id="server-status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border/70 text-slate-300">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Motor IA: <strong class="text-slate-100">Ativo</strong></span>
+                <span>Motor IA: <strong class="text-slate-100">Pronto</strong></span>
             </div>
             <div class="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border/70 text-slate-300">
                 Clips: <strong id="counter-clips" class="text-brand-500 font-bold ml-1">0</strong>
@@ -66,19 +58,17 @@
         </div>
     </header>
 
-    <!-- Corpo Principal -->
+    <!-- Main -->
     <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
         
-        <!-- Bloco Principal de Análise -->
+        <!-- Formulário -->
         <section class="bg-surface-card border border-surface-border/70 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-            <div class="absolute -top-24 -right-24 w-72 h-72 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
             <div class="max-w-2xl mb-6">
                 <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
-                    Transforme vídeos longos em <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-indigo-400">cortes virais</span>
+                    Transforme vídeos em <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-indigo-400">cortes virais</span>
                 </h1>
                 <p class="text-slate-400 text-sm">
-                    Insira qualquer link do YouTube. Nossa IA identifica momentos com alto potencial de retenção para TikTok, Shorts e Reels.
+                    Cole qualquer link do YouTube. A IA analisa o conteúdo e localiza os momentos ideais para TikTok, Shorts e Reels.
                 </p>
             </div>
 
@@ -86,7 +76,7 @@
                 <div class="flex flex-col sm:flex-row gap-3">
                     <div class="relative flex-1">
                         <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                        <input type="text" id="youtube-url" required placeholder="https://www.youtube.com/watch?v=..." class="w-full bg-surface-base border border-surface-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner">
+                        <input type="text" id="youtube-url" required placeholder="[https://www.youtube.com/watch?v=](https://www.youtube.com/watch?v=)..." class="w-full bg-surface-base border border-surface-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner">
                     </div>
                     <button type="submit" id="btn-submit" class="bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-semibold px-8 py-3.5 rounded-xl transition shadow-lg shadow-brand-600/25 flex items-center justify-center gap-2 text-sm tracking-wide">
                         <i class="fa-solid fa-sparkles"></i> Analisar Vídeo
@@ -97,25 +87,25 @@
                     <div>
                         <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Quantidade de Cortes</label>
                         <select id="clip-quantity" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="3">3 melhores momentos</option>
-                            <option value="5" selected>5 melhores momentos</option>
-                            <option value="8">8 melhores momentos</option>
+                            <option value="3">3 cortes</option>
+                            <option value="5" selected>5 cortes</option>
+                            <option value="8">8 cortes</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Duração Média</label>
                         <select id="clip-duration" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="15">~15 Segundos (Ultra Viral)</option>
-                            <option value="30" selected>~30 Segundos (Padrão)</option>
-                            <option value="60">~60 Segundos (Aprofundado)</option>
+                            <option value="15">~15 Segundos</option>
+                            <option value="30" selected>~30 Segundos</option>
+                            <option value="60">~60 Segundos</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Enquadramento</label>
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Formato</label>
                         <select id="clip-format" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
                             <option value="9:16" selected>9:16 Vertical (Reels / TikTok)</option>
-                            <option value="1:1">1:1 Quadrado (Feed)</option>
-                            <option value="16:9">16:9 Widescreen (Horizontal)</option>
+                            <option value="1:1">1:1 Quadrado</option>
+                            <option value="16:9">16:9 Horizontal</option>
                         </select>
                     </div>
                 </div>
@@ -129,14 +119,14 @@
                 <div class="w-14 h-14 border-4 border-brand-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
             </div>
             <div>
-                <h3 class="font-bold text-base text-slate-100">Processando Inteligência de Vídeo</h3>
-                <p class="text-xs text-slate-400 mt-1">Extraindo metadados, identificando ganchos e pontuando retenção...</p>
+                <h3 class="font-bold text-base text-slate-100">Processando Análise do Vídeo</h3>
+                <p class="text-xs text-slate-400 mt-1">Conectando ao backend e calculando métricas de retenção...</p>
             </div>
         </div>
 
-        <!-- Resultados e Pré-visualização -->
+        <!-- Resultados -->
         <section id="results-section" class="space-y-6 hidden">
-            <!-- Player Preview Embutido -->
+            <!-- Player Preview -->
             <div id="preview-container" class="bg-surface-card border border-surface-border/70 rounded-2xl p-4 sm:p-6 hidden shadow-xl">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2">
@@ -154,7 +144,7 @@
 
             <div>
                 <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-list-check text-brand-500"></i> Momentos Virais Identificados
+                    <i class="fa-solid fa-list-check text-brand-500"></i> Cortes Gerados
                 </h2>
                 <div id="clips-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
             </div>
@@ -162,11 +152,16 @@
 
     </main>
 
-    <footer class="border-t border-surface-border/50 py-6 text-center text-xs text-slate-400">
-        CLIPFORGE Studio &bull; Pipeline Automatizado com FFmpeg & IA
+    <footer class="border-t border-surface-border/50 py-6 text-center text-xs text-slate-500">
+        CLIPFORGE Studio &bull; Pipeline de Produção Automatizado
     </footer>
 
     <script>
+        // Aponta para a API no Render ou para a mesma origem se rodando direto no Render
+        const BACKEND_URL = window.location.hostname.includes('render.com') 
+            ? '' 
+            : '[https://cortesyou.onrender.com](https://cortesyou.onrender.com)';
+
         const appState = {
             clipsCount: parseInt(localStorage.getItem('clipforge_count') || '0'),
             currentVideoId: '',
@@ -180,7 +175,7 @@
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium shadow-2xl transition transform duration-200 border ${
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium shadow-2xl transition border ${
                 type === 'success' 
                     ? 'bg-surface-card border-emerald-500/40 text-emerald-300' 
                     : 'bg-surface-card border-rose-500/40 text-rose-300'
@@ -211,7 +206,7 @@
                 return;
             }
 
-            const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const cleanUrl = `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){videoId}`;
             appState.currentVideoId = videoId;
 
             const btn = document.getElementById('btn-submit');
@@ -220,13 +215,11 @@
             document.getElementById('results-section').classList.add('hidden');
 
             try {
-                // Chama a rota /api/analisar no mesmo domínio (onde corre o server.js)
-                const res = await fetch('/api/analisar', {
+                const res = await fetch(`${BACKEND_URL}/api/analisar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         youtubeUrl: cleanUrl,
-                        videoId: videoId,
                         quantity: Number(document.getElementById('clip-quantity').value),
                         duration: Number(document.getElementById('clip-duration').value)
                     })
@@ -242,14 +235,14 @@
                     updateCounters();
                     renderClips(data.clips, videoId);
                     document.getElementById('results-section').classList.remove('hidden');
-                    showToast(`${data.clips.length} momentos selecionados com sucesso!`);
+                    showToast(`${data.clips.length} cortes identificados com sucesso!`);
                 } else {
-                    showToast(data.error || 'Não foi possível analisar este vídeo.', 'error');
+                    showToast(data.error || 'Não foi possível analisar o vídeo.', 'error');
                 }
             } catch (err) {
                 document.getElementById('loading-state').classList.add('hidden');
                 btn.disabled = false;
-                showToast('Falha ao comunicar com o servidor de IA.', 'error');
+                showToast('Falha ao conectar com o servidor. Se o Render estiver suspenso, aguarde 30s e tente novamente.', 'error');
             }
         });
 
@@ -266,7 +259,7 @@
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-[11px] font-bold text-brand-500 bg-brand-500/10 border border-brand-500/20 px-2.5 py-1 rounded-lg tracking-wide uppercase">Corte #${index + 1}</span>
                             <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-                                <i class="fa-solid fa-chart-line text-[10px]"></i> ${clip.potential || '95%'} Score
+                                <i class="fa-solid fa-chart-line text-[10px]"></i> ${clip.potential || '90%'} Score
                             </span>
                         </div>
                         <h4 class="font-bold text-sm text-slate-100 leading-snug mb-3">${clip.title}</h4>
@@ -291,7 +284,7 @@
 
         function playClip(videoId, start, title) {
             document.getElementById('preview-title').innerText = decodeURIComponent(title);
-            document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${videoId}?start=${start}&autoplay=1`;
+            document.getElementById('youtube-player').src = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?start=${start}&autoplay=1`;
             const container = document.getElementById('preview-container');
             container.classList.remove('hidden');
             container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -309,11 +302,11 @@
             showToast('Processamento FFmpeg iniciado no servidor...');
 
             try {
-                const res = await fetch('/api/render', {
+                const res = await fetch(`${BACKEND_URL}/api/render`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        youtubeUrl: `https://www.youtube.com/watch?v=${appState.currentVideoId}`,
+                        youtubeUrl: `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){appState.currentVideoId}`,
                         start,
                         end,
                         duration,
@@ -332,7 +325,7 @@
                 a.click();
                 a.remove();
                 window.URL.revokeObjectURL(url);
-                showToast('Vídeo MP4 descarregado com sucesso!');
+                showToast('Vídeo MP4 baixado com sucesso!');
             } catch (err) {
                 showToast('Erro ao renderizar corte no servidor.', 'error');
             } finally {
