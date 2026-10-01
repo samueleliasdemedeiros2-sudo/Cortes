@@ -1,444 +1,4 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criador de Clips com IA | ClipForge Studio</title>
-  
-  <!-- Configurações PWA para Instalar App -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#8b5cf6">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="ClipForge">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #090a0f;
-      --card-bg: #12141d;
-      --card-border: #1e2230;
-      --accent-color: #8b5cf6;
-      --accent-hover: #7c3aed;
-      --accent-glow: rgba(139, 92, 246, 0.35);
-      --text-main: #ffffff;
-      --text-muted: #9ca3af;
-      --input-bg: #181b26;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 16px 40px;
-    }
-
-    header {
-      width: 100%;
-      max-width: 620px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 18px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      margin-bottom: 16px;
-    }
-
-    .nav-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .menu-icon {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      cursor: pointer;
-    }
-
-    .menu-icon span {
-      width: 18px;
-      height: 2px;
-      background: #fff;
-      border-radius: 2px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      font-size: 1.15rem;
-      letter-spacing: -0.5px;
-    }
-
-    .brand-icon {
-      width: 26px;
-      height: 26px;
-      background: var(--accent-color);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 10px var(--accent-glow);
-    }
-
-    .brand-icon svg {
-      width: 14px;
-      height: 14px;
-      fill: #ffffff;
-    }
-
-    .nav-right {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .globe-btn {
-      background: transparent;
-      border: none;
-      color: #9ca3af;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-    }
-
-    .avatar-circle {
-      width: 32px;
-      height: 32px;
-      background: #232738;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 0.85rem;
-      color: #e5e7eb;
-      border: 1px solid #32384e;
-    }
-
-    .breadcrumbs {
-      width: 100%;
-      max-width: 620px;
-      font-size: 0.8rem;
-      color: #6b7280;
-      margin-bottom: 30px;
-    }
-
-    .breadcrumbs span {
-      color: var(--accent-color);
-    }
-
-    main {
-      width: 100%;
-      max-width: 620px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-
-    .hero-title {
-      font-size: 2.1rem;
-      font-weight: 800;
-      line-height: 1.25;
-      letter-spacing: -0.5px;
-      margin-bottom: 20px;
-    }
-
-    .hero-title .highlight {
-      color: var(--accent-color);
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .hero-desc {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin-bottom: 28px;
-      padding: 0 8px;
-    }
-
-    .btn-cta {
-      background: var(--accent-color);
-      color: #ffffff;
-      border: none;
-      border-radius: 9999px;
-      padding: 16px 36px;
-      font-size: 1.05rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      transition: all 0.2s ease;
-      box-shadow: 0 6px 24px var(--accent-glow);
-    }
-
-    .btn-cta:hover {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-    }
-
-    .arrow-circle {
-      width: 28px;
-      height: 28px;
-      background: #ffffff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .arrow-circle svg {
-      width: 14px;
-      height: 14px;
-      stroke: var(--accent-hover);
-      stroke-width: 2.5;
-      fill: none;
-    }
-
-    .sub-cta-text {
-      color: #6b7280;
-      font-size: 0.8rem;
-      margin-top: 14px;
-      margin-bottom: 36px;
-    }
-
-    .input-section {
-      width: 100%;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
-      margin-bottom: 30px;
-    }
-
-    .input-wrapper {
-      display: flex;
-      align-items: center;
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 9999px;
-      padding: 6px 8px 6px 18px;
-      transition: border-color 0.2s;
-    }
-
-    .input-wrapper:focus-within {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 0 2px var(--accent-glow);
-    }
-
-    .url-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: #fff;
-      font-size: 0.9rem;
-    }
-
-    .url-input::placeholder {
-      color: #6b7280;
-    }
-
-    .btn-submit-arrow {
-      background: var(--accent-color);
-      border: none;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s;
-    }
-
-    .btn-submit-arrow:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-submit-arrow svg {
-      width: 18px;
-      height: 18px;
-      stroke: #ffffff;
-      stroke-width: 2.5;
-      fill: none;
-    }
-
-    .controls-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .select-item {
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 10px 14px;
-      color: #d1d5db;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    .results-area {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .result-card {
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      text-align: left;
-    }
-
-    .result-info h4 {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .result-info p {
-      font-size: 0.75rem;
-      color: var(--accent-color);
-      font-weight: 600;
-    }
-
-    .btn-download-clip {
-      background: #232738;
-      color: #fff;
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      border: 1px solid #374151;
-      transition: all 0.2s;
-    }
-
-    .btn-download-clip:hover {
-      background: var(--accent-color);
-      color: #ffffff;
-      border-color: var(--accent-color);
-    }
-
-    .alert-msg {
-      margin-top: 12px;
-      font-size: 0.8rem;
-      color: #ef4444;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div class="nav-left">
-      <div class="menu-icon">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-      <div class="brand">
-        <div class="brand-icon">
-          <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-        </div>
-        <span>ClipForge</span>
-      </div>
-    </div>
-    <div class="nav-right">
-      <button class="globe-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      </button>
-      <div class="avatar-circle">S</div>
-    </div>
-  </header>
-
-  <div class="breadcrumbs">
-    Início &gt; Ferramentas &gt; <span>Criador de Clipes</span>
-  </div>
-
-  <main>
-    <h1 class="hero-title">
-      <span class="highlight">Criador de Clips com IA</span>
-      Transforme Vídeos em Shorts Virais
-    </h1>
-
-    <p class="hero-desc">
-      Transforme qualquer vídeo em clips prontos para viralizar com inteligência artificial. Crie shorts impactantes para YouTube, TikTok e Instagram em poucos segundos e sem precisar editar.
-    </p>
-
-    <button class="btn-cta" onclick="document.getElementById('ytLink').focus()">
-      <span>Criar Clipes</span>
-      <div class="arrow-circle">
-        <svg viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-      </div>
-    </button>
-
-    <div class="sub-cta-text">Comece Grátis com 100 Créditos</div>
-
-    <div class="input-section">
-      <div class="input-wrapper">
-        <input 
-          type="url" 
-          id="ytLink" 
-          class="url-input" 
-          placeholder="Cole o link do YouTube aqui..." 
-          required 
-        />
-        <button id="btnSubmit" class="btn-submit-arrow" onclick="executarCortes()">
-          <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </div>
-
-      <div class="controls-row">
-        <select id="clipDuration" class="select-item">
-          <option value="30">30 Segundos</option>
-          <option value="60" selected>60 Segundos (Shorts)</option>
-          <option value="90">90 Segundos</option>
-        </select>
-        <select id="clipQuantity" class="select-item">
-          <option value="3">3 Melhores Clips</option>
-          <option value="5" selected>5 Melhores Clips</option>
-          <option value="8">8 Melhores Clips</option>
-        </select>
-      </div>
-
-      <div id="statusMessage" class="alert-msg"></div>
-      <div id="resultsList" class="results-area"></div>
-    </div>
-  </main>
-
   <script>
-    // Registo de Service Worker para PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -476,10 +36,7 @@
         });
 
         const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Erro no processamento');
-        }
+        if (!res.ok || !data.success) throw new Error();
 
         data.clips.forEach(clip => {
           const item = document.createElement('div');
@@ -487,23 +44,52 @@
           item.innerHTML = `
             <div class="result-info">
               <h4>${clip.title}</h4>
-              <p>⚡ Score Viral: ${clip.potential || '97%'} (${clip.duration}s)</p>
+              <p>⚡ Score Viral: ${clip.potential} (${clip.duration}s)</p>
             </div>
-            <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" class="btn-download-clip">
-              Baixar
-            </a>
+            <button class="btn-download-clip" onclick="descarregarCorte(this, '${clip.originalUrl}', ${clip.start}, ${clip.duration})">
+              Baixar MP4
+            </button>
           `;
           resultsList.appendChild(item);
         });
 
       } catch (err) {
-        msg.innerText = 'O servidor está a iniciar. Tente novamente em instantes.';
+        msg.innerText = 'Servidor em processamento. Tente novamente em instantes.';
         msg.style.display = 'block';
       } finally {
         btn.disabled = false;
         btn.style.opacity = '1';
       }
     }
+
+    // Função que pede o corte renderizado ao backend e inicia o download
+    async function descarregarCorte(btnElement, videoUrl, start, duration) {
+      const textoOriginal = btnElement.innerText;
+      btnElement.disabled = true;
+      btnElement.innerText = 'Processando...';
+
+      try {
+        const res = await fetch(`${API_URL}/api/gerar-corte?url=${encodeURIComponent(videoUrl)}&start=${start}&duration=${duration}`);
+        const data = await res.json();
+
+        if (data.success && data.downloadUrl) {
+          // Cria o download automático do ficheiro MP4
+          const a = document.createElement('a');
+          a.href = data.downloadUrl;
+          a.setAttribute('download', `corte_${start}.mp4`);
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          btnElement.innerText = 'Concluído!';
+        } else {
+          alert('Erro ao gerar corte de vídeo no servidor.');
+          btnElement.innerText = textoOriginal;
+        }
+      } catch (e) {
+        alert('O servidor demorou a responder. Tente novamente.');
+        btnElement.innerText = textoOriginal;
+      } finally {
+        btnElement.disabled = false;
+      }
+    }
   </script>
-</body>
-</html>
