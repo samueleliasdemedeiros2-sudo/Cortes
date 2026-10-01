@@ -3,213 +3,718 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClipForge Studio — Automação de Cortes</title>
-    <meta name="theme-color" content="#090d16">
+    <title>ClipForge Pro — AI Video Clipping Studio</title>
+    <meta name="theme-color" content="#030712">
 
-    <!-- Script de Verificação do Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4978482078132206"
-     crossorigin="anonymous"></script>
+    <!-- Verificação do Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4978482078132206" crossorigin="anonymous"></script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: #090d16; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
-        
-        header { height: 64px; border-bottom: 1px solid #1e293b; background: rgba(9, 13, 22, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 50; }
-        .logo-box { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #db2777, #6366f1); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px; }
-        .logo-title { font-weight: 800; font-size: 17px; letter-spacing: -0.5px; }
-        .logo-title span { color: #ec4899; }
-        .tag-pro { font-size: 10px; font-weight: 700; background: #1e293b; border: 1px solid #334155; padding: 2px 7px; border-radius: 20px; color: #94a3b8; text-transform: uppercase; margin-left: 6px; }
-        
-        main { flex: 1; max-width: 1000px; width: 100%; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; }
-        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-        
-        h1 { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
-        .gradient-text { background: linear-gradient(to right, #ec4899, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        p.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px; }
-        
-        .form-row { display: flex; flex-direction: column; gap: 12px; }
-        .input-group { position: relative; width: 100%; }
-        .input-group i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 16px; }
-        input[type="text"] { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 12px; padding: 14px 14px 14px 42px; color: #fff; font-size: 14px; outline: none; }
-        input[type="text"]:focus { border-color: #db2777; }
-        
-        .btn-primary { background: linear-gradient(135deg, #db2777, #6366f1); color: white; border: none; border-radius: 12px; padding: 14px 24px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(219, 39, 119, 0.3); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .grid-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
-        .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; display: block; }
-        select { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 10px; padding: 10px; color: #e2e8f0; font-size: 13px; outline: none; }
-        
-        #loading-state { text-align: center; padding: 40px 20px; display: none; }
-        .spinner { width: 44px; height: 44px; border: 3px solid #1e293b; border-top-color: #ec4899; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        #results-section { display: none; }
-        .clips-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
-        .clip-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
-        .clip-header { display: flex; justify-content: space-between; align-items: center; }
-        .badge-cut { background: rgba(236, 72, 153, 0.15); color: #ec4899; font-weight: 700; font-size: 11px; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; }
-        .score { font-size: 12px; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-        .clip-title { font-size: 14px; font-weight: 700; line-height: 1.4; color: #f8fafc; }
-        .clip-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #090d16; padding: 10px; border-radius: 10px; font-size: 11px; color: #94a3b8; text-align: center; border: 1px solid #1e293b; }
-        .clip-actions { display: flex; gap: 8px; }
-        .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        .btn-download:disabled { opacity: 0.6; cursor: not-allowed; }
-        
-        #preview-container { margin-bottom: 20px; display: none; }
-        .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
-        .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-        
-        .ad-container { margin: 16px 0; display: flex; justify-content: center; align-items: center; overflow: hidden; }
 
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-        .toast { padding: 12px 18px; border-radius: 12px; font-size: 13px; color: white; background: #0f172a; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+    <style>
+        :root {
+            --bg-base: #030712;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(236, 72, 153, 0.3);
+            --primary: #ec4899;
+            --primary-glow: rgba(236, 72, 153, 0.35);
+            --accent: #8b5cf6;
+            --accent-glow: rgba(139, 92, 246, 0.35);
+            --text-title: #f9fafb;
+            --text-body: #9ca3af;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(236, 72, 153, 0.07) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.07) 0%, transparent 45%);
+            color: var(--text-title);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* BARRA SUPERIOR DESKTOP */
+        .topbar {
+            height: 72px;
+            background: rgba(3, 7, 18, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .brand-text {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .brand-text span { color: var(--primary); }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .nav-item {
+            color: var(--text-body);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .credits-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-body);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-auth {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            padding: 10px 22px;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px var(--primary-glow);
+            transition: opacity 0.2s, transform 0.15s;
+        }
+
+        .btn-auth:hover { opacity: 0.95; transform: translateY(-1px); }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #1e293b;
+            border: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* CONTAINER PRINCIPAL DESKTOP */
+        .desktop-wrapper {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .studio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 24px;
+        }
+
+        .studio-header h1 {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 8px;
+        }
+
+        .gradient-span {
+            background: linear-gradient(135deg, #f472b6, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .studio-header p {
+            font-size: 15px;
+            color: var(--text-body);
+        }
+
+        /* CARD DE CONTROLO */
+        .workspace-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .generator-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr 220px;
+            gap: 16px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 20px;
+            font-size: 20px;
+            color: #64748b;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            height: 56px;
+            background: rgba(3, 7, 18, 0.7);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 0 20px 0 56px;
+            font-size: 15px;
+            color: #ffffff;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-wrapper input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+        }
+
+        .btn-submit {
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 10px 25px var(--primary-glow);
+            transition: all 0.2s;
+        }
+
+        .btn-submit:hover { transform: translateY(-1px); }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            background: rgba(3, 7, 18, 0.4);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .setting-box label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-body);
+            margin-bottom: 8px;
+        }
+
+        .setting-box select {
+            width: 100%;
+            height: 46px;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0 14px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+
+        /* ANÚNCIO DESKTOP BANNER */
+        .ad-banner-desktop {
+            width: 100%;
+            min-height: 90px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* RESULTADOS */
+        .results-section { display: none; margin-top: 16px; }
+        
+        .preview-dock {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: none;
+        }
+
+        .cards-desktop-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .clip-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 20px;
+            transition: all 0.2s;
+        }
+
+        .clip-box:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-2px);
+        }
+
+        .clip-box-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge-index {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-body);
+            letter-spacing: 0.5px;
+        }
+
+        .badge-score {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .clip-title-text {
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.4;
+            color: #ffffff;
+            margin-top: 8px;
+        }
+
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background: rgba(3, 7, 18, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-body);
+        }
+        .stats-strip strong { color: white; display: block; margin-top: 2px; }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1.3fr;
+            gap: 12px;
+        }
+
+        .btn-view {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            height: 44px;
+            border-radius: 12px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-download-clip {
+            background: var(--primary);
+            border: none;
+            height: 44px;
+            border-radius: 12px;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn-download-clip:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* MODAL DE UTILIZADOR (LOGIN / REGISTO) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-card {
+            background: #0f172a;
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 440px;
+            padding: 36px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .auth-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+        .auth-card p { font-size: 14px; color: var(--text-body); margin-bottom: 24px; }
+        .form-auth { display: flex; flex-direction: column; gap: 16px; }
+        .form-auth input {
+            width: 100%; height: 48px; background: #030712; border: 1px solid var(--border-subtle);
+            border-radius: 10px; padding: 0 16px; color: white; outline: none; font-size: 14px;
+        }
+        .form-auth button {
+            height: 48px; background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer;
+        }
+
+        #toast-container { position: fixed; top: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 14px 22px; border-radius: 14px; font-size: 13px; font-weight: 600; background: #0f172a; border: 1px solid var(--border-subtle); color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
         .toast.success { border-color: #10b981; }
         .toast.error { border-color: #ef4444; }
 
-        footer { text-align: center; font-size: 12px; color: #475569; padding: 20px; border-top: 1px solid #1e293b; }
+        @media (max-width: 900px) {
+            .nav-links { display: none; }
+            .search-row { grid-template-columns: 1fr; }
+            .settings-grid { grid-template-columns: 1fr; }
+            .cards-desktop-grid { grid-template-columns: 1fr; }
+            .topbar { padding: 0 20px; }
+        }
     </style>
 </head>
 <body>
 
     <div id="toast-container"></div>
 
-    <header>
-        <div class="logo-box">
-            <div class="logo-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-            <div class="logo-title">CLIP<span>FORGE</span><span class="tag-pro">Pro Studio</span></div>
+    <!-- MODAL DE AUTENTICAÇÃO -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="auth-card">
+            <button onclick="closeAuthModal()" style="position: absolute; right: 20px; top: 20px; background: none; border: none; color: var(--text-body); font-size: 18px; cursor: pointer;">&times;</button>
+            <h3 id="modal-title">Entrar na Conta</h3>
+            <p>Gerencie seus cortes salvos e limites de download.</p>
+            <form class="form-auth" id="auth-form">
+                <input type="text" id="user-name" placeholder="Seu Nome de Criador" required>
+                <input type="email" id="user-email" placeholder="seu-email@exemplo.com" required>
+                <button type="submit" id="btn-auth-action">Salvar Perfil</button>
+            </form>
         </div>
-        <div style="font-size: 12px; color: #94a3b8;">
-            Cortes: <strong id="counter-clips" style="color: #ec4899;">0</strong>
+    </div>
+
+    <!-- NAVEGAÇÃO SUPERIOR DESKTOP -->
+    <header class="topbar">
+        <div class="brand-container">
+            <div class="brand-logo"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div class="brand-text">CLIP<span>FORGE</span></div>
+        </div>
+
+        <nav class="nav-links">
+            <a class="nav-item active"><i class="fa-solid fa-compass"></i> Estúdio IA</a>
+            <a class="nav-item" onclick="showToast('Aba Meus Projetos em desenvolvimento')"><i class="fa-solid fa-folder-open"></i> Meus Projetos</a>
+            <a class="nav-item" onclick="showToast('Plano Pro ilimitado em breve')"><i class="fa-solid fa-gem"></i> Planos & Preços</a>
+            <a class="nav-item" onclick="window.open('https://rapidapi.com', '_blank')"><i class="fa-solid fa-code"></i> API Engine</a>
+        </nav>
+
+        <div class="user-actions">
+            <div class="credits-pill">
+                <i class="fa-solid fa-bolt" style="color: var(--primary);"></i>
+                Créditos: <strong id="user-credits" style="color: white;">10</strong>
+            </div>
+            <div id="user-profile-slot">
+                <button class="btn-auth" onclick="openAuthModal()">
+                    <i class="fa-solid fa-user"></i> Entrar
+                </button>
+            </div>
         </div>
     </header>
 
-    <main>
-        <section class="card">
-            <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
-            <p class="subtitle">Cole o link do YouTube abaixo. A IA identifica os momentos com alto potencial de viralização.</p>
+    <!-- ÁREA CENTRAL DO ESTÚDIO -->
+    <main class="desktop-wrapper">
+        <div class="studio-header">
+            <div>
+                <h1>Estúdio de Cortes com <span class="gradient-span">Inteligência Artificial</span></h1>
+                <p>Cole a URL do vídeo para que o motor neural identifique os trechos mais virais.</p>
+            </div>
+            <div style="font-size: 13px; color: var(--text-body);">
+                Cortes Gerados Hoje: <strong id="total-cuts-counter" style="color: var(--primary);">0</strong>
+            </div>
+        </div>
 
-            <form id="analyze-form">
-                <div class="form-row">
-                    <div class="input-group">
+        <section class="workspace-card">
+            <form id="analyze-form" class="generator-form">
+                <div class="search-row">
+                    <div class="input-wrapper">
                         <i class="fa-brands fa-youtube"></i>
                         <input type="text" id="youtube-url" required placeholder="https://www.youtube.com/watch?v=...">
                     </div>
-                    <button type="submit" id="btn-submit" class="btn-primary">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Analisar Vídeo
+                    <button type="submit" id="btn-submit" class="btn-submit">
+                        <i class="fa-solid fa-sparkles"></i> Processar Vídeo
                     </button>
                 </div>
 
-                <div class="grid-options">
-                    <div>
-                        <label class="field-label">Quantidade</label>
+                <div class="settings-grid">
+                    <div class="setting-box">
+                        <label><i class="fa-solid fa-sliders"></i> Quantidade de Cortes</label>
                         <select id="clip-quantity">
-                            <option value="3">3 cortes</option>
-                            <option value="5" selected>5 cortes</option>
-                            <option value="8">8 cortes</option>
+                            <option value="3">3 cortes estratégicos</option>
+                            <option value="5" selected>5 cortes estratégicos</option>
+                            <option value="8">8 cortes estratégicos</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="field-label">Duração</label>
+                    <div class="setting-box">
+                        <label><i class="fa-solid fa-stopwatch"></i> Duração do Trecho</label>
                         <select id="clip-duration">
-                            <option value="15">~15s (Shorts)</option>
-                            <option value="30" selected>~30s (Padrão)</option>
-                            <option value="60">~60s (Longo)</option>
+                            <option value="15">~15 segundos (Micro-Shorts)</option>
+                            <option value="30" selected>~30 segundos (Reels / TikTok)</option>
+                            <option value="60">~60 segundos (Retenção Longa)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="field-label">Formato</label>
+                    <div class="setting-box">
+                        <label><i class="fa-solid fa-crop"></i> Formato de Saída</label>
                         <select id="clip-format">
-                            <option value="9:16" selected>9:16 (Vertical)</option>
-                            <option value="1:1">1:1 (Quadrado)</option>
-                            <option value="16:9">16:9 (Horizontal)</option>
+                            <option value="9:16" selected>9:16 Vertical (Smartphones)</option>
+                            <option value="1:1">1:1 Quadrado (Feed)</option>
+                            <option value="16:9">16:9 Horizontal (Padrão)</option>
                         </select>
                     </div>
                 </div>
             </form>
-
-            <!-- Espaço do Anúncio Topo (Google AdSense) -->
-            <div class="ad-container">
-                <ins class="adsbygoogle"
-                     style="display:block"
-                     data-ad-client="ca-pub-4978482078132206"
-                     data-ad-slot="auto"
-                     data-ad-format="auto"
-                     data-full-width-responsive="true"></ins>
-                <script>
-                     (adsbygoogle = window.adsbygoogle || []).push({});
-                </script>
-            </div>
         </section>
 
-        <section id="loading-state" class="card">
-            <div class="spinner"></div>
-            <h3 style="font-size: 16px; font-weight: 700;">A IA está a analisar o conteúdo...</h3>
-            <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Identificando os melhores momentos com base nos parâmetros selecionados.</p>
+        <!-- ESPAÇO PARA ANÚNCIO (ADSENSE / BANNER) -->
+        <div class="ad-banner-desktop">
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-4978482078132206"
+                 data-ad-slot="auto"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        </div>
+
+        <!-- INDICADOR DE CARREGAMENTO -->
+        <section id="loading-panel" class="workspace-card" style="display: none; text-align: center; padding: 48px;">
+            <div style="width: 50px; height: 50px; border: 3px solid rgba(236,72,153,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+            <h3 style="font-size: 18px; font-weight: 700;">A IA do Gemini está a processar a minutagem...</h3>
+            <p style="font-size: 13px; color: var(--text-body); margin-top: 6px;">Analisando picos de retenção e estrutura narrativa do vídeo.</p>
         </section>
 
-        <section id="results-section">
-            <div id="preview-container" class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 id="preview-title" style="font-size: 14px; font-weight: 700; color: #ec4899;">Pré-visualização</h4>
-                    <button onclick="closePreview()" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 12px;">Fechar</button>
+        <!-- RESULTADOS E PRÉ-VISUALIZAÇÃO -->
+        <section id="results-panel" class="results-section">
+            <div id="preview-dock" class="preview-dock">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h4 id="preview-title" style="font-size: 16px; font-weight: 700; color: var(--primary);">Pré-visualização</h4>
+                    <button onclick="closePreview()" style="background: none; border: none; color: var(--text-body); cursor: pointer; font-size: 13px;">Fechar Player</button>
                 </div>
-                <div class="player-wrapper">
-                    <iframe id="youtube-player" src="" allow="autoplay" allowfullscreen></iframe>
+                <div style="position: relative; width: 100%; padding-bottom: 56.25%; border-radius: 14px; overflow: hidden; background: #000;">
+                    <iframe id="youtube-player" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" allowfullscreen></iframe>
                 </div>
             </div>
 
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 12px;">
-                <i class="fa-solid fa-fire" style="color: #ec4899; margin-right: 6px;"></i> Cortes Identificados pela IA
+            <h2 style="font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-body); margin-bottom: 16px;">
+                <i class="fa-solid fa-layer-group" style="color: var(--primary); margin-right: 8px;"></i> Trechos Virais Detectados
             </h2>
-            <div id="clips-grid" class="clips-container"></div>
+            <div id="clips-grid" class="cards-desktop-grid"></div>
         </section>
     </main>
 
-    <footer>
-        CLIPFORGE Studio &bull; Pipeline de Produção
+    <footer style="border-top: 1px solid var(--border-subtle); padding: 32px 40px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-body);">
+        <div>&copy; 2026 ClipForge Studio Pro. Todos os direitos reservados.</div>
+        <div style="display: flex; gap: 20px;">
+            <a href="#" style="color: var(--text-body); text-decoration: none;">Termos de Serviço</a>
+            <a href="#" style="color: var(--text-body); text-decoration: none;">Privacidade</a>
+        </div>
     </footer>
+
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
     <script>
         const BACKEND_URL = 'https://cortesyou.onrender.com';
         let currentVideoId = '';
-        let clipsCount = parseInt(localStorage.getItem('clipforge_count') || '0');
+        let totalCuts = parseInt(localStorage.getItem('forge_total_cuts') || '0');
+        let userCredits = parseInt(localStorage.getItem('forge_user_credits') || '10');
 
-        document.getElementById('counter-clips').innerText = clipsCount;
+        document.getElementById('total-cuts-counter').innerText = totalCuts;
+        document.getElementById('user-credits').innerText = userCredits;
+
+        // SISTEMA DE UTILIZADOR
+        function checkUserSession() {
+            const user = JSON.parse(localStorage.getItem('forge_current_user') || 'null');
+            const slot = document.getElementById('user-profile-slot');
+            if (user) {
+                const initials = user.name.slice(0, 2).toUpperCase();
+                slot.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="user-avatar" title="${user.name} (${user.email})">${initials}</div>
+                        <button onclick="logoutUser()" style="background: none; border: none; color: #ef4444; font-size: 12px; cursor: pointer;">Sair</button>
+                    </div>
+                `;
+            } else {
+                slot.innerHTML = `
+                    <button class="btn-auth" onclick="openAuthModal()">
+                        <i class="fa-solid fa-user"></i> Entrar
+                    </button>
+                `;
+            }
+        }
+
+        function openAuthModal() { document.getElementById('auth-modal').style.display = 'flex'; }
+        function closeAuthModal() { document.getElementById('auth-modal').style.display = 'none'; }
+
+        document.getElementById('auth-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('user-name').value.trim();
+            const email = document.getElementById('user-email').value.trim();
+            localStorage.setItem('forge_current_user', JSON.stringify({ name, email }));
+            closeAuthModal();
+            checkUserSession();
+            showToast(`Bem-vindo, ${name}!`);
+        });
+
+        function logoutUser() {
+            localStorage.removeItem('forge_current_user');
+            checkUserSession();
+            showToast('Sessão terminada.');
+        }
 
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerText = msg;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 6000);
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerText = msg;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
         }
 
-        function extractYouTubeId(url) {
-            url = url.trim().replace(/['"]/g, '');
-            const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
-            return (match && match[2].length === 11) ? match[2] : null;
+        function extractId(url) {
+            const m = url.trim().match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+            return (m && m[2].length === 11) ? m[2] : null;
         }
 
+        // DISPARO DA ANÁLISE IA
         document.getElementById('analyze-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const rawUrl = document.getElementById('youtube-url').value;
-            const videoId = extractYouTubeId(rawUrl);
+            const urlVal = document.getElementById('youtube-url').value;
+            const videoId = extractId(urlVal);
 
             if (!videoId) {
-                showToast('Insira uma URL válida do YouTube.', 'error');
+                showToast('URL do YouTube inválida!', 'error');
+                return;
+            }
+
+            if (userCredits <= 0) {
+                showToast('Créditos esgotados! Recarregue seu plano.', 'error');
                 return;
             }
 
             currentVideoId = videoId;
             const btn = document.getElementById('btn-submit');
             btn.disabled = true;
-            document.getElementById('loading-state').style.display = 'block';
-            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('loading-panel').style.display = 'block';
+            document.getElementById('results-panel').style.display = 'none';
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/analisar`, {
@@ -223,23 +728,27 @@
                 });
 
                 const data = await res.json();
-                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('loading-panel').style.display = 'none';
                 btn.disabled = false;
 
                 if (data.success && data.clips && data.clips.length) {
-                    clipsCount += data.clips.length;
-                    localStorage.setItem('clipforge_count', clipsCount);
-                    document.getElementById('counter-clips').innerText = clipsCount;
+                    totalCuts += data.clips.length;
+                    userCredits = Math.max(0, userCredits - 1);
+                    localStorage.setItem('forge_total_cuts', totalCuts);
+                    localStorage.setItem('forge_user_credits', userCredits);
+                    document.getElementById('total-cuts-counter').innerText = totalCuts;
+                    document.getElementById('user-credits').innerText = userCredits;
+
                     renderClips(data.clips, videoId);
-                    document.getElementById('results-section').style.display = 'block';
+                    document.getElementById('results-panel').style.display = 'block';
                     showToast(`${data.clips.length} cortes gerados com sucesso!`);
                 } else {
-                    showToast(data.error || 'Não foi possível analisar o vídeo.', 'error');
+                    showToast(data.error || 'Erro ao processar cortes.', 'error');
                 }
             } catch (err) {
-                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('loading-panel').style.display = 'none';
                 btn.disabled = false;
-                showToast('O servidor está a iniciar. Aguarde 30s e tente de novo.', 'error');
+                showToast('Servidor a iniciar. Aguarde 30s e tente novamente.', 'error');
             }
         });
 
@@ -248,54 +757,54 @@
             grid.innerHTML = '';
 
             clips.forEach((clip, index) => {
-                const card = document.createElement('div');
-                card.className = 'clip-card';
-                card.innerHTML = `
+                const box = document.createElement('div');
+                box.className = 'clip-box';
+                box.innerHTML = `
                     <div>
-                        <div class="clip-header">
-                            <span class="badge-cut">Corte #${index + 1}</span>
-                            <span class="score"><i class="fa-solid fa-bolt"></i> ${clip.potential || '95%'} Score</span>
+                        <div class="clip-box-header">
+                            <span class="badge-index">CORTE #${index + 1}</span>
+                            <span class="badge-score"><i class="fa-solid fa-bolt"></i> ${clip.potential || '96%'} Viral</span>
                         </div>
-                        <div class="clip-title" style="margin-top: 10px;">${clip.title}</div>
+                        <div class="clip-title-text">${clip.title}</div>
                     </div>
-                    <div class="clip-stats">
-                        <div>Início: <strong>${clip.start}s</strong></div>
-                        <div>Fim: <strong>${clip.end}s</strong></div>
-                        <div>Duração: <strong>${clip.duration}s</strong></div>
+                    <div class="stats-strip">
+                        <div>Início<strong>${clip.start}s</strong></div>
+                        <div>Fim<strong>${clip.end}s</strong></div>
+                        <div>Duração<strong>${clip.duration}s</strong></div>
                     </div>
-                    <div class="clip-actions">
-                        <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
+                    <div class="btn-group">
+                        <button class="btn-view" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" id="dl-btn-${index}" onclick="baixarComFeedback('${videoId}', ${clip.start}, ${clip.duration}, 'dl-btn-${index}')">
+                        <button class="btn-download-clip" id="dl-btn-${index}" onclick="baixarCorteDesktop('${videoId}', ${clip.start}, ${clip.duration}, 'dl-btn-${index}')">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
                 `;
-                grid.appendChild(card);
+                grid.appendChild(box);
             });
         }
 
         function playClip(videoId, start, title) {
             document.getElementById('preview-title').innerText = decodeURIComponent(title);
             document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${videoId}?start=${start}&autoplay=1`;
-            const container = document.getElementById('preview-container');
-            container.style.display = 'block';
-            container.scrollIntoView({ behavior: 'smooth' });
+            const dock = document.getElementById('preview-dock');
+            dock.style.display = 'block';
+            dock.scrollIntoView({ behavior: 'smooth' });
         }
 
         function closePreview() {
             document.getElementById('youtube-player').src = '';
-            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('preview-dock').style.display = 'none';
         }
 
-        async function baixarComFeedback(videoId, start, duration, btnId) {
+        async function baixarCorteDesktop(videoId, start, duration, btnId) {
             const btn = document.getElementById(btnId);
-            const originalHTML = btn.innerHTML;
+            const originalText = btn.innerHTML;
 
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A renderizar corte (~20s)...`;
-            showToast('A preparar e a cortar o MP4 na RapidAPI. Por favor, aguarde cerca de 20s...');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A preparar (~20s)...`;
+            showToast('A processar o corte na RapidAPI. Por favor, aguarde cerca de 20s...');
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/download-rapid?videoId=${videoId}&start=${start}&duration=${duration}`);
@@ -303,23 +812,25 @@
 
                 if (data.success && data.downloadUrl) {
                     showToast('Corte concluído! A iniciar download...', 'success');
-                    
                     const a = document.createElement('a');
                     a.href = data.downloadUrl;
-                    a.setAttribute('download', `Corte_${videoId}_${start}s.mp4`);
+                    a.setAttribute('download', `Clip_${videoId}_${start}s.mp4`);
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                 } else {
-                    showToast(data.error || 'A API ainda está a processar. Tente de novo em instantes.', 'error');
+                    showToast(data.error || 'A renderizar nos servidores da API. Tente em instantes.', 'error');
                 }
             } catch (err) {
-                showToast('Erro ao contactar o servidor. Tente novamente.', 'error');
+                showToast('Erro ao contactar o servidor.', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = originalHTML;
+                btn.innerHTML = originalText;
             }
         }
+
+        // Inicializar verificação de sessão
+        checkUserSession();
     </script>
 </body>
 </html>
