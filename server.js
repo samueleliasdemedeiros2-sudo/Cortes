@@ -11,7 +11,6 @@ try {
 
 const app = express();
 
-// Libera cabeçalhos essenciais para o Blob do frontend ler o arquivo MP4
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -19,19 +18,17 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Variáveis de Ambiente
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'samuel123';
 
-// SDK Mercado Pago
 let mpClient = null;
 if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
     mpClient = new mercadopago.MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
   } catch (err) {
-    console.error('[MercadoPago] Erro de configuração:', err.message);
+    console.error('[MercadoPago] Erro:', err.message);
   }
 }
 
@@ -47,7 +44,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '3.5.0-DIRECT-BLOB' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '3.6.0-RAPID-FOCUS' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -71,7 +68,7 @@ app.get('/api/admin/dashboard', (req, res) => {
 });
 
 // ----------------------------------------------------
-// SISTEMA DE PAGAMENTO PIX (MERCADO PAGO)
+// SISTEMA DE PAGAMENTO PIX
 // ----------------------------------------------------
 app.post('/api/pix/criar', async (req, res) => {
   const { userId = 'anonimo', valor = 19.90 } = req.body;
@@ -151,80 +148,72 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// RESOLUÇÃO DE STREAM DIRETO DO VÍDEO (MULTI-ENGINE)
-// ----------------------------------------------------
+// MOTOR EXCLUSIVO RAPIDAPI COM PARÂMETROS CORRETOS
+> // ----------------------------------------------------
 async function resolverUrlDiretaVideo(videoId) {
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 1. Instâncias Cobalt (API v10 sem bloqueio de IP)
-  const cobaltNodes = [
-    'https://api.cobalt.tools',
-    'https://cobalt-api.kwiatekm.tokyo',
-    'https://api.server.cobalt.tools'
-  ];
-
-  for (const node of cobaltNodes) {
-    try {
-      const resp = await axios.post(node, {
-        url: videoUrl,
-        videoQuality: '360',
-        downloadMode: 'auto'
-      }, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        timeout: 8000
-      });
-
-      if (resp.data?.url) return resp.data.url;
-    } catch (e) {}
-  }
-
-  // 2. Consulta RapidAPI Cloud Hub (com suporte a formatos combinados de áudio e vídeo)
+  // 1. Tenta varrer a RapidAPI por ID
   try {
-    const resRapid = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+    const resp = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
       params: { id: videoId },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 9000
+      timeout: 15000
     });
 
-    const d = resRapid.data;
-    if (d?.url && !d.url.includes('ytimg.com')) return d.url;
-    if (d?.download_url && !d.download_url.includes('ytimg.com')) return d.download_url;
+    const data = resp.data;
+    if (data?.url && !data.url.includes('ytimg.com')) return data.url;
+    if (data?.download_url && !data.download_url.includes('ytimg.com')) return data.download_url;
+    if (data?.link && !data.link.includes('ytimg.com')) return data.link;
 
-    if (Array.isArray(d?.formats)) {
-      const progressive = d.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
-                       || d.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.qualityLabel === '360p')
-                       || d.formats.find(f => f.url && !f.url.includes('ytimg.com'));
-      if (progressive?.url) return progressive.url;
+    if (Array.isArray(data?.formats)) {
+      const best = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false)
+                || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
+      if (best?.url) return best.url;
     }
   } catch (e) {}
 
-  // 3. CDNs Abertas Piped / Invidious
-  const invidiousNodes = [
-    `https://inv.nadeko.net/api/v1/videos/${videoId}`,
-    `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
-    `https://pipedapi.kavin.rocks/streams/${videoId}`
-  ];
+  // 2. Tenta varrer a RapidAPI passando a URL completa
+  try {
+    const respUrl = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+      params: { url: targetUrl },
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+      },
+      timeout: 15000
+    });
 
-  for (const nodeUrl of invidiousNodes) {
-    try {
-      const invResp = await axios.get(nodeUrl, { timeout: 7000 });
-      const streams = invResp.data?.formatStreams || invResp.data?.videoStreams || [];
-      const chosen = streams.find(s => s.url && s.videoOnly === false) || streams[0];
-      if (chosen?.url) return chosen.url;
-    } catch (e) {}
-  }
+    const data2 = respUrl.data;
+    if (data2?.url && !data2.url.includes('ytimg.com')) return data2.url;
+    if (data2?.download_url && !data2.download_url.includes('ytimg.com')) return data2.download_url;
+    
+    if (Array.isArray(data2?.formats)) {
+      const best2 = data2.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false);
+      if (best2?.url) return best2.url;
+    }
+  } catch (e) {}
+
+  // 3. Fallback de Contingência Direta (Cobalt Oficial)
+  try {
+    const cResp = await axios.post('https://api.cobalt.tools', {
+      url: targetUrl,
+      videoQuality: '360'
+    }, {
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      timeout: 8000
+    });
+    if (cResp.data?.url) return cResp.data.url;
+  } catch (e) {}
 
   return null;
 }
 
 // ----------------------------------------------------
-// DOWNLOAD DIRETO BINÁRIO PARA O BLOB DO FRONTEND
+// DOWNLOAD DIRETO BINÁRIO
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -237,12 +226,10 @@ app.get('/api/download', async (req, res) => {
   try {
     const directStreamUrl = await resolverUrlDiretaVideo(videoId);
 
-    // Se nenhum motor responder, devolve 503 JSON puro para o frontend avisar e estornar os pontos
     if (!directStreamUrl) {
       return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
     }
 
-    // Faz o stream direto em binário para o navegador
     const responseStream = await axios({
       method: 'GET',
       url: directStreamUrl,
@@ -263,7 +250,6 @@ app.get('/api/download', async (req, res) => {
 
     metricas.totalDownloads += 1;
 
-    // Cancela o stream se o usuário fechar a aba
     req.on('close', () => {
       if (responseStream.data && typeof responseStream.data.destroy === 'function') {
         responseStream.data.destroy();
@@ -273,7 +259,7 @@ app.get('/api/download', async (req, res) => {
     return responseStream.data.pipe(res);
 
   } catch (error) {
-    console.error('[Download] Falha no streaming:', error.message);
+    console.error('[Download] Erro na transmissão:', error.message);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Falha temporária na transferência do vídeo.' });
     }
@@ -281,9 +267,9 @@ app.get('/api/download', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// INICIALIZAÇÃO DO SERVIDOR
+// INICIALIZAÇÃO
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v3.5.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v3.6.0]`);
 });
