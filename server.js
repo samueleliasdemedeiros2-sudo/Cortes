@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const { spawn } = require('child_process');
 
 let mercadopago = null;
 try {
@@ -11,7 +12,7 @@ try {
 
 const app = express();
 
-// Permite leitura dos cabeçalhos binários pelo Blob do frontend
+// Permite leitura dos cabeçalhos binários pelo Blob/iframe do frontend
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -47,7 +48,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.0.1-RAPID-CORRECTED' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.1.0-FFMPEG-LIGHT' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -198,11 +199,12 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// DESCARREGAMENTO DIRETO VIA PIPE
+// DESCARREGAMENTO DIRETO E LEVE COM CORTE EXATO (FFMPEG)
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
+  const duration = parseInt(req.query.duration || 55, 10);
 
   if (!videoId || videoId.length < 5) {
     return res.status(400).json({ error: 'ID do vídeo inválido.' });
@@ -215,33 +217,36 @@ app.get('/api/download', async (req, res) => {
       return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
     }
 
-    const responseStream = await axios({
-      method: 'GET',
-      url: directStreamUrl,
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      timeout: 60000
-    });
-
     const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    if (responseStream.headers['content-length']) {
-      res.setHeader('Content-Length', responseStream.headers['content-length']);
-    }
+    // Executa o ffmpeg para cortar apenas o trecho leve selecionado (5 MB - 15 MB)
+    const ffmpeg = spawn('ffmpeg', [
+      '-ss', String(start),
+      '-i', directStreamUrl,
+      '-t', String(duration),
+      '-c', 'copy',
+      '-movflags', 'frag_keyframe+empty_moov',
+      '-f', 'mp4',
+      'pipe:1'
+    ]);
 
-    metricas.totalDownloads += 1;
+    ffmpeg.stdout.pipe(res);
 
-    req.on('close', () => {
-      if (responseStream.data && typeof responseStream.data.destroy === 'function') {
-        responseStream.data.destroy();
+    ffmpeg.stderr.on('data', () => {
+      // Stream de processamento interno
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        metricas.totalDownloads += 1;
       }
     });
 
-    return responseStream.data.pipe(res);
+    req.on('close', () => {
+      ffmpeg.kill('SIGKILL');
+    });
 
   } catch (error) {
     console.error('[Download Stream Error]:', error.message);
@@ -256,5 +261,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.0.1]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.1.0]`);
 });
