@@ -96,14 +96,14 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Download via RapidAPI dedicado
+// Download via YouTube Video FAST Downloader 24/7 (RapidAPI)
 app.get("/api/download-rapid", async (req, res) => {
   const { videoId } = req.query;
-  if (!videoId) return res.status(400).json({ error: "videoId ausente" });
+  if (!videoId) return res.status(400).json({ error: "videoId em falta" });
 
   try {
-    const apiUrl = `https://${RAPIDAPI_HOST}/${encodeURIComponent(videoId)}`;
-    const apiRes = await fetch(apiUrl, {
+    // Chamada à rota de download da API
+    const response = await fetch(`https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=137`, {
       method: "GET",
       headers: {
         "x-rapidapi-key": RAPIDAPI_KEY,
@@ -112,34 +112,18 @@ app.get("/api/download-rapid", async (req, res) => {
       }
     });
 
-    const data = await apiRes.json();
+    const data = await response.json();
+    const downloadUrl = data.file || data.url || data.link || (data.data && data.data.file);
 
-    // Extrai o link direto para download do MP4 a partir da resposta da API
-    let downloadLink = null;
-    if (typeof data === "string" && data.startsWith("http")) {
-      downloadLink = data;
-    } else if (data.link) {
-      downloadLink = data.link;
-    } else if (data.url) {
-      downloadLink = data.url;
-    } else if (data.downloadUrl) {
-      downloadLink = data.downloadUrl;
-    } else if (Array.isArray(data.formats)) {
-      const mp4Format = data.formats.find(f => f.ext === "mp4" || f.quality || f.url);
-      downloadLink = mp4Format ? (mp4Format.url || mp4Format.link) : null;
-    } else if (data.data && (data.data.url || data.data.link)) {
-      downloadLink = data.data.url || data.data.link;
-    }
-
-    if (downloadLink) {
-      return res.redirect(downloadLink);
+    if (downloadUrl) {
+      return res.redirect(downloadUrl);
     } else {
-      console.error("Resposta da API sem link de download direto:", data);
-      return res.status(500).send("Não foi possível extrair o link direto do vídeo.");
+      console.error("Estrutura da API:", data);
+      return res.status(500).send("Ficheiro em processamento na API. Tente dentro de alguns segundos.");
     }
   } catch (err) {
-    console.error("Erro na chamada à RapidAPI:", err.message);
-    return res.status(500).send("Erro ao processar o download via API.");
+    console.error("Falha na RapidAPI:", err.message);
+    return res.status(500).send("Erro na comunicação com a RapidAPI.");
   }
 });
 
