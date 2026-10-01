@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClipForge Pro Studio — Cortes Virais IA</title>
+    <title>ClipForge Pro Studio — Cortes Virais IA em 60s</title>
     <meta name="theme-color" content="#030712">
+
+    <!-- SEO & Compartilhamento Social -->
+    <meta name="description" content="Transforme vídeos longos em shorts virais de 60 segundos com minutagem inteligente por IA.">
+    <meta property="og:title" content="ClipForge Pro — AI Video Clipping Studio">
+    <meta property="og:description" content="Gere cortes virais de 60 segundos com IA prontos para TikTok, Reels e Shorts.">
+    <meta property="og:type" content="website">
+
+    <!-- Pré-conexão para otimização de velocidade -->
+    <link rel="preconnect" href="https://cortesyou.onrender.com">
+    <link rel="dns-prefetch" href="https://cortesyou.onrender.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
     <!-- Tag de Monetização Instantânea Adsterra -->
     <script src="https://pl31599212.profitableratecpmnetwork.com/f4/0b/d6/f40bd69e9eec7230f534d71d0eeae28c.js"></script>
@@ -12,8 +24,6 @@
     <!-- Verificação do Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4978482078132206" crossorigin="anonymous"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
@@ -37,14 +47,15 @@
                 radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 45%) !important;
         }
 
+        /* MODAL DE LOGIN OBRIGATÓRIO NA ENTRADA */
         #auth-gate {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(3, 7, 18, 0.95);
-            backdrop-filter: blur(14px);
+            background: rgba(3, 7, 18, 0.96);
+            backdrop-filter: blur(16px);
             z-index: 99999;
             display: flex;
             align-items: center;
@@ -59,7 +70,7 @@
             width: 100%;
             max-width: 440px;
             padding: 32px 28px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
             text-align: center;
         }
 
@@ -141,6 +152,7 @@
             margin-top: 10px;
         }
 
+        /* TOPBAR DESKTOP */
         .topbar {
             height: 72px;
             background: rgba(3, 7, 18, 0.85);
@@ -215,6 +227,7 @@
             text-decoration: none;
         }
 
+        /* CONTAINER PRINCIPAL */
         .desktop-wrapper {
             flex: 1;
             max-width: 1080px;
@@ -343,7 +356,7 @@
             outline: none;
         }
 
-        /* BANNER TOPO ADSTERRA 468x60 */
+        /* ANÚNCIOS */
         .ad-banner-top {
             width: 100%;
             min-height: 60px;
@@ -358,7 +371,6 @@
             padding: 10px;
         }
 
-        /* NATIVE BANNER ADSTERRA ACIMA DOS CORTES */
         .ad-native-container {
             width: 100%;
             margin: 16px 0;
@@ -367,6 +379,40 @@
             overflow: hidden;
         }
 
+        /* BARRA DE PROGRESSO DINÂMICA */
+        .progress-box {
+            display: none;
+            margin-top: 14px;
+            background: #030712;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .progress-track {
+            height: 8px;
+            width: 100%;
+            background: #1e293b;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+
+        .progress-status {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* RESULTADOS */
         .cards-desktop-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -457,6 +503,7 @@
 
         .btn-download-clip:disabled { opacity: 0.6; cursor: not-allowed; }
 
+        /* BOTÃO WHATSAPP */
         .wpp-float {
             position: fixed;
             bottom: 24px;
@@ -531,7 +578,7 @@
 
         <nav class="nav-links">
             <a class="nav-item active"><i class="fa-solid fa-compass"></i> Estúdio IA</a>
-            <a class="nav-item" onclick="showToast('Aba de projetos em desenvolvimento')"><i class="fa-solid fa-folder-open"></i> Meus Projetos</a>
+            <a class="nav-item" onclick="showToast('Histórico salvo localmente')"><i class="fa-solid fa-folder-open"></i> Meus Cortes</a>
             <a href="https://wa.me/5562982714578" target="_blank" class="btn-wpp-top">
                 <i class="fa-brands fa-whatsapp"></i> Suporte WhatsApp: (62) 98271-4578
             </a>
@@ -596,9 +643,20 @@
                     </div>
                 </div>
             </form>
+
+            <!-- Barra de Progresso Realista do Download -->
+            <div id="progress-box" class="progress-box">
+                <div class="progress-track">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div class="progress-status">
+                    <span id="progress-label">A iniciar processo...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+            </div>
         </section>
 
-        <!-- BANNER DE ANÚNCIO ADSTERRA (468x60) -->
+        <!-- BANNER ADSTERRA (468x60) -->
         <div class="ad-banner-top">
             <script>
                 atOptions = {
@@ -631,7 +689,7 @@
                 </div>
             </div>
 
-            <!-- NOVO NATIVE BANNER ADSTERRA ACIMA DA GRELHA -->
+            <!-- NATIVE BANNER ADSTERRA ACIMA DA GRELHA -->
             <div class="ad-native-container">
                 <script async="async" data-cfasync="false" src="https://pl31599214.profitableratecpmnetwork.com/482409646be9aea0ee8a775ac5ddbb33/invoke.js"></script>
                 <div id="container-482409646be9aea0ee8a775ac5ddbb33"></div>
@@ -645,7 +703,7 @@
     </main>
 
     <footer style="border-top: 1px solid rgba(255,255,255,0.08); padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b;">
-        <div>&copy; 2026 ClipForge Studio Pro &bull; Suporte Oficial WhatsApp: +55 (62) 98271-4578</div>
+        <div>&copy; 2026 ClipForge Studio Pro &bull; Suporte WhatsApp Oficial: +55 (62) 98271-4578</div>
         <div style="display: flex; gap: 16px;">
             <a href="https://wa.me/5562982714578" target="_blank" style="color: #22c55e; text-decoration: none;">Atendimento WhatsApp</a>
         </div>
@@ -662,6 +720,7 @@
         document.getElementById('total-cuts-counter').innerText = totalCuts;
         document.getElementById('user-credits').innerText = userCredits;
 
+        // VERIFICAÇÃO DE LOGIN
         function checkGate() {
             const savedUser = JSON.parse(localStorage.getItem('forge_verified_user') || 'null');
             if (savedUser && savedUser.name && savedUser.contact) {
@@ -698,6 +757,7 @@
             return (m && m[2].length === 11) ? m[2] : null;
         }
 
+        // DISPARO DA ANÁLISE IA COM CACHE LOCAL
         document.getElementById('analyze-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const urlVal = document.getElementById('youtube-url').value;
@@ -709,6 +769,17 @@
             }
 
             currentVideoId = videoId;
+
+            // Cache Instantâneo Local
+            const cached = localStorage.getItem(`cache_clips_${videoId}`);
+            if (cached) {
+                const data = JSON.parse(cached);
+                renderClips(data, videoId);
+                document.getElementById('results-panel').style.display = 'block';
+                showToast('Cortes carregados instantaneamente do cache!', 'success');
+                return;
+            }
+
             const btn = document.getElementById('btn-submit');
             btn.disabled = true;
             document.getElementById('loading-panel').style.display = 'block';
@@ -732,6 +803,7 @@
                 if (data.success && data.clips && data.clips.length) {
                     totalCuts += data.clips.length;
                     localStorage.setItem('forge_total_cuts', totalCuts);
+                    localStorage.setItem(`cache_clips_${videoId}`, JSON.stringify(data.clips));
                     document.getElementById('total-cuts-counter').innerText = totalCuts;
 
                     renderClips(data.clips, videoId);
@@ -793,20 +865,48 @@
             document.getElementById('preview-dock').style.display = 'none';
         }
 
+        // DOWNLOAD COM BARRA DE PROGRESSO DINÂMICA
         async function baixarCorteDesktop(videoId, start, duration, btnId) {
             const btn = document.getElementById(btnId);
             const originalText = btn.innerHTML;
+            const pBox = document.getElementById('progress-box');
+            const pFill = document.getElementById('progress-fill');
+            const pLabel = document.getElementById('progress-label');
+            const pPercent = document.getElementById('progress-percent');
 
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A preparar (~20s)...`;
-            showToast('A processar o corte de 60s na RapidAPI. Por favor, aguarde cerca de 20s...');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A renderizar (~20s)...`;
+            pBox.style.display = 'block';
+
+            // Simulação de progresso realista
+            let step = 0;
+            const stages = [
+                { p: 20, t: 'Conectando ao cluster RapidAPI...' },
+                { p: 45, t: 'Processando áudio e vídeo...' },
+                { p: 75, t: 'Renderizando corte de 60s...' },
+                { p: 92, t: 'Finalizando codificação MP4...' }
+            ];
+
+            const interval = setInterval(() => {
+                if (step < stages.length) {
+                    pFill.style.width = stages[step].p + '%';
+                    pPercent.innerText = stages[step].p + '%';
+                    pLabel.innerText = stages[step].t;
+                    step++;
+                }
+            }, 3800);
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/download-rapid?videoId=${videoId}&start=${start}&duration=${duration}`);
                 const data = await res.json();
+                clearInterval(interval);
 
                 if (data.success && data.downloadUrl) {
+                    pFill.style.width = '100%';
+                    pPercent.innerText = '100%';
+                    pLabel.innerText = 'Corte pronto! Iniciando download...';
                     showToast('Corte concluído! A iniciar download...', 'success');
+
                     const a = document.createElement('a');
                     a.href = data.downloadUrl;
                     a.setAttribute('download', `Clip_${videoId}_${start}s.mp4`);
@@ -814,13 +914,15 @@
                     a.click();
                     a.remove();
                 } else {
-                    showToast(data.error || 'A renderizar nos servidores da API. Tente em instantes.', 'error');
+                    showToast(data.error || 'A renderizar nos servidores. Tente de novo em instantes.', 'error');
                 }
             } catch (err) {
+                clearInterval(interval);
                 showToast('Erro ao contactar o servidor.', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+                setTimeout(() => { pBox.style.display = 'none'; pFill.style.width = '0%'; }, 3000);
             }
         }
 
