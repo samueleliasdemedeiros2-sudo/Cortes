@@ -374,7 +374,8 @@
       });
     }
 
-    function baixarComPontos(start, duration, btn) {
+    // DOWNLOAD DIRETO EM SEGUNDO PLANO VIA BLOB
+    async function baixarComPontos(start, duration, btn) {
       if (!usuario.isVip) {
         if (usuario.pontos < 50) {
           mostrarToast('Pontos Insuficientes', 'Seus pontos acabaram! Torne-se VIP para downloads infinitos.', 'aviso');
@@ -385,16 +386,45 @@
         atualizarInterfacePontos();
       }
 
-      btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Baixando corte fluido...</span>`;
+      const textoOriginal = btn.innerHTML;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>A transferir...</span>`;
       btn.classList.add('pointer-events-none', 'opacity-70');
 
-      window.location.href = `${BACKEND_URL}/api/download?id=${videoAtualId}&start=${start}&duration=${duration}`;
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/download?id=${videoAtualId}&start=${start}&duration=${duration}`);
+        
+        if (!response.ok) {
+          throw new Error('Servidores temporariamente ocupados.');
+        }
 
-      setTimeout(() => {
-        btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>Pronto!</span>`;
-        btn.classList.remove('pointer-events-none', 'opacity-70');
-        setTimeout(() => renderizarCards(videoAtualId), 2000);
-      }, 3500);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `corte_${videoAtualId}_${start}s.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>Concluído!</span>`;
+        mostrarToast('Download Concluído', 'O seu corte foi descarregado com sucesso.');
+
+      } catch (error) {
+        console.error(error);
+        mostrarToast('Servidores Ocupados', 'O fluxo demorou a responder. Tente novamente em 20 segundos.', 'aviso');
+        
+        if (!usuario.isVip) {
+          usuario.pontos += 50;
+          atualizarInterfacePontos();
+        }
+      } finally {
+        setTimeout(() => {
+          btn.innerHTML = textoOriginal;
+          btn.classList.remove('pointer-events-none', 'opacity-70');
+        }, 3000);
+      }
     }
 
     function abrirPlanosModal() { document.getElementById('modalPlanos').classList.remove('hidden'); }
