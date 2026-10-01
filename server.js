@@ -50,7 +50,7 @@ app.get('/', (req, res) => {
   res.json({
     status: 'online',
     sistema: 'ClipForge Core OS',
-    versao: '2.6.0-PRO',
+    versao: '2.8.0-STABLE',
     ambiente: process.env.NODE_ENV || 'production'
   });
 });
@@ -182,30 +182,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 async function extrairStreamDireto(videoId) {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 1. Cobalt Engine (API de Alta Fidelidade)
-  const cobaltNodes = [
-    'https://api.cobalt.tools/api/json',
-    'https://cobalt.api.kwiatekm.tokyo/api/json'
-  ];
-
-  for (const node of cobaltNodes) {
-    try {
-      const resp = await axios.post(node, {
-        url: videoUrl,
-        vQuality: '360',
-        filenamePattern: 'basic'
-      }, {
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        timeout: 8000
-      });
-
-      if (resp.data && resp.data.url) {
-        return resp.data.url;
-      }
-    } catch (e) {}
-  }
-
-  // 2. RapidAPI Downloader Hub
+  // 1. RapidAPI Hub (Primary)
   try {
     const rapidResp = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
       params: { id: videoId },
@@ -219,22 +196,52 @@ async function extrairStreamDireto(videoId) {
     const rData = rapidResp.data;
     if (rData?.url && !rData.url.includes('ytimg.com')) return rData.url;
     if (Array.isArray(rData?.formats)) {
-      const formato = rData.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false);
-      if (formato) return formato.url;
+      const formato = rData.formats.find(f => f.url && !f.url.includes('ytimg.com') && f.hasAudio !== false)
+                   || rData.formats.find(f => f.url && !f.url.includes('ytimg.com'));
+      if (formato?.url) return formato.url;
     }
   } catch (e) {}
 
-  // 3. Rede Piped / Invidious CDN
+  // 2. Instâncias Cobalt (Nova especificação da API Cobalt v10)
+  const cobaltNodes = [
+    'https://api.cobalt.tools',
+    'https://cobalt-api.kwiatekm.tokyo',
+    'https://api.server.cobalt.tools'
+  ];
+
+  for (const node of cobaltNodes) {
+    try {
+      const resp = await axios.post(node, {
+        url: videoUrl,
+        videoQuality: '360',
+        downloadMode: 'auto'
+      }, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        timeout: 8000
+      });
+
+      if (resp.data && resp.data.url) {
+        return resp.data.url;
+      }
+    } catch (e) {}
+  }
+
+  // 3. Rede Piped / Invidious CDN Direta
   const cdnInstances = [
     'https://pipedapi.kavin.rocks',
-    'https://api.piped.privacydev.net'
+    'https://api.piped.privacydev.net',
+    'https://inv.nadeko.net'
   ];
 
   for (const cdn of cdnInstances) {
     try {
       const resp = await axios.get(`${cdn}/streams/${videoId}`, { timeout: 7000 });
       const streams = resp.data?.videoStreams || [];
-      const progressivo = streams.find(s => s.videoOnly === false && s.format === 'MPEG_4');
+      const progressivo = streams.find(s => s.videoOnly === false && s.format === 'MPEG_4')
+                       || streams.find(s => s.videoOnly === false);
       if (progressivo?.url) return progressivo.url;
     } catch (e) {}
   }
@@ -257,11 +264,31 @@ app.get('/api/download', async (req, res) => {
     const streamUrl = await extrairStreamDireto(videoId);
 
     if (!streamUrl) {
-      // Redirecionamento de segurança direto para serviço de entrega sem tela de erro
-      return res.redirect(`https://yt5s.biz/pt/download?url=https://www.youtube.com/watch?v=${videoId}`);
+      // Em vez de redirecionar para um site terceiro com erro 404, exibe uma mensagem nativa da aplicação
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(503).send(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Processando Corte</title>
+        </head>
+        <body style="background:#020617;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box;">
+          <div style="background:#0f172a;border:1px solid #1e293b;border-radius:24px;padding:32px 24px;text-align:center;max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+            <div style="width:48px;height:48px;background:rgba(168,85,247,0.15);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#c084fc;font-size:20px;">
+              ⏳
+            </div>
+            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#ffffff;">Corte em Processamento</h2>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 24px;">O YouTube está a processar os dados deste fluxo de áudio e vídeo. Tente descarregar novamente dentro de 30 segundos.</p>
+            <a href="javascript:history.back()" style="display:inline-block;width:100%;background:linear-gradient(135deg,#9333ea,#6366f1);color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 0;border-radius:14px;box-sizing:border-box;">Voltar à Aplicação</a>
+          </div>
+        </body>
+        </html>
+      `);
     }
 
-    // Instanciação da stream direta
+    // Instanciação da stream direta sem intervenção de páginas externas
     const responseStream = await axios({
       method: 'GET',
       url: streamUrl,
@@ -272,7 +299,6 @@ app.get('/api/download', async (req, res) => {
       timeout: 45000
     });
 
-    // Sanitização rigorosa dos cabeçalhos de resposta
     const sanitizedId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
     const filename = `corte_${sanitizedId}_${start}s.mp4`;
 
@@ -283,10 +309,8 @@ app.get('/api/download', async (req, res) => {
       res.setHeader('Content-Length', responseStream.headers['content-length']);
     }
 
-    // Contabilização
     metricas.totalDownloads += 1;
 
-    // Gestão de encerramento prematuro de ligação pelo cliente
     req.on('close', () => {
       if (responseStream.data && typeof responseStream.data.destroy === 'function') {
         responseStream.data.destroy();
@@ -298,7 +322,7 @@ app.get('/api/download', async (req, res) => {
   } catch (error) {
     console.error('[Download] Falha no transporte da stream:', error.message);
     if (!res.headersSent) {
-      return res.redirect(`https://yt5s.biz/pt/download?url=https://www.youtube.com/watch?v=${videoId}`);
+      res.status(500).send('Erro temporário no servidor de streaming. Tente novamente em instantes.');
     }
   }
 });
@@ -308,5 +332,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v2.6.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v2.8.0]`);
 });
