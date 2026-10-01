@@ -4,7 +4,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { v4 as uuidv4 } from "uuid";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const exec = promisify(execFile);
 const app = express();
@@ -19,10 +23,18 @@ await fs.mkdir(JOB_DIR, { recursive: true });
 
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "1mb" }));
+app.use(express.static(__dirname));
 app.use("/files", express.static(JOB_DIR));
 
-app.get("/", (_req, res) => {
-  res.send("🚀 VIDEOAUTO.YT / ClipForge está online!");
+// Rota raiz: serve o index.html da pasta ou devolve o aviso de status caso não exista
+app.get("/", async (_req, res) => {
+  const indexPath = path.join(__dirname, "index.html");
+  try {
+    await fs.access(indexPath);
+    return res.sendFile(indexPath);
+  } catch {
+    return res.send("🚀 VIDEOAUTO.YT / ClipForge está online!");
+  }
 });
 
 app.get("/ping", (_req, res) => {
@@ -33,7 +45,7 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     service: "clipforge-server",
-    version: "2.0.1",
+    version: "2.0.2",
     geminiConfigured: Boolean(GEMINI_API_KEY)
   });
 });
@@ -150,20 +162,19 @@ Duração: ${info.duration || 0} segundos
 Categorias: ${(info.categories || []).join(", ")}
 `;
 
-  const response = await fetch(
-    `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json"
-        }
-      })
-    }
-  );
+  const apiUrl = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    })
+  });
 
   if (!response.ok) {
     const body = await response.text();
@@ -336,7 +347,6 @@ app.post("/api/render", async (req, res) => {
 
 app.post("/api/clip", async (req, res) => {
   const { url, start = 0, duration = 60, format = "9:16" } = req.body || {};
-  const end = Number(start || 0) + Number(duration || 60);
 
   if (!validYouTube(url)) {
     return res.status(400).json({ error: "URL do YouTube inválida." });
