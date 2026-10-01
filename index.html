@@ -148,8 +148,8 @@
   <script>
     lucide.createIcons();
 
-    // !!! ATENÇÃO: Substitua pelo endereço real do seu servidor no Render (sem barra no final)
-    const BACKEND_URL = 'https://seu-servico-no-render.onrender.com';
+    // Endereço do backend configurado corretamente sem quebra de linha
+    const BACKEND_URL = 'https://cortesdomnr-git-main-equipe-ceu.vercel.app';
 
     const form = document.getElementById('cut-form');
     const urlInput = document.getElementById('youtube-url');
@@ -240,7 +240,7 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Função que inicia o descarregamento pelo backend sem passar pelo domínio danificado
+    // Inicia a transferência pelo backend sem passar pelo domínio quebrado
     function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
@@ -249,7 +249,6 @@
         lucide.createIcons();
       }
 
-      // Redireciona a janela para a rota de download do seu servidor Render
       window.location.href = `${BACKEND_URL}/api/download?id=${videoId}`;
 
       setTimeout(() => {
