@@ -3,10 +3,7 @@ import cors from "cors";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 
-const exec = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,6 +11,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad";
+const RAPIDAPI_HOST = "youtube-video-fast-downloader-24-7.p.rapidapi.com";
 
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "2mb" }));
@@ -44,7 +44,7 @@ async function gerarCortesComIA(videoId, quantity, duration) {
 És um editor profissional de vídeos virais.
 Analisa o vídeo do YouTube com ID: "${videoId}" (https://www.youtube.com/watch?v=${videoId}).
 Gera exatamente ${quantity} cortes virais de cerca de ${duration} segundos cada.
-Retorna APENAS JSON puro no formato:
+Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
 [
   {
     "title": "Gancho viral do corte",
@@ -96,30 +96,50 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Transferência direta do ficheiro MP4 via stream nativo
-app.get("/api/download", async (req, res) => {
+// Download via RapidAPI dedicado
+app.get("/api/download-rapid", async (req, res) => {
   const { videoId } = req.query;
-  if (!videoId) return res.status(400).send("ID ausente.");
+  if (!videoId) return res.status(400).json({ error: "videoId ausente" });
 
   try {
-    // Obtém o URL direto do ficheiro sem transferir para o servidor
-    const { stdout } = await exec("yt-dlp", [
-      "--no-playlist",
-      "--no-warnings",
-      "--extractor-args", "youtube:player_client=android",
-      "-f", "best[ext=mp4]/best",
-      "-g",
-      `https://www.youtube.com/watch?v=${videoId}`
-    ]);
+    const apiUrl = `https://${RAPIDAPI_HOST}/${encodeURIComponent(videoId)}`;
+    const apiRes = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "Accept": "application/json"
+      }
+    });
 
-    const directStreamUrl = stdout.trim().split("\n")[0];
-    if (!directStreamUrl) throw new Error("Stream indisponível.");
+    const data = await apiRes.json();
 
-    // Redireciona o telemóvel diretamente para descarregar o ficheiro original em MP4
-    return res.redirect(directStreamUrl);
+    // Extrai o link direto para download do MP4 a partir da resposta da API
+    let downloadLink = null;
+    if (typeof data === "string" && data.startsWith("http")) {
+      downloadLink = data;
+    } else if (data.link) {
+      downloadLink = data.link;
+    } else if (data.url) {
+      downloadLink = data.url;
+    } else if (data.downloadUrl) {
+      downloadLink = data.downloadUrl;
+    } else if (Array.isArray(data.formats)) {
+      const mp4Format = data.formats.find(f => f.ext === "mp4" || f.quality || f.url);
+      downloadLink = mp4Format ? (mp4Format.url || mp4Format.link) : null;
+    } else if (data.data && (data.data.url || data.data.link)) {
+      downloadLink = data.data.url || data.data.link;
+    }
+
+    if (downloadLink) {
+      return res.redirect(downloadLink);
+    } else {
+      console.error("Resposta da API sem link de download direto:", data);
+      return res.status(500).send("Não foi possível extrair o link direto do vídeo.");
+    }
   } catch (err) {
-    // Fallback: serviço de entrega direta de ficheiros de vídeo
-    return res.redirect(`https://y2mate.is/en/download?url=https://www.youtube.com/watch?v=${videoId}`);
+    console.error("Erro na chamada à RapidAPI:", err.message);
+    return res.status(500).send("Erro ao processar o download via API.");
   }
 });
 
