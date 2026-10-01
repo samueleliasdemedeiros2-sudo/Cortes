@@ -144,6 +144,9 @@
     const videoPreviewContainer = document.getElementById('video-preview-container');
     const youtubePlayer = document.getElementById('youtube-player');
 
+    // Endereço do seu backend ativo no Render
+    const BACKEND_RENDER_URL = "https://clipforge-server-ikai.onrender.com";
+
     function extractYouTubeId(url) {
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#&?]*).*/;
       const match = url.match(regExp);
@@ -199,45 +202,32 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Função de download direto consumindo a chave "url" retornada
-    async function baixarCorte(videoId, index) {
+    // Função de download que chama o servidor para cortar o clipe real
+    async function baixarCorte(videoId, index, startSeconds = 0) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>A extrair...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>A cortar...</span>`;
         btn.classList.add('opacity-75', 'pointer-events-none');
         lucide.createIcons();
       }
 
-      const urlApi = `https://cloud-api-hub-youtube-downloader.p.rapidapi.com/download?quality=highest&filter=audioandvideo&id=${videoId}`;
-      const opcoes = {
-        method: "GET",
-        headers: {
-          "x-rapidapi-host": "cloud-api-hub-youtube-downloader.p.rapidapi.com",
-          "x-rapidapi-key": "c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad"
-        }
-      };
-
       try {
-        const resposta = await fetch(urlApi, opcoes);
-        const dados = await resposta.json();
-
-        // O link direto fornecido na chave "url"
-        const linkDownload = dados.url || dados.download_url || (dados.data && dados.data.url);
-
-        if (linkDownload) {
-          window.location.href = linkDownload;
-        } else {
-          showStatus("Não foi possível gerar o link de download direto.", "error");
-        }
+        // 1ª Tentativa: Enviar para o seu backend no Render fazer o corte com yt-dlp
+        const urlServidor = `${BACKEND_RENDER_URL}/api/download?id=${videoId}&start=${startSeconds}&duration=30`;
+        
+        // Abre o download do servidor
+        window.location.href = urlServidor;
       } catch (erro) {
-        console.error("Erro na API:", erro);
-        showStatus("Erro ao comunicar com o servidor de download.", "error");
+        console.error("Erro ao chamar servidor:", erro);
+        showStatus("Erro ao processar corte no servidor.", "error");
       } finally {
-        if (btn) {
-          btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Baixar Corte</span>`;
-          btn.classList.remove('opacity-75', 'pointer-events-none');
-          lucide.createIcons();
-        }
+        setTimeout(() => {
+          if (btn) {
+            btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Baixar Corte</span>`;
+            btn.classList.remove('opacity-75', 'pointer-events-none');
+            lucide.createIcons();
+          }
+        }, 4000);
       }
     }
 
@@ -272,7 +262,7 @@
               <i data-lucide="play" class="w-4 h-4"></i>
               <span>Pré-visualizar</span>
             </button>
-            <button id="btn-dl-${index}" onclick="baixarCorte('${videoId}', ${index})" class="w-full sm:flex-1 py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium flex items-center justify-center space-x-2 transition-all shadow-md shadow-purple-900/20 active:scale-95">
+            <button id="btn-dl-${index}" onclick="baixarCorte('${videoId}', ${index}, ${cut.startSeconds || 0})" class="w-full sm:flex-1 py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium flex items-center justify-center space-x-2 transition-all shadow-md shadow-purple-900/20 active:scale-95">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span>Baixar Corte</span>
             </button>
