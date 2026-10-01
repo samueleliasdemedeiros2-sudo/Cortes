@@ -45,7 +45,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.3.0-SYNC-AUDIO-LIGHT' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.4.0-STREAM-FAST' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -149,7 +149,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR RAPIDAPI (OBTÉM O LINK COM ÁUDIO + VÍDEO)
+// MOTOR RAPIDAPI
 // ----------------------------------------------------
 async function extrairStreamOficial(videoId) {
   try {
@@ -163,7 +163,7 @@ async function extrairStreamOficial(videoId) {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 25000
+      timeout: 20000
     });
 
     const data = response.data;
@@ -184,7 +184,6 @@ async function extrairStreamOficial(videoId) {
     if (data?.format_id && data?.url) {
       return data.url;
     }
-
   } catch (error) {
     console.error('[RapidAPI Error]:', error.message);
   }
@@ -193,7 +192,7 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// DOWNLOAD COMPACTO COM SOM NÍTIDO E SEM TRAVAR (~6 MB A 10 MB)
+// DOWNLOAD DIRETO, INSTANTÂNEO E COM ÁUDIO SINCRONIZADO
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -215,25 +214,18 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // Configuração do FFmpeg:
-    // -ss no input: busca rápida do keyframe
-    // -map 0:v:0? -map 0:a:0?: obriga a trazer o vídeo e o áudio
-    // -c:a aac -b:a 128k -ar 44100: som estéreo limpo e alto
-    // -c:v libx264 -preset ultrafast -crf 29: reduz o tamanho para ~6MB a 10MB sem travar
+    // Execução instantânea:
+    // 1. -ss antes do -i: seek imediato sem processamento desnecessário
+    // 2. -map 0:v:0? -map 0:a:0?: puxa os canais de áudio e vídeo
+    // 3. -c copy: preserva o áudio e imagem originais sem consumir CPU do Render
+    // 4. -movflags: garante que o cabeçalho seja transmitido em stream para o telemóvel
     const ffmpeg = spawn('ffmpeg', [
       '-ss', String(start),
       '-i', directStreamUrl,
       '-t', String(duration),
       '-map', '0:v:0?',
       '-map', '0:a:0?',
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-crf', '29',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-ac', '2',
-      '-ar', '44100',
+      '-c', 'copy',
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       '-f', 'mp4',
       'pipe:1'
@@ -262,9 +254,9 @@ app.get('/api/download', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// ARRANQUE DO SERVIDOR
+// INICIALIZAÇÃO
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.3.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.4.0]`);
 });
