@@ -1,17 +1,17 @@
-// Rota de download leve (força formatos compactados de 2MB a 20MB)
+// Rota que recorta ESTRITAMENTE o pedaço do corte gerado pela IA
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
+  const start = parseInt(req.query.start || 0, 10);      // Segundo inicial do corte
+  const duration = parseInt(req.query.duration || 60, 10); // Duração (ex: 60s)
 
   if (!videoId) {
     return res.status(400).json({ error: 'O parâmetro id do vídeo é obrigatório.' });
   }
 
   try {
+    // 1. Obtém o link da mídia direta
     const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { 
-        id: videoId,
-        quality: 'lowest'
-      },
+      params: { id: videoId, quality: 'lowest' },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
@@ -20,38 +20,46 @@ app.get('/api/download', async (req, res) => {
     });
 
     const data = response.data;
-    let fileUrl = null;
+    let fileUrl = data?.url || data?.download_url;
 
-    // 1. Procura primeiro na lista de formatos pelo arquivo leve (360p / 240p com áudio)
-    if (Array.isArray(data?.formats) && data.formats.length > 0) {
-      // Pega o formato leve (ex: 360p que gera aquele arquivo de ~3MB)
-      const formatoLeve = data.formats.find(f => 
-        f.url && 
-        !f.url.includes('ytimg.com') && 
-        (f.qualityLabel === '360p' || f.quality === 'medium' || f.hasAudio === true)
-      );
-
-      fileUrl = formatoLeve ? formatoLeve.url : data.formats[0].url;
+    if (!fileUrl && Array.isArray(data?.formats)) {
+      const formatoValido = data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
+      fileUrl = formatoValido?.url;
     }
 
-    // 2. Se não estiver na lista de formatos, pega o link direto leve
     if (!fileUrl) {
-      fileUrl = data?.download_url || data?.url;
+      return res.status(500).json({ error: 'Link de mídia não disponível.' });
     }
 
-    // Garante que não é miniatura/imagem
-    if (!fileUrl || fileUrl.includes('ytimg.com')) {
-      return res.status(500).json({ error: 'Formato de vídeo leve não encontrado.' });
-    }
+    // Define nome e headers de download para o telemóvel
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}_${start}s.mp4"`);
+    res.setHeader('Content-Type', 'video/mp4');
 
-    // 3. Redireciona diretamente para o download do arquivo leve
-    return res.redirect(fileUrl);
+    // 2. O FFmpeg salta direto para o ponto do corte e extrai só os segundos solicitados!
+    // Usando cópia direta (-c copy), o processo é instantâneo e gera um arquivo minúsculo (< 15 MB)
+    ffmpeg(fileUrl)
+      .inputOptions([
+        `-ss ${start}` // Pula direto para o início do corte
+      ])
+      .duration(duration)
+      .outputOptions([
+        '-c copy', // Cópia direta de vídeo e áudio: gasta zero de RAM no Render
+        '-movflags frag_keyframe+empty_moov'
+      ])
+      .format('mp4')
+      .on('error', (err) => {
+        console.error('Erro FFmpeg ao cortar:', err.message);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Erro ao extrair o corte.' });
+        }
+      })
+      .pipe(res, { end: true });
 
   } catch (error) {
-    console.error('Erro ao baixar vídeo leve:', error.message);
+    console.error('Erro no processamento do corte:', error.message);
     if (!res.headersSent) {
       res.status(500).json({
-        error: 'Não foi possível descarregar o arquivo leve.',
+        error: 'Falha ao descarregar corte.',
         details: error.response?.data || error.message
       });
     }
