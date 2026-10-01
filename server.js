@@ -11,7 +11,7 @@ try {
 
 const app = express();
 
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: '*', exposedHeaders: ['Content-Disposition', 'Content-Length'] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -43,7 +43,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '3.2.0-DIRECT-STREAM' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '3.3.0-NATIVE-BLOB' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -147,12 +147,12 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR DE EXTRAÇÃO DIRETA (BUSCA O LINK MP4 REAL)
+// MOTOR DE RESOLUÇÃO DE STREAM DIRETO
 // ----------------------------------------------------
 async function resolverUrlDiretaVideo(videoId) {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 1. Cobalt API (v10 protocol)
+  // 1. Cobalt API Protocol v10
   const cobaltEndpoints = [
     'https://api.cobalt.tools',
     'https://cobalt-api.kwiatekm.tokyo',
@@ -199,7 +199,7 @@ async function resolverUrlDiretaVideo(videoId) {
     }
   } catch (e) {}
 
-  // 3. Invidious Open Video Stream CDNs
+  // 3. CDNs Abertas Piped / Invidious
   const invidiousInstances = [
     `https://inv.nadeko.net/api/v1/videos/${videoId}`,
     `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
@@ -219,34 +219,25 @@ async function resolverUrlDiretaVideo(videoId) {
 }
 
 // ----------------------------------------------------
-// DOWNLOAD DIRETO (TRANSMISSÃO BINÁRIA SEM REDIRECIONAMENTOS)
+// DOWNLOAD DIRETO (RETORNO LIMPO DE BINÁRIO PARA O BLOB)
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
 
   if (!videoId || videoId.length < 5) {
-    return res.status(400).send('ID do vídeo inválido.');
+    return res.status(400).json({ error: 'ID do vídeo inválido.' });
   }
 
   try {
     const directStreamUrl = await resolverUrlDiretaVideo(videoId);
 
+    // Se nenhum motor responder, retorna 503 JSON (sem abrir páginas pretas estranhas)
     if (!directStreamUrl) {
-      // Retorna uma resposta limpa sem redirecionar para sites de terceiros
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.status(503).send(`
-        <body style="background:#020617;color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-          <div style="background:#0f172a;border:1px solid #1e293b;border-radius:20px;padding:28px;text-align:center;max-width:360px;">
-            <h3 style="color:#c084fc;margin:0 0 10px 0;">Servidores Ocupados</h3>
-            <p style="font-size:13px;color:#94a3b8;line-height:1.5;">Não foi possível obter o fluxo de vídeo no momento. Tente novamente em 20 segundos.</p>
-            <a href="javascript:history.back()" style="display:inline-block;margin-top:14px;background:#9333ea;color:#fff;padding:10px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:13px;">Voltar</a>
-          </div>
-        </body>
-      `);
+      return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
     }
 
-    // Faz o streaming direto do binário MP4 para o cliente
+    // Faz o streaming direto do binário MP4 para a resposta HTTP
     const responseStream = await axios({
       method: 'GET',
       url: directStreamUrl,
@@ -267,7 +258,7 @@ app.get('/api/download', async (req, res) => {
 
     metricas.totalDownloads += 1;
 
-    // Se o cliente fechar o navegador antes de terminar, encerra a requisição do stream
+    // Encerra stream caso a conexão seja interrompida
     req.on('close', () => {
       if (responseStream.data && typeof responseStream.data.destroy === 'function') {
         responseStream.data.destroy();
@@ -279,15 +270,15 @@ app.get('/api/download', async (req, res) => {
   } catch (error) {
     console.error('[Download] Erro na transmissão do arquivo:', error.message);
     if (!res.headersSent) {
-      res.status(500).send('Erro temporário ao transferir o arquivo. Tente novamente.');
+      res.status(500).json({ error: 'Erro temporário ao transferir o arquivo.' });
     }
   }
 });
 
 // ----------------------------------------------------
-// ARRANQUE
+// ARRANQUE DO SERVIDOR
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor em operação na porta ${PORT} [v3.2.0]`);
+  console.log(`[ClipForge Core] Servidor em operação na porta ${PORT} [v3.3.0]`);
 });
