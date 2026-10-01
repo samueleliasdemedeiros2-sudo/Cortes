@@ -45,7 +45,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.5.0-LIGHT-SMOOTH' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.6.0-LIGHT-FAST' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -192,7 +192,7 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// CORTE SUPER LEVE (4-8 MB), ULTRA-FLUIDO E COM SOM
+// DOWNLOAD FLUIDO, LEVE (5MB-8MB) E COM SOM SINCRONIZADO
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -214,11 +214,11 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // 1. -ss antes de -i: pula instantaneamente para o ponto do corte
-    // 2. vf scale=-2:480: padroniza a resolução em 480p vertical/horizontal leve
-    // 3. preset ultrafast + tune fastdecode: renderiza instantâneo sem congelar
-    // 4. c:a aac -b:a 96k -async 1: áudio estéreo nítido e cravado no vídeo
-    // 5. Tamanho final: ~4 MB a 7 MB para 55 segundos
+    // 1. -ss antes do -i: seek imediato na URL
+    // 2. -vf scale=-2:480: otimiza o peso para ~5MB a 8MB
+    // 3. -preset ultrafast -tune fastdecode: início instantâneo sem congelamentos
+    // 4. -g 30: reconstrói os keyframes para o player rodar sem travar
+    // 5. -c:a aac -b:a 96k: áudio limpo, estéreo e perfeitamente sincronizado
     const ffmpeg = spawn('ffmpeg', [
       '-ss', String(start),
       '-i', directStreamUrl,
@@ -234,7 +234,6 @@ app.get('/api/download', async (req, res) => {
       '-b:a', '96k',
       '-ac', '2',
       '-ar', '44100',
-      '-af', 'aresample=async=1000',
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       '-f', 'mp4',
       'pipe:1'
@@ -267,5 +266,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.5.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.6.0]`);
 });
