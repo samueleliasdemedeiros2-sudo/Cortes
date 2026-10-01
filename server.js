@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
-const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
+const RAPIDAPI_HOST = 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 
 // Rota para processar e descarregar o vídeo/corte
 app.get('/api/download', async (req, res) => {
@@ -18,24 +18,38 @@ app.get('/api/download', async (req, res) => {
   }
 
   try {
-    // 1. Consulta a RapidAPI para obter o link direto de descarregamento
+    // 1. Consulta a Cloud API Hub configurada com áudio e vídeo juntos
     const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { id: videoId },
+      params: {
+        id: videoId,
+        quality: 'highest',
+        filter: 'audioandvideo'
+      },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 15000
+      timeout: 30000
     });
 
-    const fileUrl = response.data?.url || response.data?.link || response.data?.downloadUrl;
+    const data = response.data;
+
+    // 2. Extrai o link direto ignorando miniaturas/storyboard (ytimg.com)
+    let fileUrl = null;
+    if (data?.url && !data.url.includes('ytimg.com')) {
+      fileUrl = data.url;
+    } else if (data?.download_url && !data.download_url.includes('ytimg.com')) {
+      fileUrl = data.download_url;
+    } else if (Array.isArray(data?.formats)) {
+      const formatoCompleto = data.formats.find(f => f.hasAudio && f.hasVideo && !f.url?.includes('ytimg.com')) || data.formats[0];
+      fileUrl = formatoCompleto?.url;
+    }
 
     if (!fileUrl) {
       return res.status(500).json({ error: 'A API não forneceu um link válido para o vídeo.' });
     }
 
-    // 2. Faz o stream do ficheiro diretamente para o dispositivo do utilizador
-    // Isto contorna o bloqueio de conexão fechada (ERR_CONNECTION_CLOSED) no telemóvel
+    // 3. Faz o stream do arquivo direto para o usuário (força download do mp4 no celular)
     const streamResponse = await axios({
       method: 'GET',
       url: fileUrl,
@@ -48,7 +62,6 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // Conecta o fluxo recebido diretamente à resposta enviada ao utilizador
     streamResponse.data.pipe(res);
 
   } catch (error) {
