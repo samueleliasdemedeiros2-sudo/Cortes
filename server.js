@@ -6,19 +6,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
-const RAPIDAPI_HOST = 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
+// Variáveis de ambiente ou valores padrão de fallback
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 
-// Rotas de verificação para o cron-job
+// 1. Rotas de Health Check (mantêm o Render acordado 24/7 com o cron-job.org)
 app.get('/', (req, res) => {
-  res.status(200).json({ status: 'online', message: 'Servidor ativo' });
+  res.status(200).json({ 
+    status: 'online', 
+    version: '1.0.1', 
+    message: 'Servidor ClipForge ativo e pronto' 
+  });
 });
 
 app.get('/api/status', (req, res) => {
-  res.status(200).json({ status: 'online' });
+  res.status(200).json({ 
+    status: 'online', 
+    version: '1.0.1' 
+  });
 });
 
-// Download do corte com tamanho controlado (< 25 MB)
+// 2. Rota de download otimizada (corte leve < 20 MB)
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
@@ -29,9 +37,12 @@ app.get('/api/download', async (req, res) => {
   }
 
   try {
-    // 1. Obtém os links da API
+    // Consulta a API buscando o formato mais leve
     const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { id: videoId, quality: 'lowest' },
+      params: { 
+        id: videoId, 
+        quality: 'lowest' 
+      },
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
@@ -42,8 +53,13 @@ app.get('/api/download', async (req, res) => {
     const data = response.data;
     let fileUrl = null;
 
+    // Prioriza formatos leves em vídeo + áudio (360p mobile)
     if (Array.isArray(data?.formats) && data.formats.length > 0) {
-      const formatoLeve = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.qualityLabel === '360p' || f.hasAudio));
+      const formatoLeve = data.formats.find(f => 
+        f.url && 
+        !f.url.includes('ytimg.com') && 
+        (f.qualityLabel === '360p' || f.hasAudio)
+      );
       fileUrl = formatoLeve ? formatoLeve.url : data.formats[0].url;
     }
 
@@ -52,33 +68,33 @@ app.get('/api/download', async (req, res) => {
     }
 
     if (!fileUrl || fileUrl.includes('ytimg.com')) {
-      return res.status(500).json({ error: 'Link de vídeo não encontrado.' });
+      return res.status(500).json({ error: 'Link de mídia não disponível.' });
     }
 
-    // 2. Stream limitado por tamanho: corta a transmissão em ~18 MB
-    // Isso garante que o arquivo baixe em 2 segundos e fique com menos de 20 MB no celular!
-    const MAX_BYTES = 18 * 1024 * 1024; // 18 Megabytes max
+    // Limita o corte em ~18 MB (baixa em segundos no 4G/Wi-Fi sem travar o Render)
+    const MAX_BYTES = 18 * 1024 * 1024;
 
     const streamResponse = await axios({
       method: 'GET',
       url: fileUrl,
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Range': `bytes=0-${MAX_BYTES}`
       }
     });
 
-    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}.mp4"`);
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
+    // Conecta a transmissão direto ao cliente
     streamResponse.data.pipe(res);
 
   } catch (error) {
-    console.error('Erro no download:', error.message);
+    console.error('Erro na rota de download:', error.message);
     if (!res.headersSent) {
       res.status(500).json({
-        error: 'Falha ao processar download.',
+        error: 'Falha ao descarregar corte.',
         details: error.response?.data || error.message
       });
     }
@@ -87,5 +103,5 @@ app.get('/api/download', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor ativo na porta ${PORT}`);
+  console.log(`ClipForge Server v1.0.1 a rodar na porta ${PORT}`);
 });
