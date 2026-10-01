@@ -27,7 +27,7 @@
         </div>
         <div>
           <span class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500">ClipForge Pro</span>
-          <span class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">v2.5</span>
+          <span class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono">v2.6</span>
         </div>
       </div>
 
@@ -120,7 +120,7 @@
           <i class="fa-solid fa-scissors text-purple-400"></i> Melhores Cortes Identificados
         </h2>
         <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap">
-          50 pontos por corte
+          50 pontos por corte (Grátis p/ VIP)
         </span>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="cardsContainer"></div>
@@ -248,15 +248,13 @@
   </div>
 
   <footer class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    <p>ClipForge Pro • v2.5 • Plataforma de Clipes Inteligentes</p>
+    <p>ClipForge Pro • v2.6 • Plataforma de Clipes Inteligentes</p>
   </footer>
 
 <script>
-  // Backend atual do ClipForge
   const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
 
   let videoAtualId = null;
-  let jobAtualId = null;
   let pollingInterval = null;
   let adminTokenSalvo = null;
 
@@ -318,11 +316,9 @@
 
   function extrairVideoId(url) {
     if (!url) return null;
-
     const limpo = url.trim();
     const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = limpo.match(regExp);
-
     return (match && match[1]) ? match[1] : null;
   }
 
@@ -336,14 +332,8 @@
     document.getElementById('erroMensagem').innerText = '';
   }
 
-  function alterarLoading(texto, status = '') {
-    document.getElementById('loadingText').innerText = texto;
-    document.getElementById('jobStatus').innerText = status;
-  }
-
   function setGerando(estado) {
     const btn = document.getElementById('btnGerar');
-
     if (estado) {
       btn.disabled = true;
       btn.classList.add('opacity-70', 'pointer-events-none');
@@ -368,29 +358,17 @@
     esconderErro();
     videoAtualId = id;
 
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
-    }
-
     document.getElementById('cortesArea').classList.add('hidden');
     document.getElementById('cardsContainer').innerHTML = '';
     document.getElementById('loading').classList.remove('hidden');
 
     setGerando(true);
-    alterarLoading('A IA está analisando o vídeo...', 'Enviando vídeo para o servidor...');
 
     try {
       const resposta = await fetch(`${BACKEND_URL}/api/analisar`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          youtubeUrl: url,
-          duration: 60,
-          quantity: 3
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeUrl: url, duration: 60, quantity: 3 })
       });
 
       const data = await resposta.json().catch(() => ({}));
@@ -399,29 +377,11 @@
         throw new Error(data.error || data.message || `Erro do servidor (${resposta.status})`);
       }
 
-      // Alguns backends retornam os cortes imediatamente.
       if (Array.isArray(data.clips)) {
         finalizarGeracao(data.clips);
-        return;
+      } else {
+        throw new Error('O servidor respondeu, mas não retornou os cortes esperados.');
       }
-
-      // Backend assíncrono: recebe um jobId e consultamos o status.
-      const jobId = data.jobId || data.id || data.job?.id;
-
-      if (jobId) {
-        jobAtualId = jobId;
-        alterarLoading('A IA está processando o vídeo...', `ID do processamento: ${jobId}`);
-        iniciarPolling(jobId);
-        return;
-      }
-
-      // Caso o backend retorne os cortes dentro de "data".
-      if (data.data && Array.isArray(data.data.clips)) {
-        finalizarGeracao(data.data.clips);
-        return;
-      }
-
-      throw new Error('O servidor respondeu, mas não retornou cortes nem um ID de processamento.');
 
     } catch (erro) {
       console.error('ClipForge /api/analisar:', erro);
@@ -432,80 +392,6 @@
     }
   }
 
-  function iniciarPolling(jobId) {
-    let tentativas = 0;
-    const maxTentativas = 180;
-
-    if (pollingInterval) clearInterval(pollingInterval);
-
-    pollingInterval = setInterval(async () => {
-      tentativas++;
-
-      if (tentativas >= maxTentativas) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        document.getElementById('loading').classList.add('hidden');
-        setGerando(false);
-        mostrarErro('O processamento demorou mais que o esperado. Tente novamente.');
-        return;
-      }
-
-      try {
-        const resposta = await fetch(`${BACKEND_URL}/api/status/${encodeURIComponent(jobId)}`);
-        const data = await resposta.json().catch(() => ({}));
-
-        if (!resposta.ok) {
-          throw new Error(data.error || data.message || `Erro ao consultar status (${resposta.status})`);
-        }
-
-        const status = String(data.status || data.state || data.job?.status || '').toLowerCase();
-        const clips = data.clips || data.result?.clips || data.job?.clips;
-
-        alterarLoading(
-          status.includes('download') ? 'Baixando o vídeo...' :
-          status.includes('ffmpeg') || status.includes('render') ? 'Gerando os cortes...' :
-          status.includes('analys') || status.includes('analis') ? 'A IA está analisando os melhores momentos...' :
-          'Processando o vídeo...',
-          status ? `Status: ${status}` : 'Aguarde...'
-        );
-
-        if (Array.isArray(clips) && clips.length > 0) {
-          finalizarGeracao(clips);
-          clearInterval(pollingInterval);
-          pollingInterval = null;
-          return;
-        }
-
-        if (['done', 'completed', 'complete', 'finished', 'success'].includes(status)) {
-          clearInterval(pollingInterval);
-          pollingInterval = null;
-
-          if (Array.isArray(clips)) {
-            finalizarGeracao(clips);
-          } else {
-            throw new Error('O processamento terminou, mas nenhum corte foi retornado.');
-          }
-          return;
-        }
-
-        if (['failed', 'error', 'erro'].includes(status)) {
-          clearInterval(pollingInterval);
-          pollingInterval = null;
-          throw new Error(data.error || data.message || 'O servidor informou que o processamento falhou.');
-        }
-
-      } catch (erro) {
-        console.error('ClipForge status:', erro);
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        document.getElementById('loading').classList.add('hidden');
-        setGerando(false);
-        mostrarErro(erro.message);
-        mostrarToast('Erro no processamento', erro.message, 'erro');
-      }
-    }, 2500);
-  }
-
   function finalizarGeracao(clips) {
     document.getElementById('loading').classList.add('hidden');
     setGerando(false);
@@ -514,69 +400,39 @@
 
     if (!normalizados.length) {
       mostrarErro('A IA não encontrou cortes disponíveis neste vídeo.');
-      mostrarToast('Nenhum corte', 'Não foram encontrados cortes para este vídeo.', 'aviso');
       return;
     }
 
     renderizarCards(normalizados);
     document.getElementById('cortesArea').classList.remove('hidden');
-
-    document.getElementById('cortesArea').scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-
-    mostrarToast('Cortes prontos!', `${normalizados.length} cortes foram encontrados pela IA.`);
+    document.getElementById('cortesArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    mostrarToast('Cortes Prontos!', `${normalizados.length} cortes virais identificados.`);
   }
 
   function normalizarClips(clips) {
     return clips.map((clip, index) => {
-      const start =
-        clip.start ??
-        clip.inicio ??
-        clip.startSec ??
-        clip.startSeconds ??
-        clip.start_time ??
-        0;
-
-      const duration =
-        clip.duration ??
-        clip.duracao ??
-        ((clip.end ?? clip.fim ?? 0) - Number(start)) ??
-        60;
-
-      const end =
-        clip.end ??
-        clip.fim ??
-        clip.endSec ??
-        (Number(start) + Number(duration));
+      const start = clip.start ?? clip.inicio ?? 0;
+      const duration = clip.duration ?? clip.duracao ?? 55;
+      const end = clip.end ?? (Number(start) + Number(duration));
 
       return {
         id: clip.id || index + 1,
         inicio: formatarTempo(start),
         fim: formatarTempo(end),
         startSeg: Number(start) || 0,
-        duration: Number(duration) || 60,
-        duracao: Math.round(Number(duration) || 60),
-        score: clip.score ?? clip.viralScore ?? clip.scoreViral ?? clip.pontuacao ?? null,
-        title: clip.title || clip.titulo || `Corte #${index + 1}`,
-        reason: clip.reason || clip.motivo || clip.description || '',
-        downloadUrl: clip.downloadUrl || clip.download_url || clip.url || clip.fileUrl || null,
-        thumbnail: clip.thumbnail || clip.thumbnailUrl || `https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg`
+        duracao: Math.round(Number(duration) || 55),
+        score: clip.score ?? 95,
+        title: clip.title || `Corte #${index + 1}`,
+        reason: clip.reason || '',
+        thumbnail: clip.thumbnail || `https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg`
       };
     });
   }
 
   function formatarTempo(segundos) {
     const total = Math.max(0, Math.floor(Number(segundos) || 0));
-    const horas = Math.floor(total / 3600);
-    const minutos = Math.floor((total % 3600) / 60);
+    const minutos = Math.floor(total / 60);
     const seg = total % 60;
-
-    if (horas > 0) {
-      return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
-    }
-
     return `${String(minutos).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
   }
 
@@ -595,24 +451,19 @@
 
     cortes.forEach((corte) => {
       const card = document.createElement('div');
-
-      const score = corte.score !== null && corte.score !== undefined && corte.score !== ''
-        ? `${Math.round(Number(corte.score))}${String(corte.score).includes('%') ? '' : '%'}`
-        : 'IA';
-
+      const score = `${Math.round(Number(corte.score))}%`;
       const titulo = escaparHtml(corte.title);
       const motivo = escaparHtml(corte.reason);
       const thumb = escaparHtml(corte.thumbnail);
 
       card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-500/40 transition";
-
       card.innerHTML = `
         <div>
           <div class="flex items-center justify-between text-xs mb-3 gap-2">
             <span class="font-semibold text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-lg border border-purple-500/20 truncate">
               ${titulo}
             </span>
-            <span class="text-emerald-400 font-medium whitespace-nowrap">${escaparHtml(score)} Viral</span>
+            <span class="text-emerald-400 font-medium whitespace-nowrap">${score} Viral</span>
           </div>
 
           <div class="aspect-[9/16] bg-slate-950 rounded-xl overflow-hidden relative mb-4 border border-slate-800 flex items-center justify-center">
@@ -634,7 +485,7 @@
         </div>
 
         <button
-          onclick='baixarCorte(${JSON.stringify(corte).replace(/</g, "\\u003c")}, this)'
+          onclick='baixarCorte(${corte.startSeg}, ${corte.duracao}, this)'
           class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded-xl text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 active:scale-95"
         >
           <i class="fa-solid fa-download"></i>
@@ -646,66 +497,37 @@
     });
   }
 
-  function baixarCorte(corte, btn) {
+  function baixarCorte(start, duration, btn) {
     if (!usuario.isVip) {
       if (usuario.pontos < 50) {
         mostrarToast('Pontos Insuficientes', 'Os seus pontos acabaram! Torne-se VIP para downloads infinitos.', 'aviso');
         abrirPlanosModal();
         return;
       }
-
       usuario.pontos -= 50;
       atualizarInterfacePontos();
     }
 
     const textoOriginal = btn.innerHTML;
-
-    btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Preparando...</span>`;
+    btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i><span>A transferir...</span>`;
     btn.classList.add('pointer-events-none', 'opacity-70');
 
-    let urlDownload = corte.downloadUrl;
+    mostrarToast('Download Iniciado', 'A transferência começará em instantes.');
 
-    // Se o backend já devolveu um arquivo pronto, usamos diretamente.
-    // Caso contrário, usamos a rota de download do servidor.
-    if (!urlDownload) {
-      const params = new URLSearchParams({
-        id: videoAtualId || '',
-        start: String(corte.startSeg || 0),
-        duration: String(corte.duration || corte.duracao || 60)
-      });
-
-      urlDownload = `${BACKEND_URL}/api/download?${params.toString()}`;
-    } else if (urlDownload.startsWith('/')) {
-      urlDownload = `${BACKEND_URL}${urlDownload}`;
-    }
-
-    mostrarToast('Download Iniciado', 'O corte está sendo preparado para transferência.');
-
-    const link = document.createElement('a');
-    link.href = urlDownload;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    // Disparo nativo sem abrir aba em branco
+    window.location.assign(`${BACKEND_URL}/api/download?id=${videoAtualId}&start=${start}&duration=${duration}`);
 
     setTimeout(() => {
-      btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i><span>Download solicitado</span>`;
-
+      btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i><span>Baixando!</span>`;
       setTimeout(() => {
         btn.innerHTML = textoOriginal;
         btn.classList.remove('pointer-events-none', 'opacity-70');
       }, 2500);
-    }, 1200);
+    }, 2000);
   }
 
-  function abrirPlanosModal() {
-    document.getElementById('modalPlanos').classList.remove('hidden');
-  }
-
-  function fecharPlanosModal() {
-    document.getElementById('modalPlanos').classList.add('hidden');
-  }
+  function abrirPlanosModal() { document.getElementById('modalPlanos').classList.remove('hidden'); }
+  function fecharPlanosModal() { document.getElementById('modalPlanos').classList.add('hidden'); }
 
   async function assinarVipPix() {
     fecharPlanosModal();
@@ -715,64 +537,36 @@
       const res = await fetch(`${BACKEND_URL}/api/pix/criar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'user_123',
-          valor: 19.90,
-          plano: 'VIP'
-        })
+        body: JSON.stringify({ userId: 'user_123', valor: 19.90, plano: 'VIP' })
       });
-
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || data.message || 'Não foi possível criar o Pix.');
-      }
-
-      if (data.qr_code || data.qrCode || data.pixCopiaCola) {
-        const codigo = data.qr_code || data.qrCode || data.pixCopiaCola;
-
-        document.getElementById('pixCopiaCola').value = codigo;
-
+      if (data.qr_code) {
+        document.getElementById('pixCopiaCola').value = data.qr_code;
         document.getElementById('pixQrContainer').innerHTML = `
-          <img
-            src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(codigo)}"
-            class="w-36 h-36 rounded-lg"
-            alt="QR Code Pix"
-          >
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.qr_code)}" class="w-36 h-36 rounded-lg" alt="QR Code Pix">
         `;
-
-        if (data.id || data.paymentId) {
-          monitorarPagamentoVip(data.id || data.paymentId);
-        }
+        monitorarPagamentoVip(data.id);
       } else {
-        throw new Error('O servidor não retornou o código Pix.');
+        throw new Error('Não foi possível gerar o código Pix.');
       }
-
     } catch (err) {
-      console.error('Pix:', err);
-      document.getElementById('pixStatusText').innerHTML = `
-        <span class="text-amber-400">Não foi possível criar o pagamento Pix.</span>
-      `;
       mostrarToast('Erro no Pix', err.message, 'erro');
     }
   }
 
   function monitorarPagamentoVip(paymentId) {
     if (pollingInterval) clearInterval(pollingInterval);
-
     pollingInterval = setInterval(async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/pix/status/${encodeURIComponent(paymentId)}`);
         const d = await res.json();
-
-        if (d.status === 'approved' || d.status === 'paid' || d.status === 'confirmed') {
+        if (d.status === 'approved') {
           clearInterval(pollingInterval);
           pollingInterval = null;
           ativarVip();
         }
-      } catch (e) {
-        console.warn('Status Pix:', e);
-      }
+      } catch (e) {}
     }, 3000);
   }
 
@@ -780,14 +574,8 @@
     usuario.isVip = true;
     atualizarInterfacePontos();
     fecharPixModal();
-    mostrarToast('👑 Bem-vindo ao VIP!', 'Pontos infinitos e recursos VIP ativados.');
-
-    if (videoAtualId) {
-      document.querySelectorAll('#cardsContainer button').forEach(btn => {
-        const span = btn.querySelector('span');
-        if (span) span.innerText = 'Baixar Vídeo (VIP)';
-      });
-    }
+    mostrarToast('👑 Bem-vindo ao VIP!', 'Downloads infinitos ativados.');
+    document.querySelectorAll('#cardsContainer button span').forEach(s => s.innerText = 'Baixar Vídeo (VIP)');
   }
 
   function fecharPixModal() {
@@ -797,37 +585,17 @@
 
   function copiarPix() {
     const input = document.getElementById('pixCopiaCola');
-
-    if (!input.value) {
-      mostrarToast('Pix', 'Ainda não existe um código Pix para copiar.', 'aviso');
-      return;
-    }
-
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(input.value);
-    } else {
-      input.select();
-      document.execCommand('copy');
-    }
-
-    mostrarToast('Pix Copiado!', 'Cole o código na aplicação do seu banco.');
+    if (!input.value) return;
+    navigator.clipboard.writeText(input.value);
+    mostrarToast('Pix Copiado!', 'Cole no seu aplicativo do banco.');
   }
 
-  function abrirAdminModal() {
-    document.getElementById('modalAdmin').classList.remove('hidden');
-  }
-
-  function fecharAdminModal() {
-    document.getElementById('modalAdmin').classList.add('hidden');
-  }
+  function abrirAdminModal() { document.getElementById('modalAdmin').classList.remove('hidden'); }
+  function fecharAdminModal() { document.getElementById('modalAdmin').classList.add('hidden'); }
 
   async function entrarAdmin() {
     const pass = document.getElementById('adminPass').value.trim();
-
-    if (!pass) {
-      mostrarToast('Atenção', 'Digite a senha do administrador.', 'aviso');
-      return;
-    }
+    if (!pass) return;
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/login`, {
@@ -836,52 +604,24 @@
         body: JSON.stringify({ password: pass })
       });
 
-      if (!res.ok) {
-        throw new Error('Senha mestra incorreta.');
-      }
+      if (!res.ok) throw new Error('Senha incorreta.');
 
       adminTokenSalvo = pass;
-
       document.getElementById('adminLogin').classList.add('hidden');
       document.getElementById('adminPainel').classList.remove('hidden');
 
-      const dashboardRes = await fetch(`${BACKEND_URL}/api/admin/dashboard`, {
+      const d = await (await fetch(`${BACKEND_URL}/api/admin/dashboard`, {
         headers: { 'Authorization': pass }
-      });
+      })).json();
 
-      if (!dashboardRes.ok) {
-        throw new Error('Não foi possível carregar as métricas.');
-      }
-
-      const d = await dashboardRes.json();
-      const metricas = d.metricas || {};
-
-      document.getElementById('admFaturamento').innerText =
-        `R$ ${Number(metricas.valorArrecadado || 0).toFixed(2).replace('.', ',')}`;
-
-      document.getElementById('admVendas').innerText =
-        metricas.totalVendas || 0;
-
-      document.getElementById('admDownloads').innerText =
-        metricas.totalDownloads || 0;
-
-      document.getElementById('admRam').innerText =
-        `${Number(d.memoriaUsadaMb || 0).toFixed(0)} MB`;
-
+      document.getElementById('admFaturamento').innerText = `R$ ${Number(d.metricas.valorArrecadado || 0).toFixed(2).replace('.', ',')}`;
+      document.getElementById('admVendas').innerText = d.metricas.totalVendas;
+      document.getElementById('admDownloads').innerText = d.metricas.totalDownloads;
+      document.getElementById('admRam').innerText = `${d.memoriaUsadaMb} MB`;
     } catch (err) {
-      console.error('Admin:', err);
       mostrarToast('Erro', err.message, 'aviso');
     }
   }
-
-  document.getElementById('videoUrl').addEventListener('paste', () => {
-    setTimeout(() => {
-      const id = extrairVideoId(document.getElementById('videoUrl').value);
-      if (id) {
-        mostrarToast('Link reconhecido', 'YouTube detectado. Clique em Gerar Cortes.');
-      }
-    }, 50);
-  });
 
   atualizarInterfacePontos();
 </script>
