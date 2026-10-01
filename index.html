@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Criador de Clips com IA | ClipForge Studio</title>
+  
+  <!-- Configurações PWA para Instalar App -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#8b5cf6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ClipForge">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -37,7 +46,6 @@
       padding: 0 16px 40px;
     }
 
-    /* Barra Superior / Navbar */
     header {
       width: 100%;
       max-width: 620px;
@@ -124,7 +132,6 @@
       border: 1px solid #32384e;
     }
 
-    /* Migalhas / Breadcrumbs */
     .breadcrumbs {
       width: 100%;
       max-width: 620px;
@@ -137,7 +144,6 @@
       color: var(--accent-color);
     }
 
-    /* Conteúdo Principal */
     main {
       width: 100%;
       max-width: 620px;
@@ -169,7 +175,6 @@
       padding: 0 8px;
     }
 
-    /* Botão de Ação */
     .btn-cta {
       background: var(--accent-color);
       color: #ffffff;
@@ -216,7 +221,6 @@
       margin-bottom: 36px;
     }
 
-    /* Bloco do Formulário */
     .input-section {
       width: 100%;
       background: var(--card-bg);
@@ -280,7 +284,6 @@
       fill: none;
     }
 
-    /* Parâmetros de Duração e Quantidade */
     .controls-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -298,7 +301,6 @@
       outline: none;
     }
 
-    /* Lista de Saída */
     .results-area {
       width: 100%;
       display: flex;
@@ -358,7 +360,6 @@
 </head>
 <body>
 
-  <!-- Barra de Navegação -->
   <header>
     <div class="nav-left">
       <div class="menu-icon">
@@ -381,12 +382,10 @@
     </div>
   </header>
 
-  <!-- Navegação estrutural -->
   <div class="breadcrumbs">
     Início &gt; Ferramentas &gt; <span>Criador de Clipes</span>
   </div>
 
-  <!-- Bloco Principal -->
   <main>
     <h1 class="hero-title">
       <span class="highlight">Criador de Clips com IA</span>
@@ -397,7 +396,6 @@
       Transforme qualquer vídeo em clips prontos para viralizar com inteligência artificial. Crie shorts impactantes para YouTube, TikTok e Instagram em poucos segundos e sem precisar editar.
     </p>
 
-    <!-- Botão de Ação -->
     <button class="btn-cta" onclick="document.getElementById('ytLink').focus()">
       <span>Criar Clipes</span>
       <div class="arrow-circle">
@@ -407,7 +405,6 @@
 
     <div class="sub-cta-text">Comece Grátis com 100 Créditos</div>
 
-    <!-- Barra de Entrada e Configurações -->
     <div class="input-section">
       <div class="input-wrapper">
         <input 
@@ -441,6 +438,13 @@
   </main>
 
   <script>
+    // Registo de Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+
     const API_URL = 'https://cortesyou.onrender.com';
 
     async function executarCortes() {
