@@ -36,21 +36,25 @@ function extractId(url) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Análise com Gemini
+// Análise com Gemini adaptada para trechos de 60 segundos
 async function gerarCortesComIA(videoId, quantity, duration) {
   if (!GEMINI_API_KEY) throw new Error("Chave GEMINI_API_KEY ausente.");
+
+  const targetDuration = Number(duration) || 60;
+  const targetQuantity = Number(quantity) || 5;
 
   const prompt = `
 És um editor profissional de vídeos virais.
 Analisa o vídeo do YouTube com ID: "${videoId}" (https://www.youtube.com/watch?v=${videoId}).
-Gera exatamente ${quantity} cortes virais de cerca de ${duration} segundos cada.
+Gera exatamente ${targetQuantity} cortes virais de cerca de ${targetDuration} segundos cada.
+Certifica-te que os cortes tenham desenvolvimento completo (começo, meio e fim) durando aproximadamente ${targetDuration} segundos.
 Retorna APENAS JSON puro no formato:
 [
   {
-    "title": "Gancho viral do corte",
-    "start": 15,
-    "end": ${15 + Number(duration)},
-    "duration": ${Number(duration)},
+    "title": "Título chamativo do corte viral",
+    "start": 10,
+    "end": ${10 + targetDuration},
+    "duration": ${targetDuration},
     "potential": "98%"
   }
 ]
@@ -75,7 +79,7 @@ Retorna APENAS JSON puro no formato:
 }
 
 app.post("/api/analisar", async (req, res) => {
-  const { youtubeUrl, quantity = 5, duration = 30 } = req.body || {};
+  const { youtubeUrl, quantity = 5, duration = 60 } = req.body || {};
   const videoId = extractId(youtubeUrl);
   if (!videoId) return res.status(400).json({ success: false, error: "Link inválido." });
 
@@ -84,28 +88,27 @@ app.post("/api/analisar", async (req, res) => {
     return res.json({ success: true, videoId, clips });
   } catch (error) {
     const q = Number(quantity) || 5;
-    const d = Number(duration) || 30;
+    const d = Number(duration) || 60;
     const fallback = Array.from({ length: q }, (_, i) => ({
-      title: `Momento de Destaque #${i + 1}`,
-      start: i * (d + 10) + 10,
-      end: i * (d + 10) + 10 + d,
+      title: `Corte de Alto Impacto #${i + 1}`,
+      start: i * (d + 15) + 15,
+      end: i * (d + 15) + 15 + d,
       duration: d,
-      potential: "90%"
+      potential: "95%"
     }));
     return res.json({ success: true, videoId, clips: fallback });
   }
 });
 
-// DOWNLOAD COM ESPERA REAL ATÉ O FICHEIRO SAIR DO 404
+// Download na RapidAPI com suporte a trim_duration de 60s
 app.get("/api/download-rapid", async (req, res) => {
-  const { videoId, start = 0, duration = 30 } = req.query;
+  const { videoId, start = 0, duration = 60 } = req.query;
   if (!videoId) return res.status(400).json({ success: false, error: "videoId em falta." });
 
   const safeStart = Number(start) || 0;
-  const safeDuration = Number(duration) || 30;
+  const safeDuration = Number(duration) || 60;
 
   try {
-    // 1. Pede o corte à API com trim_start_time e trim_duration
     const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=22&trim_start_time=${safeStart}&trim_duration=${safeDuration}`;
     
     const apiRes = await fetch(apiUrl, {
@@ -125,15 +128,14 @@ app.get("/api/download-rapid", async (req, res) => {
       return res.status(500).json({ success: false, error: "Não foi possível obter o link da API." });
     }
 
-    // 2. Aguarda até a URL sair do 404 (tentativas a cada 5 segundos)
+    // Polling aguardando o vídeo de 60s sair do estado 404
     let isReady = false;
     let attempts = 0;
-    const maxAttempts = 10; // até ~45 segundos
+    const maxAttempts = 10;
 
     while (!isReady && attempts < maxAttempts) {
       attempts++;
-      // Espera 5 segundos entre cada teste
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 4000));
 
       try {
         const testRes = await fetch(downloadUrl, { method: "GET" });
@@ -142,16 +144,11 @@ app.get("/api/download-rapid", async (req, res) => {
           break;
         }
       } catch (e) {
-        // Ainda a converter no servidor
+        // Aguardando conversão
       }
     }
 
-    if (isReady) {
-      return res.json({ success: true, downloadUrl });
-    } else {
-      // Se demorou mais que 45s, devolve o link mesmo assim para não estourar o timeout da Vercel
-      return res.json({ success: true, downloadUrl });
-    }
+    return res.json({ success: true, downloadUrl });
 
   } catch (err) {
     console.error("Erro no processamento:", err.message);
