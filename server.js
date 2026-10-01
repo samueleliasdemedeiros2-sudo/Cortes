@@ -44,7 +44,7 @@ async function gerarCortesComIA(videoId, quantity, duration) {
 És um editor profissional de vídeos virais.
 Analisa o vídeo do YouTube com ID: "${videoId}" (https://www.youtube.com/watch?v=${videoId}).
 Gera exatamente ${quantity} cortes virais de cerca de ${duration} segundos cada.
-Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
+Retorna APENAS JSON puro no formato:
 [
   {
     "title": "Gancho viral do corte",
@@ -96,14 +96,18 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Endpoint seguro de geração na RapidAPI
+// DOWNLOAD COM ESPERA REAL ATÉ O FICHEIRO SAIR DO 404
 app.get("/api/download-rapid", async (req, res) => {
-  const { videoId } = req.query;
+  const { videoId, start = 0, duration = 30 } = req.query;
   if (!videoId) return res.status(400).json({ success: false, error: "videoId em falta." });
 
+  const safeStart = Number(start) || 0;
+  const safeDuration = Number(duration) || 30;
+
   try {
-    // Solicita o vídeo com áudio em 720p (quality=22) para renderização rápida
-    const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=22`;
+    // 1. Pede o corte à API com trim_start_time e trim_duration
+    const apiUrl = `https://${RAPIDAPI_HOST}/download_video/${encodeURIComponent(videoId)}?quality=22&trim_start_time=${safeStart}&trim_duration=${safeDuration}`;
+    
     const apiRes = await fetch(apiUrl, {
       method: "GET",
       headers: {
@@ -118,32 +122,39 @@ app.get("/api/download-rapid", async (req, res) => {
 
     if (!downloadUrl) {
       console.error("Resposta RapidAPI:", data);
-      return res.status(500).json({ success: false, error: "Link não gerado pela API." });
+      return res.status(500).json({ success: false, error: "Não foi possível obter o link da API." });
     }
 
-    // Aguarda até o ficheiro estar pronto nos servidores da RapidAPI
+    // 2. Aguarda até a URL sair do 404 (tentativas a cada 5 segundos)
     let isReady = false;
     let attempts = 0;
-    const maxAttempts = 8; // até ~24 segundos
+    const maxAttempts = 10; // até ~45 segundos
 
     while (!isReady && attempts < maxAttempts) {
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Espera 5 segundos entre cada teste
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       try {
-        const checkRes = await fetch(downloadUrl, { method: "HEAD" });
-        if (checkRes.status === 200) {
+        const testRes = await fetch(downloadUrl, { method: "GET" });
+        if (testRes.status === 200) {
           isReady = true;
           break;
         }
-      } catch (e) {}
+      } catch (e) {
+        // Ainda a converter no servidor
+      }
     }
 
-    // Retorna a URL direta para o frontend descarregar no telemóvel
-    return res.json({ success: true, downloadUrl });
+    if (isReady) {
+      return res.json({ success: true, downloadUrl });
+    } else {
+      // Se demorou mais que 45s, devolve o link mesmo assim para não estourar o timeout da Vercel
+      return res.json({ success: true, downloadUrl });
+    }
 
   } catch (err) {
-    console.error("Erro RapidAPI:", err.message);
+    console.error("Erro no processamento:", err.message);
     return res.status(500).json({ success: false, error: "Falha na comunicação com a API." });
   }
 });
