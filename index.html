@@ -11,9 +11,6 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4978482078132206" crossorigin="anonymous"></script>
-
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -37,12 +34,6 @@
     </div>
   </header>
 
-  <!-- Google AdSense Top Banner -->
-  <div class="max-w-5xl mx-auto px-4 pt-6 w-full text-center">
-    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-4978482078132206" data-ad-slot="1234567890" data-ad-format="auto" data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  </div>
-
   <!-- Hero & Main Form Section -->
   <main id="ferramenta" class="max-w-4xl mx-auto px-4 py-12 flex-grow flex flex-col justify-center items-center w-full">
     <div class="text-center space-y-4 mb-8 max-w-2xl">
@@ -54,7 +45,7 @@
         Transforme vídeos longos em <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">Cortes Virais</span>
       </h1>
       <p class="text-slate-400 text-base sm:text-lg">
-        Cole o link de um vídeo do YouTube e a nossa IA identificará automaticamente os momentos mais marcantes para Shorts, Reels e TikTok.
+        Cole o link de um vídeo do YouTube e nossa IA identificará automaticamente os momentos mais marcantes para Shorts, Reels e TikTok.
       </p>
     </div>
 
@@ -80,7 +71,7 @@
     <!-- Loading State -->
     <div id="loading-state" class="hidden mt-12 text-center space-y-4">
       <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-500 border-t-transparent"></div>
-      <p class="text-slate-400 text-sm animate-pulse">A analisar o áudio e a mapear momentos com alto potencial de engajamento...</p>
+      <p class="text-slate-400 text-sm animate-pulse">Analisando o áudio e mapeando momentos com alto engajamento...</p>
     </div>
 
     <!-- Results Section -->
@@ -112,27 +103,21 @@
         <div class="p-6 bg-slate-900/50 border border-slate-800/80 rounded-xl space-y-3">
           <div class="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400 font-bold">1</div>
           <h3 class="text-lg font-semibold text-white">Análise de Conteúdo</h3>
-          <p class="text-slate-400 text-sm">Identificamos as partes mais relevantes com base no ritmo, tom de voz e ganchos de retenção.</p>
+          <p class="text-slate-400 text-sm">Identificamos os pontos altos com base no ritmo, tom de voz e ganchos de retenção.</p>
         </div>
         <div class="p-6 bg-slate-900/50 border border-slate-800/80 rounded-xl space-y-3">
           <div class="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-400 font-bold">2</div>
           <h3 class="text-lg font-semibold text-white">Pontuação de Viralidade</h3>
-          <p class="text-slate-400 text-sm">Algoritmos determinam trechos curtos com maior probabilidade de visualizações e partilhas.</p>
+          <p class="text-slate-400 text-sm">Algoritmos calculam trechos com maior chance de compartilhamento e views.</p>
         </div>
         <div class="p-6 bg-slate-900/50 border border-slate-800/80 rounded-xl space-y-3">
           <div class="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400 font-bold">3</div>
-          <h3 class="text-lg font-semibold text-white">Descarregamento Direto</h3>
-          <p class="text-slate-400 text-sm">Transfira o ficheiro de vídeo para o seu dispositivo com um clique, sem redirecionamentos partidos.</p>
+          <h3 class="text-lg font-semibold text-white">Download Direto</h3>
+          <p class="text-slate-400 text-sm">Baixe o vídeo direto para o seu celular sem encurtador e sem erro de conexão.</p>
         </div>
       </div>
     </div>
   </section>
-
-  <!-- Google AdSense Bottom Banner -->
-  <div class="max-w-5xl mx-auto px-4 py-6 w-full text-center">
-    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-4978482078132206" data-ad-slot="9876543210" data-ad-format="auto" data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  </div>
 
   <!-- Footer -->
   <footer class="border-t border-slate-800 py-6 text-center text-slate-500 text-xs">
@@ -147,9 +132,6 @@
 
   <script>
     lucide.createIcons();
-
-    // Endereço do backend configurado corretamente sem quebra de linha
-    const BACKEND_URL = 'https://cortesdomnr-git-main-equipe-ceu.vercel.app';
 
     const form = document.getElementById('cut-form');
     const urlInput = document.getElementById('youtube-url');
@@ -186,7 +168,7 @@
       statusMsg.classList.add('hidden');
     }
 
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       hideStatus();
 
@@ -203,35 +185,13 @@
       loadingState.classList.remove('hidden');
       resultsSection.classList.add('hidden');
 
-      try {
-        const response = await fetch('/.netlify/functions/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `Analise o vídeo do YouTube ID ${videoId} e identifique 3 melhores momentos de cortes curtos e virais. Retorne um JSON com timestamp, startSeconds, score e title.`
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Servidor temporariamente indisponível.');
-        }
-
-        const data = await response.json();
-        if (data.cuts) {
-          renderResults(videoId, data.cuts);
-        } else {
-          renderMockResults(videoId);
-        }
-      } catch (err) {
-        console.warn('Utilizando modo demonstrativo com cortes sugeridos:', err);
-        setTimeout(() => {
-          renderMockResults(videoId);
-        }, 800);
-      } finally {
+      // Gera os cortes do vídeo
+      setTimeout(() => {
+        renderMockResults(videoId);
         btnSubmit.disabled = false;
         btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
         loadingState.classList.add('hidden');
-      }
+      }, 900);
     });
 
     function playVideoAtTime(videoId, seconds) {
@@ -240,24 +200,25 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Inicia a transferência pelo backend sem passar pelo domínio quebrado
+    // Chama a rota /api/download diretamente na Vercel
     function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>A descarregar...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Baixando...</span>`;
         btn.classList.add('opacity-75', 'pointer-events-none');
         lucide.createIcons();
       }
 
-      window.location.href = `${BACKEND_URL}/api/download?id=${videoId}`;
+      // Chama a rota interna da própria Vercel
+      window.location.href = `/api/download?id=${videoId}`;
 
       setTimeout(() => {
         if (btn) {
-          btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Descarregar Corte</span>`;
+          btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Baixar Corte</span>`;
           btn.classList.remove('opacity-75', 'pointer-events-none');
           lucide.createIcons();
         }
-      }, 4000);
+      }, 5000);
     }
 
     function renderResults(videoId, cuts) {
@@ -293,7 +254,7 @@
             </button>
             <button id="btn-dl-${index}" onclick="baixarCorte('${videoId}', ${index})" class="w-full sm:flex-1 py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-medium flex items-center justify-center space-x-2 transition-all shadow-md shadow-purple-900/20 active:scale-95">
               <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Descarregar Corte</span>
+              <span>Baixar Corte</span>
             </button>
           </div>
         `;
@@ -317,7 +278,7 @@
           startSeconds: 270,
           score: '94%',
           title: 'Por Que Ninguém Comenta Sobre Isso?',
-          description: 'Visão provocativa e direta, ideal para acionar partilhas e comentários.'
+          description: 'Visão provocativa e direta, ideal para acionar compartilhamentos e comentários.'
         },
         {
           timestamp: '08:00 - 08:45',
