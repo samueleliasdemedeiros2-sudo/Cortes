@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClipForge Studio — Automação de Cortes</title>
     <meta name="theme-color" content="#090d16">
+
+    <!-- Script de Verificação do Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4978482078132206"
+     crossorigin="anonymous"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -58,6 +63,8 @@
         .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
         .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         
+        .ad-container { margin: 16px 0; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
         .toast { padding: 12px 18px; border-radius: 12px; font-size: 13px; color: white; background: #0f172a; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         .toast.success { border-color: #10b981; }
@@ -123,6 +130,19 @@
                     </div>
                 </div>
             </form>
+
+            <!-- Espaço do Anúncio Topo (Google AdSense) -->
+            <div class="ad-container">
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-4978482078132206"
+                     data-ad-slot="auto"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+                <script>
+                     (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
         </section>
 
         <section id="loading-state" class="card">
@@ -269,7 +289,6 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Aguarda a confirmação do ficheiro pronto e inicia o download
         async function baixarComFeedback(videoId, start, duration, btnId) {
             const btn = document.getElementById(btnId);
             const originalHTML = btn.innerHTML;
@@ -285,7 +304,6 @@
                 if (data.success && data.downloadUrl) {
                     showToast('Corte concluído! A iniciar download...', 'success');
                     
-                    // Inicia o download nativo no telemóvel
                     const a = document.createElement('a');
                     a.href = data.downloadUrl;
                     a.setAttribute('download', `Corte_${videoId}_${start}s.mp4`);
