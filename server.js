@@ -2,6 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 let mercadopago = null;
 try {
@@ -45,7 +48,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.6.0-LIGHT-FAST' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '5.0.0-BUFFERED-CUT' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -192,7 +195,7 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// DOWNLOAD FLUIDO, LEVE (5MB-8MB) E COM SOM SINCRONIZADO
+// CORTE LOCAL RÁPIDO: SEM TIMEOUT, LEVE E DIRETO AO CELULAR
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -203,6 +206,9 @@ app.get('/api/download', async (req, res) => {
     return res.status(400).json({ error: 'ID do vídeo inválido.' });
   }
 
+  const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const tempOutput = path.join(os.tmpdir(), `corte_${safeId}_${Date.now()}.mp4`);
+
   try {
     const directStreamUrl = await extrairStreamOficial(videoId);
 
@@ -210,53 +216,58 @@ app.get('/api/download', async (req, res) => {
       return res.status(503).json({ error: 'Servidores temporariamente ocupados.' });
     }
 
-    const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-    res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
-    res.setHeader('Content-Type', 'video/mp4');
-
-    // 1. -ss antes do -i: seek imediato na URL
-    // 2. -vf scale=-2:480: otimiza o peso para ~5MB a 8MB
-    // 3. -preset ultrafast -tune fastdecode: início instantâneo sem congelamentos
-    // 4. -g 30: reconstrói os keyframes para o player rodar sem travar
-    // 5. -c:a aac -b:a 96k: áudio limpo, estéreo e perfeitamente sincronizado
+    // Faz o corte em arquivo temporário com seek pré-input rápido e -avoid_negative_ts make_zero
+    // Isso conserta o travamento do início do vídeo e não sobrecarrega a CPU do Render
     const ffmpeg = spawn('ffmpeg', [
       '-ss', String(start),
       '-i', directStreamUrl,
       '-t', String(duration),
-      '-vf', 'scale=-2:480',
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-tune', 'fastdecode',
-      '-crf', '30',
-      '-pix_fmt', 'yuv420p',
-      '-g', '30',
-      '-c:a', 'aac',
-      '-b:a', '96k',
-      '-ac', '2',
-      '-ar', '44100',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-      '-f', 'mp4',
-      'pipe:1'
+      '-c', 'copy',
+      '-avoid_negative_ts', 'make_zero',
+      '-movflags', '+faststart',
+      '-y',
+      tempOutput
     ]);
 
-    ffmpeg.stdout.pipe(res);
-
-    ffmpeg.stderr.on('data', () => {});
-
     ffmpeg.on('close', (code) => {
-      if (code === 0) {
+      if (code === 0 && fs.existsSync(tempOutput)) {
         metricas.totalDownloads += 1;
+
+        // res.download envia os headers de tamanho exato e ativa o download nativo imediatamente
+        res.download(tempOutput, `corte_${safeId}_${start}s.mp4`, (err) => {
+          // Remove o arquivo temporário após o envio
+          try {
+            if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+          } catch (e) {}
+        });
+      } else {
+        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Falha ao gerar corte.' });
+        }
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      console.error('[FFmpeg Process Error]:', err);
+      if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Erro no processamento do vídeo.' });
       }
     });
 
     req.on('close', () => {
-      ffmpeg.kill('SIGKILL');
+      try {
+        ffmpeg.kill('SIGKILL');
+        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+      } catch (e) {}
     });
 
   } catch (error) {
     console.error('[Download Stream Error]:', error.message);
+    if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro temporário na transmissão do ficheiro.' });
+      res.status(500).json({ error: 'Erro temporário na transmissão do arquivo.' });
     }
   }
 });
@@ -266,5 +277,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.6.0]`);
+  console.log(`[ClipForge Core] Servidor operacional com corte assíncrono na porta ${PORT} [v5.0.0]`);
 });
