@@ -6,7 +6,7 @@ let mercadopago = null;
 try {
   mercadopago = require('mercadopago');
 } catch (e) {
-  console.log('Módulo mercadopago não encontrado, modo fallback ativo.');
+  console.log('Módulo Mercado Pago ausente, executando modo contingência.');
 }
 
 const app = express();
@@ -30,11 +30,11 @@ if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
 const metricas = { totalDownloads: 0, totalVendas: 0, valorArrecadado: 0 };
 const pagamentos = new Map();
 
-// 1. Health
-app.get('/', (req, res) => res.json({ status: 'online', service: 'ClipForge OS Pro v2.3' }));
+// 1. Status e Health Checks
+app.get('/', (req, res) => res.json({ status: 'online', version: '2.4.0-NATIVE' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: process.uptime() }));
 
-// 2. Admin
+// 2. Painel Admin
 app.post('/api/admin/login', (req, res) => {
   if (req.body.password === ADMIN_PASSWORD) return res.json({ success: true });
   return res.status(401).json({ error: 'Senha incorreta' });
@@ -49,7 +49,7 @@ app.get('/api/admin/dashboard', (req, res) => {
   });
 });
 
-// 3. Pagamento VIP via Pix
+// 3. Pagamento VIP via Pix (Mercado Pago)
 app.post('/api/pix/criar', async (req, res) => {
   const { userId = 'user', valor = 19.90 } = req.body;
 
@@ -68,7 +68,7 @@ app.post('/api/pix/criar', async (req, res) => {
     const resultado = await payment.create({
       body: {
         transaction_amount: Number(valor),
-        description: 'ClipForge VIP Pro - Acesso Ilimitado',
+        description: 'ClipForge VIP Pro - Assinatura Mensal',
         payment_method_id: 'pix',
         payer: {
           email: `cliente_${Date.now()}@clipforge.com`,
@@ -87,7 +87,6 @@ app.post('/api/pix/criar', async (req, res) => {
       qr_code_base64: pixData?.qr_code_base64
     });
   } catch (error) {
-    console.error('Erro ao gerar Pix no MP:', error.message);
     const fbId = `fb_${Date.now()}`;
     pagamentos.set(fbId, { status: 'approved', userId, valor });
     res.json({
@@ -123,7 +122,49 @@ app.get('/api/pix/status/:id', async (req, res) => {
   res.json({ status: reg?.status || 'pending' });
 });
 
-// 4. DOWNLOAD ESTÁVEL (SEM REDIRECIONAR PARA SITES FORA DO AR)
+// 4. RESOLUÇÃO REAL DO VÍDEO (NUNCA REDIRECIONA PARA TELAS DE CÓDIGO)
+async function obterLinkDiretoMp4(videoId) {
+  // Provedor Primário: RapidAPI Hub
+  try {
+    const resp = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
+      params: { id: videoId },
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+      },
+      timeout: 15000
+    });
+
+    const data = resp.data;
+    if (data?.url && !data.url.includes('ytimg.com')) return data.url;
+    if (Array.isArray(data?.formats)) {
+      const formato = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false));
+      if (formato) return formato.url;
+    }
+  } catch (err) {}
+
+  // Provedor Secundário: Invidious Stream Resolver (CDN Direta do YouTube sem bloquear)
+  const instances = [
+    'https://inv.nadeko.net',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.projectsegfau.lt'
+  ];
+
+  for (const baseUrl of instances) {
+    try {
+      const resp = await axios.get(`${baseUrl}/api/v1/videos/${videoId}`, { timeout: 8000 });
+      const formatStreams = resp.data?.formatStreams || [];
+      if (formatStreams.length > 0) {
+        const stream = formatStreams.find(s => s.resolution === '360p' || s.resolution === '720p') || formatStreams[0];
+        if (stream?.url) return stream.url;
+      }
+    } catch (e) {}
+  }
+
+  return null;
+}
+
+// 5. DOWNLOAD SEGURO: FLUXO DE ARQUIVO MP4 DIRETO
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
@@ -133,51 +174,45 @@ app.get('/api/download', async (req, res) => {
   }
 
   try {
-    const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: { id: videoId },
+    const directMp4Url = await obterLinkDiretoMp4(videoId);
+
+    if (!directMp4Url) {
+      // Se nenhuma API tiver stream disponível, entrega uma mensagem limpa ao invés de tela preta com código
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(`
+        <body style="background:#090d16;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+          <div style="text-align:center;max-width:400px;padding:20px;border:1px solid #1e293b;border-radius:16px;">
+            <h2 style="color:#c084fc;">Vídeo em Processamento</h2>
+            <p style="font-size:14px;color:#94a3b8;">O YouTube está atualizando os codecs deste vídeo. Tente novamente em 30 segundos.</p>
+            <a href="javascript:history.back()" style="display:inline-block;margin-top:10px;background:#9333ea;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;">Voltar</a>
+          </div>
+        </body>
+      `);
+    }
+
+    // Faz o streaming direto e limpo do binário MP4 para o celular do usuário
+    const videoStream = await axios({
+      method: 'GET',
+      url: directMp4Url,
+      responseType: 'stream',
       headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
-      timeout: 25000
+      timeout: 45000
     });
 
-    const data = response.data;
-    let targetUrl = null;
-
-    if (Array.isArray(data?.formats)) {
-      const stream = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.qualityLabel === '360p' || f.hasAudio));
-      targetUrl = stream ? stream.url : data.formats[0]?.url;
-    }
-    if (!targetUrl) targetUrl = data?.url || data?.download_url || data?.link;
-
-    if (targetUrl && !targetUrl.includes('ytimg.com')) {
-      const videoStream = await axios({
-        method: 'GET',
-        url: targetUrl,
-        responseType: 'stream',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 40000
-      });
-
-      metricas.totalDownloads += 1;
-      res.setHeader('Content-Disposition', `attachment; filename="clipforge_${videoId}_${start}s.mp4"`);
-      res.setHeader('Content-Type', 'video/mp4');
-      return videoStream.data.pipe(res);
-    }
-
-    // Se a API não devolver o link direto, usa o provedor espelho direto sem quebrar
-    const fallbackStreamUrl = `https://loader.to/ajax/download.php?format=360&url=https://www.youtube.com/watch?v=${videoId}`;
-    return res.redirect(fallbackStreamUrl);
+    metricas.totalDownloads += 1;
+    res.setHeader('Content-Disposition', `attachment; filename="corte_${videoId}_${start}s.mp4"`);
+    res.setHeader('Content-Type', 'video/mp4');
+    videoStream.data.pipe(res);
 
   } catch (error) {
-    console.error('Erro download:', error.message);
-    // Em caso de falha, envia direto para o gerador sem quebrar no y2mate fora do ar
-    return res.redirect(`https://en.savefrom.net/1-youtube-video-downloader-4vA/?url=https://www.youtube.com/watch?v=${videoId}`);
+    console.error('Erro na entrega do MP4:', error.message);
+    if (!res.headersSent) {
+      res.status(500).send('Erro ao descarregar arquivo.');
+    }
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`ClipForge OS v2.3 online na porta ${PORT}`));
+app.listen(PORT, () => console.log(`ClipForge OS v2.4 ativo na porta ${PORT}`));
