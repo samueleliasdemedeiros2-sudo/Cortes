@@ -1,29 +1,20 @@
 import express from "express";
 import cors from "cors";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { v4 as uuidv4 } from "uuid";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const exec = promisify(execFile);
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-const JOB_DIR = process.env.JOB_DIR || "/tmp/clipforge";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-
-await fs.mkdir(JOB_DIR, { recursive: true });
 
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(__dirname));
-app.use("/files", express.static(JOB_DIR));
 
 app.get("/", async (_req, res) => {
   const indexPath = path.join(__dirname, "index.html");
@@ -42,23 +33,23 @@ function extractId(url) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// Análise com Gemini
+// Geração de cortes com a IA do Gemini
 async function gerarCortesComIA(videoId, quantity, duration) {
   if (!GEMINI_API_KEY) {
     throw new Error("Chave GEMINI_API_KEY ausente.");
   }
 
   const prompt = `
-És um especialista em edição de vídeos virais para TikTok, Instagram Reels e YouTube Shorts.
-Analisa o vídeo do YouTube com ID: "${videoId}" (URL: https://www.youtube.com/watch?v=${videoId}).
+Você é um editor profissional de vídeos para Reels, Shorts e TikTok.
+Analise o vídeo do YouTube com ID: "${videoId}" (https://www.youtube.com/watch?v=${videoId}).
 
-Gera exatamente ${quantity} sugestões de cortes virais de aproximadamente ${duration} segundos cada.
-Prioriza partes com ganchos fortes, momentos de pico, humor ou lições de alto impacto.
+Gere exatamente ${quantity} cortes virais de cerca de${duration} segundos cada.
+Priorize trechos impactantes, ganchos fortes ou lições práticas.
 
-Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
+Retorne APENAS um array JSON puro (sem markdown, sem \`\`\`json):
 [
   {
-    "title": "Gancho chamativo do corte",
+    "title": "Gancho viral do corte",
     "start": 15,
     "end": ${15 + Number(duration)},
     "duration": ${Number(duration)},
@@ -82,8 +73,7 @@ Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Falha Gemini ${response.status}: ${errText.slice(0, 200)}`);
+    throw new Error(`Erro Gemini ${response.status}`);
   }
 
   const data = await response.json();
@@ -94,6 +84,7 @@ Retorna APENAS JSON puro no seguinte formato, sem formatação markdown:
   return Array.isArray(parsed) ? parsed : (parsed.clips || []);
 }
 
+// Rota de análise
 app.post("/api/analisar", async (req, res) => {
   const { youtubeUrl, quantity = 5, duration = 30 } = req.body || {};
   const videoId = extractId(youtubeUrl);
@@ -106,7 +97,7 @@ app.post("/api/analisar", async (req, res) => {
     const clips = await gerarCortesComIA(videoId, quantity, duration);
     return res.json({ success: true, videoId, clips });
   } catch (error) {
-    console.error("Erro na IA, aplicando fallback:", error.message);
+    console.error("Fallback da IA:", error.message);
     const q = Number(quantity) || 5;
     const d = Number(duration) || 30;
     const fallback = Array.from({ length: q }, (_, i) => ({
@@ -121,65 +112,40 @@ app.post("/api/analisar", async (req, res) => {
   }
 });
 
-// Renderização: Extrai os URLs do stream e corta diretamente via FFmpeg
-app.post("/api/render", async (req, res) => {
-  const { youtubeUrl, start = 0, duration = 30, format = "9:16" } = req.body || {};
-  const videoId = extractId(youtubeUrl);
+// DOWNLOAD DIRETO: Pega o stream limpo sem encurtador e redireciona direto pro arquivo MP4
+app.get("/api/download-direct", async (req, res) => {
+  const { videoId } = req.query;
 
   if (!videoId) {
-    return res.status(400).json({ error: "Link inválido." });
+    return res.status(400).send("Video ID ausente.");
   }
 
-  const safeStart = Number(start) || 0;
-  const safeDuration = Number(duration) || 30;
-  const job = uuidv4();
-  const dir = path.join(JOB_DIR, job);
-  const outputFile = path.join(dir, "clip.mp4");
-
   try {
-    await fs.mkdir(dir, { recursive: true });
-
-    // 1. Obtém o URL direto do stream de vídeo/áudio sem descarregar o ficheiro inteiro
-    const { stdout: streamUrl } = await exec("yt-dlp", [
-      "--no-playlist",
-      "--no-warnings",
-      "--extractor-args", "youtube:player_client=ios,web",
-      "-f", "best[ext=mp4]/best",
-      "-g",
-      `https://www.youtube.com/watch?v=${videoId}`
-    ]);
-
-    const targetUrl = streamUrl.trim().split("\n")[0];
-    if (!targetUrl) throw new Error("Não foi possível resolver o stream.");
-
-    // Formato de enquadramento
-    const filter = format === "9:16"
-      ? "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2"
-      : "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2";
-
-    // 2. O FFmpeg acede remotamente ao stream e corta apenas os segundos necessários
-    await exec("ffmpeg", [
-      "-y",
-      "-ss", String(safeStart),
-      "-i", targetUrl,
-      "-t", String(safeDuration),
-      "-vf", filter,
-      "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-crf", "28",
-      "-c:a", "aac",
-      "-b:a", "96k",
-      outputFile
-    ]);
-
-    return res.download(outputFile, `Corte_${videoId}_${safeStart}s.mp4`, async () => {
-      try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
+    // Consulta a API de stream limpo sem restrição de CORS
+    const cobaltRes = await fetch("https://api.cobalt.tools", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        videoQuality: "720",
+        downloadMode: "auto"
+      })
     });
 
+    const data = await cobaltRes.json();
+    const downloadUrl = data.url || (data.picker && data.picker[0]?.url);
+
+    if (downloadUrl) {
+      // Redireciona o navegador direto para o download do arquivo MP4
+      return res.redirect(downloadUrl);
+    } else {
+      return res.status(500).send("Não foi possível gerar o link de download direto.");
+    }
   } catch (err) {
-    console.error("Falha ao gerar o corte:", err.message);
-    try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
-    return res.status(500).json({ error: "Erro ao processar stream do vídeo.", detalhe: err.message });
+    return res.status(500).send("Erro ao obter o vídeo.");
   }
 });
 
