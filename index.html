@@ -199,6 +199,7 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // Função de download direto consumindo a chave "url" retornada
     async function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
@@ -220,33 +221,17 @@
         const resposta = await fetch(urlApi, opcoes);
         const dados = await resposta.json();
 
-        // Janela de teste para vermos a estrutura retornada
-        alert("RESPOSTA DA API:\n" + JSON.stringify(dados));
-
-        function acharLink(obj) {
-          if (!obj) return null;
-          if (typeof obj === 'string' && (obj.startsWith('http://') || obj.startsWith('https://')) && !obj.includes('rapidapi.com')) {
-            return obj;
-          }
-          if (typeof obj === 'object') {
-            for (let k in obj) {
-              const res = acharLink(obj[k]);
-              if (res) return res;
-            }
-          }
-          return null;
-        }
-
-        const linkDownload = acharLink(dados);
+        // O link direto fornecido na chave "url"
+        const linkDownload = dados.url || dados.download_url || (dados.data && dados.data.url);
 
         if (linkDownload) {
-          window.open(linkDownload, '_blank');
+          window.location.href = linkDownload;
         } else {
-          showStatus("API respondeu sem link de vídeo válido.", "error");
+          showStatus("Não foi possível gerar o link de download direto.", "error");
         }
       } catch (erro) {
-        alert("ERRO NA CHAMADA:\n" + erro.message);
-        showStatus("Erro ao comunicar com o servidor.", "error");
+        console.error("Erro na API:", erro);
+        showStatus("Erro ao comunicar com o servidor de download.", "error");
       } finally {
         if (btn) {
           btn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Baixar Corte</span>`;
