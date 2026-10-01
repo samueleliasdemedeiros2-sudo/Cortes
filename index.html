@@ -199,7 +199,7 @@
       videoPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Integração direta com a Cloud API Hub (RapidAPI)
+    // Função de download com verificação de todos os formatos possíveis da API
     async function baixarCorte(videoId, index) {
       const btn = document.getElementById(`btn-dl-${index}`);
       if (btn) {
@@ -221,10 +221,27 @@
         const resposta = await fetch(urlApi, opcoes);
         const dados = await resposta.json();
 
-        const linkDownload = dados.url || dados.download_url || (dados.data && dados.data.url);
+        let linkDownload = null;
+
+        if (typeof dados === "string" && dados.startsWith("http")) {
+          linkDownload = dados;
+        } else if (dados.url) {
+          linkDownload = dados.url;
+        } else if (dados.download_url) {
+          linkDownload = dados.download_url;
+        } else if (dados.link) {
+          linkDownload = dados.link;
+        } else if (Array.isArray(dados.formats) && dados.formats.length > 0) {
+          const formato = dados.formats.find(f => f.hasVideo && f.hasAudio) || dados.formats[0];
+          linkDownload = formato.url;
+        } else if (Array.isArray(dados) && dados.length > 0) {
+          linkDownload = dados[0].url || dados[0].link;
+        } else if (dados.data) {
+          linkDownload = dados.data.url || dados.data.download_url || dados.data.link;
+        }
 
         if (linkDownload) {
-          window.location.href = linkDownload;
+          window.open(linkDownload, '_blank');
         } else {
           showStatus("Não foi possível gerar o link de download direto.", "error");
         }
