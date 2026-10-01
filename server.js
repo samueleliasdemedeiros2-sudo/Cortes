@@ -9,6 +9,15 @@ app.use(express.json());
 const RAPIDAPI_KEY = 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 
+// Rotas de verificação de estado (Health Check para o frontend reconhecer o servidor ativo)
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'online', message: 'Servidor ativo' });
+});
+
+app.get('/api/status', (req, res) => {
+  res.status(200).json({ status: 'online' });
+});
+
 // Rota para processar e descarregar o vídeo/corte
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -49,7 +58,7 @@ app.get('/api/download', async (req, res) => {
       return res.status(500).json({ error: 'A API não forneceu um link válido para o vídeo.' });
     }
 
-    // 3. Faz o stream do arquivo direto para o usuário (força download do mp4 no celular)
+    // 3. Faz o stream do ficheiro diretamente para o dispositivo do utilizador
     const streamResponse = await axios({
       method: 'GET',
       url: fileUrl,
