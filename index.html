@@ -1,193 +1,179 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClipForge Studio — Automação de Cortes Inteligentes</title>
-    <meta name="theme-color" content="#0b0f19">
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css)">
-    
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            500: '#ec4899',
-                            600: '#db2777',
-                            700: '#be185d'
-                        },
-                        surface: {
-                            base: '#090d16',
-                            card: '#0f172a',
-                            subtle: '#1e293b',
-                            border: '#334155'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <title>ClipForge Studio — Automação de Cortes</title>
+    <meta name="theme-color" content="#090d16">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #090d16; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Header */
+        header { height: 64px; border-bottom: 1px solid #1e293b; background: rgba(9, 13, 22, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 50; }
+        .logo-box { display: flex; align-items: center; gap: 10px; }
+        .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #db2777, #6366f1); display: flex; align-items: center; justify-content: space-between; justify-content: center; color: white; font-size: 15px; }
+        .logo-title { font-weight: 800; font-size: 17px; letter-spacing: -0.5px; }
+        .logo-title span { color: #ec4899; }
+        .tag-pro { font-size: 10px; font-weight: 700; background: #1e293b; border: 1px solid #334155; padding: 2px 7px; border-radius: 20px; color: #94a3b8; text-transform: uppercase; margin-left: 6px; }
+        
+        /* Layout Principal */
+        main { flex: 1; max-width: 1000px; width: 100%; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+        
+        h1 { font-size: 26px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
+        .gradient-text { background: linear-gradient(to right, #ec4899, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px; }
+        
+        /* Inputs & Form */
+        .form-row { display: flex; flex-direction: column; gap: 12px; }
+        .input-group { position: relative; width: 100%; }
+        .input-group i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 16px; }
+        input[type="text"] { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 12px; padding: 14px 14px 14px 42px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        input[type="text"]:focus { border-color: #db2777; }
+        
+        .btn-primary { background: linear-gradient(135deg, #db2777, #6366f1); color: white; border: none; border-radius: 12px; padding: 14px 24px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(219, 39, 119, 0.3); transition: opacity 0.2s; }
+        .btn-primary:active { opacity: 0.85; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .grid-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+        .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 6px; display: block; }
+        select { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 10px; padding: 10px; color: #e2e8f0; font-size: 13px; outline: none; }
+        
+        /* Loading */
+        #loading-state { text-align: center; padding: 40px 20px; display: none; }
+        .spinner { width: 44px; height: 44px; border: 3px solid #1e293b; border-top-color: #ec4899; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Grid de Cortes */
+        #results-section { display: none; }
+        .clips-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+        .clip-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+        .clip-header { display: flex; justify-content: space-between; align-items: center; }
+        .badge-cut { background: rgba(236, 72, 153, 0.15); color: #ec4899; font-weight: 700; font-size: 11px; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; }
+        .score { font-size: 12px; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+        .clip-title { font-size: 14px; font-weight: 700; line-height: 1.4; color: #f8fafc; }
+        .clip-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #090d16; padding: 10px; border-radius: 10px; font-size: 11px; color: #94a3b8; text-align: center; border: 1px solid #1e293b; }
+        .clip-actions { display: flex; gap: 8px; }
+        .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        
+        /* Video Player */
+        #preview-container { margin-bottom: 20px; display: none; }
+        .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
+        .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        
+        /* Toast */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { padding: 12px 18px; border-radius: 12px; font-size: 13px; color: white; background: #0f172a; border: 1px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .toast.success { border-color: #10b981; }
+        .toast.error { border-color: #ef4444; }
+
+        footer { text-align: center; font-size: 12px; color: #475569; padding: 20px; border-top: 1px solid #1e293b; }
+    </style>
 </head>
-<body class="bg-surface-base text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-600 selection:text-white">
+<body>
 
-    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+    <div id="toast-container"></div>
 
-    <!-- Header -->
-    <header class="h-16 border-b border-surface-border/60 bg-surface-base/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
-                <i class="fa-solid fa-wand-magic-sparkles text-white text-sm"></i>
-            </div>
-            <div>
-                <span class="font-extrabold tracking-tight text-white text-base">CLIP<span class="text-brand-500">FORGE</span></span>
-                <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400 ml-1.5 px-2 py-0.5 rounded-full bg-surface-subtle border border-surface-border/50">Pro Studio</span>
-            </div>
+    <header>
+        <div class="logo-box">
+            <div class="logo-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div class="logo-title">CLIP<span>FORGE</span><span class="tag-pro">Pro Studio</span></div>
         </div>
-
-        <div class="flex items-center gap-4 text-xs font-medium">
-            <div id="server-status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border/70 text-slate-300">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Motor IA: <strong class="text-slate-100">Pronto</strong></span>
-            </div>
-            <div class="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border/70 text-slate-300">
-                Clips: <strong id="counter-clips" class="text-brand-500 font-bold ml-1">0</strong>
-            </div>
+        <div style="font-size: 12px; color: #94a3b8;">
+            Cortes: <strong id="counter-clips" style="color: #ec4899;">0</strong>
         </div>
     </header>
 
-    <!-- Main -->
-    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-        
-        <!-- Formulário -->
-        <section class="bg-surface-card border border-surface-border/70 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-            <div class="max-w-2xl mb-6">
-                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
-                    Transforme vídeos em <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-indigo-400">cortes virais</span>
-                </h1>
-                <p class="text-slate-400 text-sm">
-                    Cole qualquer link do YouTube. A IA analisa o conteúdo e localiza os momentos ideais para TikTok, Shorts e Reels.
-                </p>
-            </div>
+    <main>
+        <section class="card">
+            <h1>Crie cortes com <span class="gradient-text">Inteligência Artificial</span></h1>
+            <p class="subtitle">Cole o link do YouTube abaixo para que a IA identifique automaticamente os trechos mais virais.</p>
 
-            <form id="analyze-form" class="space-y-4">
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <div class="relative flex-1">
-                        <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
-                        <input type="text" id="youtube-url" required placeholder="[https://www.youtube.com/watch?v=](https://www.youtube.com/watch?v=)..." class="w-full bg-surface-base border border-surface-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition shadow-inner">
+            <form id="analyze-form">
+                <div class="form-row">
+                    <div class="input-group">
+                        <i class="fa-brands fa-youtube"></i>
+                        <input type="text" id="youtube-url" required placeholder="https://www.youtube.com/watch?v=...">
                     </div>
-                    <button type="submit" id="btn-submit" class="bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-semibold px-8 py-3.5 rounded-xl transition shadow-lg shadow-brand-600/25 flex items-center justify-center gap-2 text-sm tracking-wide">
-                        <i class="fa-solid fa-sparkles"></i> Analisar Vídeo
+                    <button type="submit" id="btn-submit" class="btn-primary">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Analisar Vídeo
                     </button>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div class="grid-options">
                     <div>
-                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Quantidade de Cortes</label>
-                        <select id="clip-quantity" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                        <label class="field-label">Quantidade</label>
+                        <select id="clip-quantity">
                             <option value="3">3 cortes</option>
                             <option value="5" selected>5 cortes</option>
                             <option value="8">8 cortes</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Duração Média</label>
-                        <select id="clip-duration" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="15">~15 Segundos</option>
-                            <option value="30" selected>~30 Segundos</option>
-                            <option value="60">~60 Segundos</option>
+                        <label class="field-label">Duração</label>
+                        <select id="clip-duration">
+                            <option value="15">~15s (Shorts)</option>
+                            <option value="30" selected>~30s (Padrão)</option>
+                            <option value="60">~60s (Longo)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Formato</label>
-                        <select id="clip-format" class="w-full bg-surface-base border border-surface-border rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="9:16" selected>9:16 Vertical (Reels / TikTok)</option>
-                            <option value="1:1">1:1 Quadrado</option>
-                            <option value="16:9">16:9 Horizontal</option>
+                        <label class="field-label">Formato</label>
+                        <select id="clip-format">
+                            <option value="9:16" selected>9:16 (Vertical)</option>
+                            <option value="1:1">1:1 (Quadrado)</option>
+                            <option value="16:9">16:9 (Horizontal)</option>
                         </select>
                     </div>
                 </div>
             </form>
         </section>
 
-        <!-- Loading State -->
-        <div id="loading-state" class="hidden bg-surface-card border border-surface-border/70 rounded-2xl p-12 text-center space-y-4 shadow-xl">
-            <div class="relative w-14 h-14 mx-auto">
-                <div class="w-14 h-14 border-4 border-surface-border rounded-full"></div>
-                <div class="w-14 h-14 border-4 border-brand-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-            </div>
-            <div>
-                <h3 class="font-bold text-base text-slate-100">Processando Análise do Vídeo</h3>
-                <p class="text-xs text-slate-400 mt-1">Conectando ao backend e calculando métricas de retenção...</p>
-            </div>
-        </div>
-
-        <!-- Resultados -->
-        <section id="results-section" class="space-y-6 hidden">
-            <!-- Player Preview -->
-            <div id="preview-container" class="bg-surface-card border border-surface-border/70 rounded-2xl p-4 sm:p-6 hidden shadow-xl">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-circle-play text-brand-500"></i>
-                        <h4 class="font-bold text-sm text-slate-200" id="preview-title">Pré-visualização do Corte</h4>
-                    </div>
-                    <button onclick="closePreview()" class="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded-lg bg-surface-base border border-surface-border transition">
-                        Fechar Player
-                    </button>
-                </div>
-                <div class="aspect-video w-full bg-black rounded-xl overflow-hidden shadow-inner border border-surface-border/50">
-                    <iframe id="youtube-player" class="w-full h-full" src="" frameborder="0" allow="autoplay" allowfullscreen></iframe>
-                </div>
-            </div>
-
-            <div>
-                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-list-check text-brand-500"></i> Cortes Gerados
-                </h2>
-                <div id="clips-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
-            </div>
+        <section id="loading-state" class="card">
+            <div class="spinner"></div>
+            <h3 style="font-size: 16px; font-weight: 700;">A IA está a analisar o conteúdo...</h3>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Isso pode demorar alguns segundos.</p>
         </section>
 
+        <section id="results-section">
+            <div id="preview-container" class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 id="preview-title" style="font-size: 14px; font-weight: 700; color: #ec4899;">Pré-visualização</h4>
+                    <button onclick="closePreview()" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 12px;">Fechar</button>
+                </div>
+                <div class="player-wrapper">
+                    <iframe id="youtube-player" src="" allow="autoplay" allowfullscreen></iframe>
+                </div>
+            </div>
+
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 12px;">
+                <i class="fa-solid fa-fire" style="color: #ec4899; margin-right: 6px;"></i> Cortes Encontrados
+            </h2>
+            <div id="clips-grid" class="clips-container"></div>
+        </section>
     </main>
 
-    <footer class="border-t border-surface-border/50 py-6 text-center text-xs text-slate-500">
-        CLIPFORGE Studio &bull; Pipeline de Produção Automatizado
+    <footer>
+        CLIPFORGE Studio &bull; Processamento Automatizado
     </footer>
 
     <script>
-        // Aponta para a API no Render ou para a mesma origem se rodando direto no Render
-        const BACKEND_URL = window.location.hostname.includes('render.com') 
-            ? '' 
-            : '[https://cortesyou.onrender.com](https://cortesyou.onrender.com)';
+        const BACKEND_URL = 'https://cortesyou.onrender.com';
+        let currentVideoId = '';
+        let clipsCount = parseInt(localStorage.getItem('clipforge_count') || '0');
 
-        const appState = {
-            clipsCount: parseInt(localStorage.getItem('clipforge_count') || '0'),
-            currentVideoId: '',
-            currentClips: []
-        };
-
-        window.addEventListener('DOMContentLoaded', () => {
-            updateCounters();
-        });
+        document.getElementById('counter-clips').innerText = clipsCount;
 
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium shadow-2xl transition border ${
-                type === 'success' 
-                    ? 'bg-surface-card border-emerald-500/40 text-emerald-300' 
-                    : 'bg-surface-card border-rose-500/40 text-rose-300'
-            }`;
-            toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation text-rose-400'}"></i> <span>${msg}</span>`;
+            toast.className = `toast ${type}`;
+            toast.innerText = msg;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 4000);
-        }
-
-        function updateCounters() {
-            document.getElementById('counter-clips').innerText = appState.clipsCount;
-            localStorage.setItem('clipforge_count', appState.clipsCount);
         }
 
         function extractYouTubeId(url) {
@@ -206,43 +192,41 @@
                 return;
             }
 
-            const cleanUrl = `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){videoId}`;
-            appState.currentVideoId = videoId;
-
+            currentVideoId = videoId;
             const btn = document.getElementById('btn-submit');
             btn.disabled = true;
-            document.getElementById('loading-state').classList.remove('hidden');
-            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('loading-state').style.display = 'block';
+            document.getElementById('results-section').style.display = 'none';
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/analisar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        youtubeUrl: cleanUrl,
+                        youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
                         quantity: Number(document.getElementById('clip-quantity').value),
                         duration: Number(document.getElementById('clip-duration').value)
                     })
                 });
 
                 const data = await res.json();
-                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('loading-state').style.display = 'none';
                 btn.disabled = false;
 
-                if (data.success && data.clips?.length) {
-                    appState.currentClips = data.clips;
-                    appState.clipsCount += data.clips.length;
-                    updateCounters();
+                if (data.success && data.clips && data.clips.length) {
+                    clipsCount += data.clips.length;
+                    localStorage.setItem('clipforge_count', clipsCount);
+                    document.getElementById('counter-clips').innerText = clipsCount;
                     renderClips(data.clips, videoId);
-                    document.getElementById('results-section').classList.remove('hidden');
-                    showToast(`${data.clips.length} cortes identificados com sucesso!`);
+                    document.getElementById('results-section').style.display = 'block';
+                    showToast(`${data.clips.length} cortes gerados com sucesso!`);
                 } else {
                     showToast(data.error || 'Não foi possível analisar o vídeo.', 'error');
                 }
             } catch (err) {
-                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('loading-state').style.display = 'none';
                 btn.disabled = false;
-                showToast('Falha ao conectar com o servidor. Se o Render estiver suspenso, aguarde 30s e tente novamente.', 'error');
+                showToast('O servidor backend está a iniciar. Aguarde 30s e tente novamente.', 'error');
             }
         });
 
@@ -252,30 +236,23 @@
 
             clips.forEach((clip, index) => {
                 const card = document.createElement('div');
-                card.className = 'bg-surface-card border border-surface-border/70 hover:border-brand-500/50 transition duration-200 rounded-2xl p-5 flex flex-col justify-between shadow-lg relative group';
-                
+                card.className = 'clip-card';
                 card.innerHTML = `
                     <div>
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-[11px] font-bold text-brand-500 bg-brand-500/10 border border-brand-500/20 px-2.5 py-1 rounded-lg tracking-wide uppercase">Corte #${index + 1}</span>
-                            <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-                                <i class="fa-solid fa-chart-line text-[10px]"></i> ${clip.potential || '90%'} Score
-                            </span>
+                        <div class="clip-header">
+                            <span class="badge-cut">Corte #${index + 1}</span>
+                            <span class="score"><i class="fa-solid fa-bolt"></i> ${clip.potential || '95%'} Score</span>
                         </div>
-                        <h4 class="font-bold text-sm text-slate-100 leading-snug mb-3">${clip.title}</h4>
-                        <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-400 bg-surface-base/80 p-2.5 rounded-xl mb-4 border border-surface-border/40 font-mono">
-                            <div>Início: <strong class="text-slate-200">${clip.start}s</strong></div>
-                            <div>Fim: <strong class="text-slate-200">${clip.end}s</strong></div>
-                            <div>Dur: <strong class="text-slate-200">${clip.duration}s</strong></div>
-                        </div>
+                        <div class="clip-title" style="margin-top: 10px;">${clip.title}</div>
                     </div>
-                    <div class="flex gap-2 pt-3 border-t border-surface-border/50">
-                        <button onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')" class="flex-1 bg-surface-subtle hover:bg-surface-border text-slate-200 text-xs py-2.5 rounded-xl border border-surface-border/60 transition font-medium flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-play text-[10px]"></i> Assistir
-                        </button>
-                        <button onclick="requestRender(${clip.start}, ${clip.end}, ${clip.duration}, this)" class="flex-1 bg-brand-600 hover:bg-brand-500 text-white text-xs py-2.5 rounded-xl transition font-medium shadow-md shadow-brand-600/20 flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-download text-[10px]"></i> Baixar MP4
-                        </button>
+                    <div class="clip-stats">
+                        <div>Início: <strong>${clip.start}s</strong></div>
+                        <div>Fim: <strong>${clip.end}s</strong></div>
+                        <div>Duração: <strong>${clip.duration}s</strong></div>
+                    </div>
+                    <div class="clip-actions">
+                        <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">Assistir</button>
+                        <button class="btn-download" onclick="requestRender(${clip.start}, ${clip.end}, ${clip.duration}, this)">Baixar MP4</button>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -284,29 +261,29 @@
 
         function playClip(videoId, start, title) {
             document.getElementById('preview-title').innerText = decodeURIComponent(title);
-            document.getElementById('youtube-player').src = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?start=${start}&autoplay=1`;
+            document.getElementById('youtube-player').src = `https://www.youtube.com/embed/${videoId}?start=${start}&autoplay=1`;
             const container = document.getElementById('preview-container');
-            container.classList.remove('hidden');
-            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            container.style.display = 'block';
+            container.scrollIntoView({ behavior: 'smooth' });
         }
 
         function closePreview() {
             document.getElementById('youtube-player').src = '';
-            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('preview-container').style.display = 'none';
         }
 
         async function requestRender(start, end, duration, btn) {
-            const originalText = btn.innerHTML;
+            const originalText = btn.innerText;
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin text-[10px]"></i> Cortando...`;
-            showToast('Processamento FFmpeg iniciado no servidor...');
+            btn.innerText = 'Processando...';
+            showToast('A renderizar corte via FFmpeg...');
 
             try {
                 const res = await fetch(`${BACKEND_URL}/api/render`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        youtubeUrl: `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){appState.currentVideoId}`,
+                        youtubeUrl: `https://www.youtube.com/watch?v=${currentVideoId}`,
                         start,
                         end,
                         duration,
@@ -314,23 +291,23 @@
                     })
                 });
 
-                if (!res.ok) throw new Error('Falha no render');
+                if (!res.ok) throw new Error('Erro no render');
 
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Clip_${appState.currentVideoId}_${start}s.mp4`;
+                a.download = `Clip_${Date.now()}.mp4`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 window.URL.revokeObjectURL(url);
-                showToast('Vídeo MP4 baixado com sucesso!');
+                showToast('Download do corte concluído com sucesso!');
             } catch (err) {
-                showToast('Erro ao renderizar corte no servidor.', 'error');
+                showToast('Erro ao gerar corte no servidor.', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = originalText;
+                btn.innerText = originalText;
             }
         }
     </script>
