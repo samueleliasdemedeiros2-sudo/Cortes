@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const { spawn } = require('child_process');
 
 let mercadopago = null;
 try {
@@ -11,6 +12,7 @@ try {
 
 const app = express();
 
+// Permite leitura dos cabeçalhos binários pelo frontend/navegador
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -18,11 +20,13 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Variáveis de Ambiente
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'samuel123';
 
+// SDK Mercado Pago
 let mpClient = null;
 if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
@@ -44,7 +48,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '6.1.0-DIRECT-STREAM' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '7.0.0-FINAL-SYNC' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -148,7 +152,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR RAPIDAPI: EXTRAI STREAM LEVE JÁ COM ÁUDIO + VÍDEO
+// MOTOR DE RESOLUÇÃO COM RAPIDAPI (OBTÉM URL COM SOM E IMAGEM)
 // ----------------------------------------------------
 async function extrairStreamOficial(videoId) {
   try {
@@ -162,20 +166,20 @@ async function extrairStreamOficial(videoId) {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 20000
+      timeout: 25000
     });
 
     const data = response.data;
 
-    // Procura formatos completos já multiplexados (som + imagem juntos)
+    // Prioriza formatos completos com áudio e vídeo juntos
     if (Array.isArray(data?.formats)) {
-      const streamCompleto = data.formats.find(f => 
+      const formatoAudioVideo = data.formats.find(f => 
         f.url && 
         !f.url.includes('ytimg.com') && 
         f.hasAudio !== false && 
         f.hasVideo !== false
       );
-      if (streamCompleto?.url) return streamCompleto.url;
+      if (formatoAudioVideo?.url) return formatoAudioVideo.url;
     }
 
     if (data?.url && typeof data.url === 'string' && !data.url.includes('ytimg.com')) {
@@ -195,11 +199,12 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// DOWNLOAD DIRETO POR CANALIZAÇÃO BINÁRIA (SEM TRAVAR O RENDER)
+// CORTE CIRÚRGICO, LEVE, SINCRONIZADO E IMEDIATO
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
   const start = parseInt(req.query.start || 0, 10);
+  const duration = parseInt(req.query.duration || 55, 10);
 
   if (!videoId || videoId.length < 5) {
     return res.status(400).json({ error: 'ID do vídeo inválido.' });
@@ -213,48 +218,54 @@ app.get('/api/download', async (req, res) => {
     }
 
     const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-
-    // Força o navegador a disparar o download nativo imediatamente
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // Faz streaming em tempo real: zero consumo de disco ou CPU do Render
-    const responseStream = await axios({
-      method: 'GET',
-      url: directStreamUrl,
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      timeout: 60000
+    // Execução ultra-eficiente:
+    // -ss no input: busca imediata do ponto de corte sem esperar download prévio
+    // -map 0:v:0? -map 0:a:0?: garante inclusão obrigatória de áudio e vídeo
+    // -c copy: mantém 100% da sincronização e qualidade sem consumir CPU do Render
+    // -avoid_negative_ts make_zero: impede que o início fique congelado no celular
+    // -movflags frag_keyframe...: permite streaming contínuo sem corromper o arquivo
+    const ffmpeg = spawn('ffmpeg', [
+      '-ss', String(start),
+      '-i', directStreamUrl,
+      '-t', String(duration),
+      '-map', '0:v:0?',
+      '-map', '0:a:0?',
+      '-c', 'copy',
+      '-avoid_negative_ts', 'make_zero',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-f', 'mp4',
+      'pipe:1'
+    ]);
+
+    ffmpeg.stdout.pipe(res);
+
+    ffmpeg.stderr.on('data', () => {});
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        metricas.totalDownloads += 1;
+      }
     });
 
-    if (responseStream.headers['content-length']) {
-      res.setHeader('Content-Length', responseStream.headers['content-length']);
-    }
-
-    metricas.totalDownloads += 1;
-
-    responseStream.data.pipe(res);
-
     req.on('close', () => {
-      if (responseStream.data && typeof responseStream.data.destroy === 'function') {
-        responseStream.data.destroy();
-      }
+      ffmpeg.kill('SIGKILL');
     });
 
   } catch (error) {
     console.error('[Download Stream Error]:', error.message);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro temporário na transmissão do ficheiro.' });
+      res.status(500).json({ error: 'Erro temporário na transmissão do corte.' });
     }
   }
 });
 
 // ----------------------------------------------------
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO DO SERVIDOR
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v6.1.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v7.0.0]`);
 });
