@@ -7,6 +7,12 @@
     <meta name="theme-color" content="#090d16">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Vercel Speed Insights (Monitorização de Desempenho e Core Web Vitals) -->
+    <script defer src="/_vercel/speed-insights/script.js"></script>
+    <!-- Vercel Web Analytics (Métricas de Visitantes) -->
+    <script defer src="/_vercel/insights/script.js"></script>
+
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -36,17 +42,17 @@
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                 </div>
                 <h1 class="text-2xl font-bold tracking-tight">VIDEOAUTO<span class="text-primary">.YT</span></h1>
-                <p class="text-slate-400 text-sm mt-1">Configure seu acesso para começar</p>
+                <p class="text-slate-400 text-sm mt-1">Configure o seu acesso para começar</p>
             </div>
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Seu Nome / Equipe</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Seu Nome / Equipa</label>
                     <input type="text" id="user-name" required placeholder="Criador" class="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Chave Gemini API (AI Studio)</label>
                     <input type="password" id="gemini-key" required placeholder="AIzaSy..." class="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition">
-                    <p class="text-xs text-slate-500 mt-1">Sua chave fica guardada apenas no seu celular.</p>
+                    <p class="text-xs text-slate-500 mt-1">A sua chave fica guardada apenas no seu dispositivo.</p>
                 </div>
                 <button type="submit" class="w-full bg-primary hover:bg-primaryHover text-white font-medium py-3 rounded-xl transition shadow-lg shadow-primary/25 flex items-center justify-center gap-2">
                     <i class="fa-solid fa-rocket"></i> Entrar no Painel
@@ -65,7 +71,7 @@
                     </div>
                     <div>
                         <h2 class="font-bold text-sm tracking-wide">VIDEOAUTO<span class="text-primary">.YT</span></h2>
-                        <span class="text-xs text-emerald-400 flex items-center gap-1 mt-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> IA Conectada</span>
+                        <span class="text-xs text-emerald-400 flex items-center gap-1 mt-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sistema Ativo</span>
                     </div>
                 </div>
                 <nav class="space-y-1">
@@ -78,7 +84,7 @@
                 </nav>
             </div>
             <div class="pt-4 border-t border-darkBorder flex items-center justify-between px-2">
-                <span class="text-xs font-bold truncate max-w-[130px]" id="sidebar-user-name">Usuário</span>
+                <span class="text-xs font-bold truncate max-w-[130px]" id="sidebar-user-name">Utilizador</span>
                 <button onclick="logout()" class="text-slate-400 hover:text-red-400 p-2" title="Alterar Chave / Sair"><i class="fa-solid fa-gear"></i></button>
             </div>
         </aside>
@@ -98,7 +104,7 @@
                 <div id="tab-dashboard" class="space-y-6">
                     <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-xl">
                         <h2 class="text-base font-bold mb-4 flex items-center gap-2 text-primary">
-                            <i class="fa-solid fa-link"></i> Analisar Vídeo do YouTube com Gemini IA
+                            <i class="fa-solid fa-link"></i> Analisar Vídeo do YouTube com IA
                         </h2>
                         <form id="analyze-form" class="space-y-4">
                             <div class="flex flex-col sm:flex-row gap-2">
@@ -108,9 +114,8 @@
                                 </button>
                             </div>
 
-                            <!-- Área opcional de contexto ou transcrição rápida -->
                             <div>
-                                <textarea id="manual-transcript" rows="2" placeholder="Opcional: Cole a transcrição ou o tema central do vídeo para cortes ultra-precisos..." class="w-full bg-darkBg border border-darkBorder rounded-xl p-3 text-xs focus:outline-none focus:border-primary"></textarea>
+                                <textarea id="manual-transcript" rows="2" placeholder="Opcional: Cole a transcrição ou o tema central do vídeo para orientar a seleção..." class="w-full bg-darkBg border border-darkBorder rounded-xl p-3 text-xs focus:outline-none focus:border-primary"></textarea>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -135,8 +140,8 @@
 
                     <div id="loading-state" class="hidden bg-darkCard border border-darkBorder rounded-2xl p-12 text-center space-y-4">
                         <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <h3 class="font-bold text-lg">A IA está processando os momentos virais...</h3>
-                        <p class="text-xs text-slate-400">Consultando o Gemini diretamente pelo navegador...</p>
+                        <h3 class="font-bold text-lg">A IA está a analisar os melhores momentos...</h3>
+                        <p class="text-xs text-slate-400">Processando os pontos-chave do vídeo...</p>
                     </div>
 
                     <div id="results-section" class="space-y-6 hidden">
@@ -158,7 +163,7 @@
                     <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
                         <h2 class="text-lg font-bold mb-4 text-primary">Histórico de Sugestões</h2>
                         <div id="history-list" class="space-y-3">
-                            <p class="text-slate-400 text-sm py-8 text-center">Nenhum histórico registrado.</p>
+                            <p class="text-slate-400 text-sm py-8 text-center">Nenhum histórico registado.</p>
                         </div>
                     </div>
                 </div>
@@ -199,7 +204,7 @@
                 localStorage.setItem('gemini_api_key', key);
                 document.getElementById('login-modal').classList.add('hidden');
                 document.getElementById('sidebar-user-name').innerText = name;
-                showToast('Chave salva com sucesso!', 'success');
+                showToast('Chave guardada com sucesso!', 'success');
             }
         });
 
@@ -255,7 +260,7 @@
             }
 
             if (!appState.apiKey) {
-                showToast('API Key do Gemini ausente. Faça login novamente.', 'error');
+                showToast('Chave de API em falta. Inicie sessão novamente.', 'error');
                 document.getElementById('login-modal').classList.remove('hidden');
                 return;
             }
@@ -265,15 +270,15 @@
             document.getElementById('results-section').classList.add('hidden');
 
             try {
-                // Chama a API oficial do Gemini diretamente do navegador
-                const prompt = `Você é um editor de vídeos virais especialista em YouTube Shorts, TikTok e Reels.
-Analise este vídeo do YouTube (ID: ${videoId}, Link: https://www.youtube.com/watch?v=${videoId}).${manualText ? `Contexto/Transcrição fornecida: "${manualText}"` : ''}
+                const prompt = `És um editor de vídeos virais especialista em YouTube Shorts, TikTok e Reels.
+Analisa este vídeo do YouTube (ID: ${videoId}, Link: https://www.youtube.com/watch?v=${videoId}).
+${manualText ? `Contexto/Transcrição fornecida: "${manualText}"` : ''}
 
-Gere exatamente ${quantity} sugestões de cortes virais. Cada corte deve ter em média ${duration} segundos e formato${format}.
-Retorne APENAS um array JSON puro (sem markdown, sem \`\`\`json), exatamente com a seguinte estrutura de objetos:
+Gera exatamente ${quantity} sugestões de cortes virais. Cada corte deve ter em média ${duration} segundos e formato ${format}.
+Retorna APENAS um array JSON puro (sem formatação markdown, sem blocos de código), exatamente com a seguinte estrutura:
 [
   {
-    "title": "Título chamativo e viral do corte",
+    "title": "Título dinâmico do corte",
     "start": 10,
     "end": ${parseInt(duration) + 10},
     "duration": ${duration},
@@ -292,7 +297,7 @@ Retorne APENAS um array JSON puro (sem markdown, sem \`\`\`json), exatamente com
 
                 if (!res.ok) {
                     const errData = await res.json();
-                    throw new Error(errData.error?.message || 'Erro ao conectar à API do Gemini.');
+                    throw new Error(errData.error?.message || 'Falha ao ligar à API do Gemini.');
                 }
 
                 const data = await res.json();
@@ -307,11 +312,10 @@ Retorne APENAS um array JSON puro (sem markdown, sem \`\`\`json), exatamente com
                 updateCounters();
                 renderClips(clips, videoId);
                 document.getElementById('results-section').classList.remove('hidden');
-                showToast('Cortes analisados com sucesso pelo Gemini!');
+                showToast('Cortes analisados com sucesso!');
 
-                // Salva histórico
                 clips.forEach(c => {
-                    appState.history.unshift({ title: c.title, date: new Date().toLocaleDateString('pt-BR'), duration: c.duration });
+                    appState.history.unshift({ title: c.title, date: new Date().toLocaleDateString('pt-PT'), duration: c.duration });
                 });
                 localStorage.setItem('videoauto_history', JSON.stringify(appState.history.slice(0, 30)));
                 renderHistory();
