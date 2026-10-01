@@ -12,7 +12,6 @@ try {
 
 const app = express();
 
-// Permite leitura dos cabeçalhos binários pelo Blob/iframe do frontend
 app.use(cors({ 
   origin: '*', 
   exposedHeaders: ['Content-Disposition', 'Content-Length'] 
@@ -20,13 +19,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Variáveis de Ambiente
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'c9dea9a596msh9565df12086412fp1d11cejsnadb3d0bd41ad';
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'cloud-api-hub-youtube-downloader.p.rapidapi.com';
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'samuel123';
 
-// SDK Mercado Pago
 let mpClient = null;
 if (mercadopago && MP_ACCESS_TOKEN && MP_ACCESS_TOKEN.startsWith('APP_USR')) {
   try {
@@ -48,7 +45,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.1.0-FFMPEG-LIGHT' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.3.0-SYNC-AUDIO-LIGHT' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -152,7 +149,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// MOTOR DE RESOLUÇÃO COM A ROTA OFICIAL DA RAPIDAPI
+// MOTOR RAPIDAPI (OBTÉM O LINK COM ÁUDIO + VÍDEO)
 // ----------------------------------------------------
 async function extrairStreamOficial(videoId) {
   try {
@@ -171,7 +168,6 @@ async function extrairStreamOficial(videoId) {
 
     const data = response.data;
 
-    // 1. Link direto na raiz
     if (data?.url && typeof data.url === 'string' && !data.url.includes('ytimg.com')) {
       return data.url;
     }
@@ -179,14 +175,12 @@ async function extrairStreamOficial(videoId) {
       return data.download_url;
     }
 
-    // 2. Extração caso retorne formato de array
     if (Array.isArray(data?.formats)) {
       const formatoCompleto = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
                            || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
       if (formatoCompleto?.url) return formatoCompleto.url;
     }
 
-    // 3. Objeto direto de formato com format_id
     if (data?.format_id && data?.url) {
       return data.url;
     }
@@ -199,7 +193,7 @@ async function extrairStreamOficial(videoId) {
 }
 
 // ----------------------------------------------------
-// DESCARREGAMENTO DIRETO E LEVE COM CORTE EXATO (FFMPEG)
+// DOWNLOAD COMPACTO COM SOM NÍTIDO E SEM TRAVAR (~6 MB A 10 MB)
 // ----------------------------------------------------
 app.get('/api/download', async (req, res) => {
   const videoId = req.query.id;
@@ -221,22 +215,33 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
 
-    // Executa o ffmpeg para cortar apenas o trecho leve selecionado (5 MB - 15 MB)
+    // Configuração do FFmpeg:
+    // -ss no input: busca rápida do keyframe
+    // -map 0:v:0? -map 0:a:0?: obriga a trazer o vídeo e o áudio
+    // -c:a aac -b:a 128k -ar 44100: som estéreo limpo e alto
+    // -c:v libx264 -preset ultrafast -crf 29: reduz o tamanho para ~6MB a 10MB sem travar
     const ffmpeg = spawn('ffmpeg', [
       '-ss', String(start),
       '-i', directStreamUrl,
       '-t', String(duration),
-      '-c', 'copy',
-      '-movflags', 'frag_keyframe+empty_moov',
+      '-map', '0:v:0?',
+      '-map', '0:a:0?',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '29',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-ac', '2',
+      '-ar', '44100',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       '-f', 'mp4',
       'pipe:1'
     ]);
 
     ffmpeg.stdout.pipe(res);
 
-    ffmpeg.stderr.on('data', () => {
-      // Stream de processamento interno
-    });
+    ffmpeg.stderr.on('data', () => {});
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
@@ -261,5 +266,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.1.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.3.0]`);
 });
