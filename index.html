@@ -52,6 +52,7 @@
         .clip-actions { display: flex; gap: 8px; }
         .btn-watch { flex: 1; background: #1e293b; border: 1px solid #334155; color: #f1f5f9; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .btn-download { flex: 1; background: #db2777; border: none; color: white; padding: 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .btn-download:disabled { opacity: 0.6; cursor: not-allowed; }
         
         #preview-container { margin-bottom: 20px; display: none; }
         .player-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; background: black; border-radius: 12px; overflow: hidden; margin-top: 10px; }
@@ -165,7 +166,7 @@
             toast.className = `toast ${type}`;
             toast.innerText = msg;
             container.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
+            setTimeout(() => toast.remove(), 5000);
         }
 
         function extractYouTubeId(url) {
@@ -246,7 +247,7 @@
                         <button class="btn-watch" onclick="playClip('${videoId}', ${clip.start}, '${encodeURIComponent(clip.title)}')">
                             <i class="fa-solid fa-play"></i> Assistir
                         </button>
-                        <button class="btn-download" onclick="baixarMP4('${videoId}')">
+                        <button class="btn-download" id="dl-btn-${index}" onclick="baixarComFeedback('${videoId}', 'dl-btn-${index}')">
                             <i class="fa-solid fa-download"></i> Baixar MP4
                         </button>
                     </div>
@@ -268,10 +269,38 @@
             document.getElementById('preview-container').style.display = 'none';
         }
 
-        // Download direto via RapidAPI
-        function baixarMP4(videoId) {
-            showToast('A obter ficheiro de vídeo via RapidAPI...');
-            window.location.href = `${BACKEND_URL}/api/download-rapid?videoId=${videoId}`;
+        // Requisição com indicador de progresso ativo
+        async function baixarComFeedback(videoId, btnId) {
+            const btn = document.getElementById(btnId);
+            const originalHTML = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> A preparar (~15s)...`;
+            showToast('A processar o ficheiro na RapidAPI. Aguarde ~15 segundos...');
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/download-rapid?videoId=${videoId}`);
+                const data = await res.json();
+
+                if (data.success && data.downloadUrl) {
+                    showToast('Ficheiro pronto! A iniciar transferência...', 'success');
+                    
+                    // Dispara a transferência do ficheiro MP4
+                    const a = document.createElement('a');
+                    a.href = data.downloadUrl;
+                    a.setAttribute('download', `Corte_${videoId}.mp4`);
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                } else {
+                    showToast(data.error || 'A API ainda está a renderizar. Tente de novo em instantes.', 'error');
+                }
+            } catch (err) {
+                showToast('Tempo limite excedido. Tente novamente.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
         }
     </script>
 </body>
