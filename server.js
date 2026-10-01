@@ -47,7 +47,7 @@ const pagamentos = new Map();
 // ----------------------------------------------------
 // ROTAS DE STATUS E ADMIN
 // ----------------------------------------------------
-app.get('/', (req, res) => res.json({ status: 'online', versao: '4.0.0-RAPID-OFFICIAL' }));
+app.get('/', (req, res) => res.json({ status: 'online', versao: '4.0.1-RAPID-CORRECTED' }));
 app.get('/api/status', (req, res) => res.json({ status: 'online', uptime: Math.floor(process.uptime()) }));
 
 app.post('/api/admin/login', (req, res) => {
@@ -165,12 +165,12 @@ async function extrairStreamOficial(videoId) {
         'x-rapidapi-key': RAPIDAPI_KEY,
         'x-rapidapi-host': RAPIDAPI_HOST
       },
-      timeout: 20000
+      timeout: 25000
     });
 
     const data = response.data;
 
-    // 1. Link direto presente na raiz
+    // 1. Link direto na raiz
     if (data?.url && typeof data.url === 'string' && !data.url.includes('ytimg.com')) {
       return data.url;
     }
@@ -178,14 +178,14 @@ async function extrairStreamOficial(videoId) {
       return data.download_url;
     }
 
-    // 2. Extração da lista de formatos devolvida
+    // 2. Extração caso retorne formato de array
     if (Array.isArray(data?.formats)) {
       const formatoCompleto = data.formats.find(f => f.url && !f.url.includes('ytimg.com') && (f.hasAudio !== false && f.hasVideo !== false))
                            || data.formats.find(f => f.url && !f.url.includes('ytimg.com'));
       if (formatoCompleto?.url) return formatoCompleto.url;
     }
 
-    // 3. Objeto direto de formato
+    // 3. Objeto direto de formato com format_id
     if (data?.format_id && data?.url) {
       return data.url;
     }
@@ -220,9 +220,9 @@ app.get('/api/download', async (req, res) => {
       url: directStreamUrl,
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
-      timeout: 50000
+      timeout: 60000
     });
 
     const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -256,5 +256,5 @@ app.get('/api/download', async (req, res) => {
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.0.0]`);
+  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v4.0.1]`);
 });
