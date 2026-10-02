@@ -1,7 +1,7 @@
 {
   "name": "clipforge-server",
-  "version": "13.1.9",
-  "description": "ClipForge Pro - Backend de cortes com IA Gemini",
+  "version": "13.2.0",
+  "description": "ClipForge Pro - Backend de cortes com IA Gemini e upload de vídeos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,8 +12,10 @@
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
-    "express": "^4.21.2",
+    "@google/genai": "^1.29.0",
     "cors": "^2.8.5",
-    "mercadopago": "^2.11.0"
+    "express": "^4.21.2",
+    "mercadopago": "^2.11.0",
+    "multer": "^1.4.5-lts.1"
   }
 }
