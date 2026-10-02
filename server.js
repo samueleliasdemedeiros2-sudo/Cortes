@@ -128,8 +128,8 @@ app.post('/api/admin/login', (req, res) => {
     req.body || {};
 
   if (
-    !ADMIN_PASSWORD ||
-    !password ||
+    !ADMIN_PASSWORD ||samuel123
+    !password ||samuel123
     password !== ADMIN_PASSWORD
   ) {
     return res.status(401).json({
@@ -518,12 +518,31 @@ async function extrairStreamOficial(videoId) {
       );
 
     const data =
-response.data;
+  response.data;
 
- console.log(
+console.log(
   '[RapidAPI DEBUG]',
-  JSON.stringify(data, null, 2)
+  {
+    temFormats: Array.isArray(data?.formats),
+    quantidadeFormats: Array.isArray(data?.formats)
+      ? data.formats.length
+      : 0,
+    campos: data && typeof data === 'object'
+      ? Object.keys(data)
+      : [],
+    primeiroFormato: Array.isArray(data?.formats)
+      ? {
+          campos: Object.keys(data.formats[0] || {}),
+          hasAudio: data.formats[0]?.hasAudio,
+          hasVideo: data.formats[0]?.hasVideo,
+          mimeType: data.formats[0]?.mimeType,
+          quality: data.formats[0]?.quality,
+          type: data.formats[0]?.type
+        }
+      : null
+  }
 );
+
 
 
     // ----------------------------------------------
