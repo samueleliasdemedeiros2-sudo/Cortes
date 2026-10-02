@@ -1,2310 +1,3323 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipForge Pro - Cortes com IA & Assinatura VIP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <script src="https://cdn.tailwindcss.com"></script>
+    <title>ClipForge Pro — Cortes com IA</title>
 
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-  >
+    <meta name="description" content="Crie cortes profissionais de vídeos do YouTube usando inteligência artificial.">
+    <meta name="theme-color" content="#08090d">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Inter", sans-serif;
+            background:
+                radial-gradient(circle at 50% -10%, rgba(255,255,255,.055), transparent 35%),
+                #08090d;
+            color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        ::selection {
+            background: rgba(255,255,255,.18);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #08090d;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #292b32;
+            border-radius: 999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b3e47;
+        }
+
+        .glass {
+            background: rgba(18, 19, 25, .78);
+            border: 1px solid rgba(255,255,255,.07);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .glass-light {
+            background: rgba(255,255,255,.035);
+            border: 1px solid rgba(255,255,255,.065);
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #ffffff, #9ca3af);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .premium-text {
+            background: linear-gradient(90deg, #ffffff, #c8c8c8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .btn-main {
+            background: #ffffff;
+            color: #090a0e;
+            transition: all .2s ease;
+        }
+
+        .btn-main:hover {
+            background: #e8e8e8;
+            transform: translateY(-1px);
+        }
+
+        .btn-main:active {
+            transform: translateY(0);
+        }
+
+        .btn-dark {
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.08);
+            transition: all .2s ease;
+        }
+
+        .btn-dark:hover {
+            background: rgba(255,255,255,.1);
+            border-color: rgba(255,255,255,.14);
+        }
+
+        .input-dark {
+            background: rgba(255,255,255,.035);
+            border: 1px solid rgba(255,255,255,.09);
+            color: white;
+            transition: all .2s ease;
+        }
+
+        .input-dark:focus {
+            outline: none;
+            border-color: rgba(255,255,255,.28);
+            background: rgba(255,255,255,.05);
+            box-shadow: 0 0 0 3px rgba(255,255,255,.025);
+        }
+
+        .input-dark::placeholder {
+            color: #71717a;
+        }
+
+        .card {
+            background: linear-gradient(
+                145deg,
+                rgba(255,255,255,.055),
+                rgba(255,255,255,.018)
+            );
+            border: 1px solid rgba(255,255,255,.075);
+            transition: transform .2s ease, border-color .2s ease, background .2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255,255,255,.14);
+        }
+
+        .modal-backdrop {
+            background: rgba(0,0,0,.76);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .modal {
+            background: #111217;
+            border: 1px solid rgba(255,255,255,.09);
+            box-shadow: 0 30px 100px rgba(0,0,0,.55);
+        }
+
+        .loader {
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(0,0,0,.18);
+            border-top-color: #000;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+
+        .loader-light {
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(255,255,255,.12);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 0 0 rgba(255,255,255,.4);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            70% {
+                box-shadow: 0 0 0 7px rgba(255,255,255,0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255,255,255,0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn .35s ease both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp .3s ease both;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast {
+            animation: toastIn .25s ease both;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .qr-box {
+            background: #fff;
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .status-success {
+            border-color: rgba(255,255,255,.2);
+            background: rgba(255,255,255,.055);
+        }
+
+        .status-error {
+            border-color: rgba(255,80,80,.2);
+            background: rgba(255,80,80,.045);
+        }
+
+        .status-loading {
+            border-color: rgba(255,255,255,.1);
+            background: rgba(255,255,255,.025);
+        }
+    </style>
 </head>
 
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+<body>
 
-  <!-- TOAST -->
-  <div
-    id="toast"
-    class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl px-4 py-3 flex items-center gap-3 max-w-sm"
-  >
-    <div
-      id="toastIcon"
-      class="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/20 text-purple-400"
-    >
-      <i class="fa-solid fa-coins"></i>
-    </div>
+    <!-- ================================
+         HEADER
+    ================================= -->
 
-    <div>
-      <h4 id="toastTitulo" class="text-xs font-bold text-white">
-        Notificação
-      </h4>
+    <header class="sticky top-0 z-40 border-b border-white/[.06] bg-[#08090d]/85 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="h-[72px] flex items-center justify-between gap-4">
 
-      <p id="toastMsg" class="text-[11px] text-slate-400">
-        Mensagem do sistema
-      </p>
-    </div>
-  </div>
+                <button
+                    onclick="window.scrollTo({top:0,behavior:'smooth'})"
+                    class="flex items-center gap-3 min-w-0"
+                >
+                    <div class="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center shadow-lg">
+                        <i class="fa-solid fa-scissors text-lg"></i>
+                    </div>
 
-  <!-- HEADER -->
-  <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur-md sticky top-0 z-40">
+                    <div class="text-left min-w-0">
+                        <div class="font-black tracking-tight text-[17px]">
+                            ClipForge <span class="text-zinc-500">Pro</span>
+                        </div>
 
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                        <div class="text-[10px] text-zinc-500 uppercase tracking-[.22em]">
+                            AI Video Clipper
+                        </div>
+                    </div>
+                </button>
 
-      <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 sm:gap-3">
 
-        <div
-          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/30"
-        >
-          <i class="fa-solid fa-scissors text-white text-sm"></i>
+                    <!-- Pontos -->
+                    <div
+                        id="pointsBox"
+                        class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl glass-light"
+                    >
+                        <i class="fa-solid fa-bolt text-zinc-300 text-xs"></i>
+
+                        <span
+                            id="pointsValue"
+                            class="text-sm font-bold"
+                        >
+                            200
+                        </span>
+
+                        <span class="text-xs text-zinc-500">
+                            pontos
+                        </span>
+                    </div>
+
+                    <!-- Plano -->
+                    <button
+                        id="planBadge"
+                        onclick="abrirPlanos()"
+                        class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-white/[.08] bg-white/[.035] hover:bg-white/[.07] transition"
+                    >
+                        <i id="planIcon" class="fa-regular fa-star text-xs"></i>
+
+                        <span id="planText" class="text-xs font-semibold">
+                            FREE
+                        </span>
+                    </button>
+
+                    <!-- Mobile pontos -->
+                    <div
+                        id="mobilePoints"
+                        class="sm:hidden flex items-center gap-1.5 px-2.5 py-2 rounded-xl glass-light"
+                    >
+                        <i class="fa-solid fa-bolt text-xs"></i>
+
+                        <span
+                            id="mobilePointsValue"
+                            class="text-xs font-bold"
+                        >
+                            200
+                        </span>
+                    </div>
+
+                    <!-- VIP -->
+                    <button
+                        id="vipHeaderButton"
+                        onclick="abrirPlanos()"
+                        class="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl btn-main text-xs font-bold"
+                    >
+                        <i class="fa-solid fa-crown text-[11px]"></i>
+                        Seja VIP
+                    </button>
+
+                    <!-- Admin -->
+                    <button
+                        onclick="abrirAdmin()"
+                        class="w-10 h-10 rounded-xl btn-dark flex items-center justify-center text-zinc-400 hover:text-white"
+                        title="Área administrativa"
+                    >
+                        <i class="fa-solid fa-gear text-sm"></i>
+                    </button>
+
+                </div>
+            </div>
         </div>
+    </header>
 
-        <div>
-          <span
-            class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500"
-          >
-            ClipForge Pro
-          </span>
 
-          <span
-            class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono"
-          >
-            v3.3
-          </span>
-        </div>
+    <!-- ================================
+         HERO
+    ================================= -->
 
-      </div>
+    <main>
 
-      <div class="flex items-center gap-2">
+        <section class="relative overflow-hidden">
 
-        <div
-          id="badgePlano"
-          class="flex items-center gap-1.5 text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl border border-slate-700"
-        >
-          <i class="fa-solid fa-user text-purple-400"></i>
+            <div class="absolute inset-0 pointer-events-none">
+                <div class="absolute left-1/2 -translate-x-1/2 -top-40 w-[650px] h-[650px] rounded-full bg-white/[.025] blur-3xl"></div>
+            </div>
 
-          <span id="planoNome" class="font-medium">
-            Plano Free
-          </span>
-        </div>
+            <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-12">
 
-        <div
-          class="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/30 px-3 py-1.5 rounded-xl shadow-inner"
-        >
-          <i class="fa-solid fa-coins text-amber-400 text-xs animate-bounce"></i>
+                <div class="text-center">
 
-          <span
-            id="pontosSaldo"
-            class="text-xs font-bold text-purple-200"
-          >
-            200
-          </span>
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[.08] bg-white/[.025] text-[11px] font-semibold text-zinc-400 mb-6">
+                        <span class="pulse-dot"></span>
+                        Inteligência artificial para seus vídeos
+                    </div>
 
-          <span
-            class="text-[10px] text-purple-400 font-semibold uppercase"
-          >
-            pts
-          </span>
-        </div>
+                    <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-.045em] leading-[.98]">
+                        Transforme vídeos em
+                        <span class="gradient-text">
+                            cortes virais.
+                        </span>
+                    </h1>
 
-        <button
-          onclick="abrirPlanosModal()"
-          class="text-xs bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl transition shadow-lg shadow-amber-500/20 active:scale-95 flex items-center gap-1.5"
-        >
-          <i class="fa-solid fa-crown text-xs"></i>
-          <span>Seja VIP</span>
-        </button>
+                    <p class="max-w-2xl mx-auto mt-6 text-zinc-400 text-sm sm:text-base leading-7">
+                        Cole o link de um vídeo do YouTube e deixe a IA encontrar
+                        automaticamente os melhores momentos para você.
+                    </p>
 
-        <button
-          onclick="abrirAdminModal()"
-          class="text-slate-500 hover:text-slate-300 p-2"
-          title="Painel Admin"
-        >
-          <i class="fa-solid fa-gear"></i>
-        </button>
+                </div>
 
-      </div>
-    </div>
-  </header>
 
-  <!-- BONUS -->
-  <div
-    class="bg-gradient-to-r from-purple-950/70 via-indigo-950/50 to-slate-900 border-b border-purple-900/40 py-2.5 px-4 text-center text-xs text-purple-200 flex items-center justify-center gap-3"
-  >
-    <span>
-      ✨ Todo dia você ganha
-      <b>+50 pontos grátis</b>
-      para gerar cortes:
-    </span>
+                <!-- ================================
+                     INPUT
+                ================================= -->
 
-    <button
-      onclick="resgatarBonusDiario()"
-      class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-3 py-1 rounded-lg text-[11px] shadow-sm transition active:scale-95"
-    >
-      Resgatar Hoje
-    </button>
-  </div>
+                <div class="max-w-3xl mx-auto mt-10">
 
-  <!-- MAIN -->
-  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
+                    <div class="glass rounded-2xl p-2 sm:p-3 shadow-2xl">
 
-    <div class="text-center mb-8">
+                        <div class="flex flex-col sm:flex-row gap-2">
 
-      <div
-        class="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold uppercase tracking-wider mb-3"
-      >
-        <i class="fa-solid fa-bolt text-amber-400"></i>
-        Inteligência Artificial Viral
-      </div>
+                            <div class="relative flex-1">
 
-      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+                                <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
 
-        Transforme Vídeos Longos em
+                                <input
+                                    id="videoUrl"
+                                    type="url"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    placeholder="Cole aqui o link do YouTube..."
+                                    class="input-dark w-full rounded-xl h-14 pl-11 pr-4 text-sm"
+                                    onkeydown="if(event.key==='Enter') gerarCortes()"
+                                >
 
-        <span
-          class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500"
-        >
-          Shorts Virais
-        </span>
+                            </div>
 
-      </h1>
+                            <button
+                                id="btnGerar"
+                                onclick="gerarCortes()"
+                                class="btn-main h-14 px-7 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                            >
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                <span>Gerar cortes</span>
+                            </button>
 
-      <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
-        Cole um vídeo do YouTube e deixe a IA encontrar os melhores momentos.
-      </p>
+                        </div>
 
-    </div>
+                    </div>
 
-    <!-- INPUT -->
-    <div
-      class="bg-slate-900 border border-slate-800 p-2 sm:p-3 rounded-2xl shadow-xl shadow-purple-950/20 mb-8"
-    >
+                    <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt"></i>
+                            Análise com IA
+                        </span>
 
-      <div class="flex flex-col sm:flex-row gap-2">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-scissors"></i>
+                            Cortes automáticos
+                        </span>
 
-        <div class="relative flex-1">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-download"></i>
+                            MP4
+                        </span>
+                    </div>
 
-          <i
-            class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg"
-          ></i>
+                </div>
 
-          <input
-            type="text"
-            id="videoUrl"
-            placeholder="Cole o link do YouTube aqui..."
-            class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white placeholder-slate-500 transition-all"
-            onkeydown="if(event.key==='Enter') gerarCortes()"
-          >
+            </div>
+        </section>
 
-        </div>
 
-        <button
-          id="btnGerar"
-          onclick="gerarCortes()"
-          class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium px-6 py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 active:scale-95"
-        >
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-          <span>Gerar Cortes</span>
-        </button>
+        <!-- ================================
+             LOADING
+        ================================= -->
 
-      </div>
-    </div>
-
-    <!-- LOADING -->
-    <div id="loading" class="hidden text-center py-12">
-
-      <div
-        class="inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"
-      ></div>
-
-      <p id="loadingText" class="text-sm text-slate-400">
-        Preparando análise...
-      </p>
-
-      <p class="text-[11px] text-slate-600 mt-2">
-        O download e a análise pela IA podem levar alguns minutos.
-      </p>
-
-    </div>
-
-    <!-- CORTES -->
-    <div id="cortesArea" class="hidden">
-
-      <div class="flex items-center justify-between mb-4 gap-3">
-
-        <h2
-          class="text-lg font-bold text-white flex items-center gap-2"
-        >
-          <i class="fa-solid fa-scissors text-purple-400"></i>
-          Melhores Cortes Identificados
-        </h2>
-
-        <span
-          class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap"
-        >
-          50 pontos por corte (Grátis p/ VIP)
-        </span>
-
-      </div>
-
-      <div
-        class="grid grid-cols-1 md:grid-cols-3 gap-4"
-        id="cardsContainer"
-      ></div>
-
-    </div>
-
-  </main>
-
-  <!-- MODAL PLANOS -->
-  <div
-    id="modalPlanos"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
-  >
-
-    <div
-      class="bg-slate-900 border border-amber-500/30 w-full max-w-md rounded-3xl p-6 relative shadow-2xl shadow-amber-950/20"
-    >
-
-      <button
-        onclick="fecharPlanosModal()"
-        class="absolute top-4 right-4 text-slate-400 hover:text-white transition"
-      >
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div class="text-center mb-6">
-
-        <div
-          class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30"
-        >
-          <i class="fa-solid fa-crown text-slate-950 text-2xl"></i>
-        </div>
-
-        <h3 class="text-2xl font-black text-white">
-          Evolua para o ClipForge VIP
-        </h3>
-
-        <p class="text-xs text-slate-400 mt-1">
-          Crie sem limitações e acelere o crescimento dos seus canais.
-        </p>
-
-      </div>
-
-      <div class="space-y-3 mb-6">
-
-        <div
-          class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950/70 flex justify-between items-center text-xs"
+        <section
+            id="loadingArea"
+            class="hidden max-w-3xl mx-auto px-4 pb-10"
         >
 
-          <div>
-            <span class="font-bold text-slate-300">
-              Plano Básico
-            </span>
+            <div class="glass rounded-2xl p-6 text-center">
 
-            <p class="text-slate-500 text-[11px]">
-              200 pontos + 50 pts/dia
-            </p>
-          </div>
+                <div class="flex justify-center mb-4">
+                    <div class="loader-light"></div>
+                </div>
 
-          <span class="text-slate-400">
-            360p
-          </span>
+                <h3 class="font-bold text-base">
+                    A IA está analisando o vídeo
+                </h3>
 
-        </div>
+                <p
+                    id="loadingText"
+                    class="text-sm text-zinc-500 mt-2"
+                >
+                    Procurando os melhores momentos...
+                </p>
 
-        <div
-          class="p-4 rounded-2xl border-2 border-amber-500/60 bg-gradient-to-b from-amber-500/10 via-slate-900 to-slate-950 relative overflow-hidden"
-        >
-
-          <div class="flex justify-between items-center mb-3">
-
-            <div>
-
-              <span
-                class="font-extrabold text-amber-400 text-sm flex items-center gap-1.5"
-              >
-                <i class="fa-solid fa-star"></i>
-                Plano VIP Ilimitado
-              </span>
-
-              <p class="text-[11px] text-slate-400">
-                Acesso completo sem limites de créditos
-              </p>
+                <div class="w-full h-1 rounded-full bg-white/[.05] mt-5 overflow-hidden">
+                    <div
+                        id="loadingBar"
+                        class="h-full bg-white rounded-full"
+                        style="width: 15%; transition: width 1s ease"
+                    ></div>
+                </div>
 
             </div>
 
-            <div class="text-right">
+        </section>
 
-              <span class="text-lg font-black text-white">
-                R$ 19,90
-              </span>
 
-              <span class="text-[10px] text-slate-400 block">
-                /mês
-              </span>
+        <!-- ================================
+             ERROR
+        ================================= -->
+
+        <section
+            id="errorArea"
+            class="hidden max-w-3xl mx-auto px-4 pb-10"
+        >
+            <div class="rounded-2xl border status-error p-5">
+
+                <div class="flex gap-4">
+
+                    <div class="w-10 h-10 shrink-0 rounded-xl bg-white/[.04] flex items-center justify-center">
+                        <i class="fa-solid fa-triangle-exclamation text-zinc-300"></i>
+                    </div>
+
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-sm">
+                            Não foi possível concluir
+                        </h3>
+
+                        <p
+                            id="errorText"
+                            class="text-sm text-zinc-500 mt-1 leading-6"
+                        >
+                            Ocorreu um erro.
+                        </p>
+
+                        <button
+                            onclick="fecharErro()"
+                            class="mt-3 text-xs font-semibold text-white hover:underline"
+                        >
+                            Tentar novamente
+                        </button>
+                    </div>
+
+                </div>
 
             </div>
+        </section>
 
-          </div>
 
-          <ul class="text-slate-300 space-y-2 text-xs">
+        <!-- ================================
+             RESULTADOS
+        ================================= -->
 
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
-              <span><b>Pontos Infinitos</b></span>
-            </li>
-
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
-              <span><b>IA Anti-Silêncio</b></span>
-            </li>
-
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
-              <span><b>Legendas Dinâmicas</b></span>
-            </li>
-
-            <li class="flex items-center gap-2">
-              <i class="fa-solid fa-check text-emerald-400 text-xs"></i>
-              <span><b>Velocidade Prioritária</b></span>
-            </li>
-
-          </ul>
-
-        </div>
-      </div>
-
-      <button
-        onclick="assinarVipPix()"
-        class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black py-3.5 rounded-2xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95"
-      >
-
-        <i class="fa-brands fa-pix text-lg"></i>
-
-        <span>
-          Ativar VIP Agora via Pix (R$ 19,90)
-        </span>
-
-      </button>
-
-    </div>
-  </div>
-
-  <!-- MODAL PIX -->
-  <div
-    id="modalPix"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
-  >
-
-    <div
-      class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 text-center relative shadow-2xl"
-    >
-
-      <button
-        onclick="fecharPixModal()"
-        class="absolute top-4 right-4 text-slate-400 hover:text-white transition"
-      >
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div
-        class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-emerald-500/20"
-      >
-        <i class="fa-brands fa-pix text-2xl"></i>
-      </div>
-
-      <h3 class="text-lg font-bold text-white mb-1">
-        Pagamento Pix
-      </h3>
-
-      <p class="text-xs text-slate-400 mb-4">
-        Pague <b>R$ 19,90</b> na sua aplicação bancária.
-      </p>
-
-      <div
-        class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4 flex flex-col items-center"
-      >
-
-        <div
-          id="pixQrContainer"
-          class="w-40 h-40 bg-white p-2 rounded-xl flex items-center justify-center mb-3"
-        >
-          <i
-            class="fa-solid fa-qrcode text-slate-800 text-4xl animate-pulse"
-          ></i>
-        </div>
-
-        <p class="text-[11px] text-slate-500 mb-2">
-          Pix Copia e Cola:
-        </p>
-
-        <div class="flex w-full gap-1">
-
-          <input
-            id="pixCopiaCola"
-            type="text"
-            readonly
-            class="w-full bg-slate-900 text-xs px-2.5 py-2 rounded-xl border border-slate-700 text-slate-300 font-mono"
-          >
-
-          <button
-            onclick="copiarPix()"
-            class="bg-purple-600 hover:bg-purple-500 px-3 rounded-xl text-xs font-semibold transition active:scale-95"
-          >
-            Copiar
-          </button>
-
-        </div>
-      </div>
-
-      <div
-        id="pixStatusText"
-        class="flex items-center justify-center gap-2 text-xs text-slate-400"
-      >
-
-        <div
-          class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"
-        ></div>
-
-        <span>
-          Aguardando confirmação do banco...
-        </span>
-
-      </div>
-
-    </div>
-  </div>
-
-  <!-- MODAL ADMIN -->
-  <div
-    id="modalAdmin"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
-  >
-
-    <div
-      class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 relative shadow-2xl"
-    >
-
-      <button
-        onclick="fecharAdminModal()"
-        class="absolute top-4 right-4 text-slate-400 hover:text-white transition"
-      >
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div id="adminLogin">
-
-        <h3
-          class="text-lg font-bold text-white mb-1 flex items-center gap-2"
-        >
-          <i class="fa-solid fa-shield-halved text-purple-400"></i>
-          Painel de Administração
-        </h3>
-
-        <p class="text-xs text-slate-400 mb-4">
-          Introduza a sua senha mestra:
-        </p>
-
-        <input
-          id="adminPass"
-          type="password"
-          placeholder="Senha do Admin"
-          class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm mb-3 text-white focus:outline-none focus:border-purple-500"
+        <section
+            id="resultados"
+            class="hidden max-w-6xl mx-auto px-4 sm:px-6 pb-20"
         >
 
-        <button
-          onclick="entrarAdmin()"
-          class="w-full bg-purple-600 hover:bg-purple-500 py-2.5 rounded-xl font-medium text-sm transition active:scale-95"
-        >
-          Entrar
-        </button>
-
-      </div>
-
-      <div id="adminPainel" class="hidden">
-
-        <h3
-          class="text-lg font-bold text-white mb-3 flex items-center gap-2"
-        >
-          <i class="fa-solid fa-chart-line text-emerald-400"></i>
-          Métricas em Tempo Real
-        </h3>
-
-        <div class="grid grid-cols-2 gap-3 mb-4">
-
-          <div
-            class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
-          >
-            <span class="text-[11px] text-slate-400">
-              Faturamento Total
-            </span>
-
-            <p
-              id="admFaturamento"
-              class="text-xl font-bold text-emerald-400"
-            >
-              R$ 0,00
-            </p>
-          </div>
-
-          <div
-            class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
-          >
-            <span class="text-[11px] text-slate-400">
-              Assinaturas VIP
-            </span>
-
-            <p
-              id="admVendas"
-              class="text-xl font-bold text-white"
-            >
-              0
-            </p>
-          </div>
-
-          <div
-            class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
-          >
-            <span class="text-[11px] text-slate-400">
-              Downloads Feitos
-            </span>
-
-            <p
-              id="admDownloads"
-              class="text-xl font-bold text-purple-400"
-            >
-              0
-            </p>
-          </div>
-
-          <div
-            class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
-          >
-            <span class="text-[11px] text-slate-400">
-              RAM Servidor
-            </span>
-
-            <p
-              id="admRam"
-              class="text-xl font-bold text-indigo-400"
-            >
-              0 MB
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- FOOTER -->
-  <footer
-    class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500"
-  >
-    <p>
-      ClipForge Pro • v3.3 Oficial • Plataforma de Clipes Inteligentes
-    </p>
-  </footer>
-
-<script>
-
-  // ==========================================================
-  // CONFIGURAÇÃO
-  // ==========================================================
-
-  const BACKEND_URL =
-    "https://clipforge-server-ikai.onrender.com";
-
-  let videoAtualId = null;
-  let pollingInterval = null;
-  let adminTokenSalvo = null;
-  let loadingInterval = null;
-
-
-  let usuario = {
-
-    pontos:
-      parseInt(
-        localStorage.getItem('cf_pontos') || '200',
-        10
-      ),
-
-    isVip:
-      localStorage.getItem('cf_vip') === 'true',
-
-    ultimoBonus:
-      localStorage.getItem('cf_ultimo_bonus') || ''
-
-  };
-
-
-  // ==========================================================
-  // TOAST
-  // ==========================================================
-
-  function mostrarToast(
-    titulo,
-    mensagem,
-    tipo = 'sucesso'
-  ) {
-
-    const toast =
-      document.getElementById('toast');
-
-    const icon =
-      document.getElementById('toastIcon');
-
-    document.getElementById('toastTitulo').innerText =
-      titulo;
-
-    document.getElementById('toastMsg').innerText =
-      mensagem;
-
-    if (
-      tipo === 'aviso' ||
-      tipo === 'erro'
-    ) {
-
-      icon.className =
-        "w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/20 text-amber-400";
-
-      icon.innerHTML =
-        `<i class="fa-solid fa-triangle-exclamation"></i>`;
-
-    } else {
-
-      icon.className =
-        "w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/20 text-purple-400";
-
-      icon.innerHTML =
-        `<i class="fa-solid fa-coins"></i>`;
-    }
-
-    toast.classList.remove(
-      'translate-y-[-150%]'
-    );
-
-    setTimeout(() => {
-
-      toast.classList.add(
-        'translate-y-[-150%]'
-      );
-
-    }, 3500);
-
-  }
-
-
-  // ==========================================================
-  // PONTOS & BÔNUS
-  // ==========================================================
-
-  function atualizarInterfacePontos() {
-
-    const saldoSpan =
-      document.getElementById('pontosSaldo');
-
-    const planoSpan =
-      document.getElementById('planoNome');
-
-    if (usuario.isVip) {
-
-      saldoSpan.innerText = '∞';
-
-      planoSpan.innerHTML =
-        '<span class="text-amber-400 font-bold"><i class="fa-solid fa-crown mr-1"></i>VIP Pro</span>';
-
-    } else {
-
-      saldoSpan.innerText =
-        usuario.pontos;
-
-      planoSpan.innerText =
-        'Plano Free';
-    }
-
-    localStorage.setItem(
-      'cf_pontos',
-      usuario.pontos
-    );
-
-    localStorage.setItem(
-      'cf_vip',
-      usuario.isVip
-    );
-
-  }
-
-
-  function resgatarBonusDiario() {
-
-    const hoje =
-      new Date().toDateString();
-
-    if (
-      usuario.ultimoBonus === hoje
-    ) {
-
-      mostrarToast(
-        'Bônus Diário',
-        'Já resgatou o bônus de hoje! Volte amanhã para mais +50 pts.',
-        'aviso'
-      );
-
-      return;
-    }
-
-    usuario.pontos += 50;
-
-    usuario.ultimoBonus =
-      hoje;
-
-    localStorage.setItem(
-      'cf_ultimo_bonus',
-      hoje
-    );
-
-    atualizarInterfacePontos();
-
-    mostrarToast(
-      'Bônus Resgatado!',
-      '+50 pontos foram adicionados à sua conta.'
-    );
-
-  }
-
-
-  // ==========================================================
-  // EXTRAIR ID DO YOUTUBE — ATUALIZADO
-  // ==========================================================
-
-  function extrairVideoId(valor) {
-
-    if (!valor) {
-      return null;
-    }
-
-    let texto =
-      String(valor).trim();
-
-    // Remove aspas
-    texto =
-      texto.replace(
-        /^["']|["']$/g,
-        ''
-      );
-
-    // Decodifica caso a URL esteja codificada
-    try {
-
-      texto =
-        decodeURIComponent(texto);
-
-    } catch (e) {}
-
-    // --------------------------------------------------------
-    // ID DIRETO
-    // --------------------------------------------------------
-
-    if (
-      /^[a-zA-Z0-9_-]{11}$/.test(texto)
-    ) {
-
-      return texto;
-
-    }
-
-    // --------------------------------------------------------
-    // URL SEM HTTPS
-    // --------------------------------------------------------
-
-    if (
-      texto.startsWith('youtube.com/') ||
-      texto.startsWith('www.youtube.com/') ||
-      texto.startsWith('m.youtube.com/') ||
-      texto.startsWith('youtu.be/')
-    ) {
-
-      texto =
-        'https://' + texto;
-
-    }
-
-    // --------------------------------------------------------
-    // URL NORMAL
-    // --------------------------------------------------------
-
-    try {
-
-      const url =
-        new URL(texto);
-
-      const hostname =
-        url.hostname.toLowerCase();
-
-      // ------------------------------------------------------
-      // YOUTUBE.COM
-      // ------------------------------------------------------
-
-      if (
-        hostname === 'youtube.com' ||
-        hostname === 'www.youtube.com' ||
-        hostname === 'm.youtube.com'
-      ) {
-
-        // youtube.com/watch?v=ID
-
-        const v =
-          url.searchParams.get('v');
-
-        if (
-          v &&
-          /^[a-zA-Z0-9_-]{11}$/.test(v)
-        ) {
-
-          return v;
-
-        }
-
-        const partes =
-          url.pathname
-            .split('/')
-            .filter(Boolean);
-
-        // /shorts/ID
-
-        if (
-          partes[0] === 'shorts' &&
-          partes[1] &&
-          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
-        ) {
-
-          return partes[1];
-
-        }
-
-        // /embed/ID
-
-        if (
-          partes[0] === 'embed' &&
-          partes[1] &&
-          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
-        ) {
-
-          return partes[1];
-
-        }
-
-        // /live/ID
-
-        if (
-          partes[0] === 'live' &&
-          partes[1] &&
-          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
-        ) {
-
-          return partes[1];
-
-        }
-
-      }
-
-      // ------------------------------------------------------
-      // YOUTU.BE
-      // ------------------------------------------------------
-
-      if (
-        hostname === 'youtu.be' ||
-        hostname === 'www.youtu.be'
-      ) {
-
-        const id =
-          url.pathname
-            .split('/')
-            .filter(Boolean)[0];
-
-        if (
-          id &&
-          /^[a-zA-Z0-9_-]{11}$/.test(id)
-        ) {
-
-          return id;
-
-        }
-
-      }
-
-    } catch (e) {}
-
-    // --------------------------------------------------------
-    // ÚLTIMO FALLBACK
-    // --------------------------------------------------------
-
-    const encontrado =
-      texto.match(
-        /(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([a-zA-Z0-9_-]{11})/
-      );
-
-    if (encontrado) {
-
-      return encontrado[1];
-
-    }
-
-    return null;
-
-  }
-
-
-  // ==========================================================
-  // AUXILIARES
-  // ==========================================================
-
-  function formatarTempo(segundos) {
-
-    const total =
-      Math.max(
-        0,
-        Math.floor(
-          Number(segundos) || 0
-        )
-      );
-
-    const minutos =
-      Math.floor(
-        total / 60
-      );
-
-    const seg =
-      total % 60;
-
-    return `${String(minutos).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
-
-  }
-
-
-  function escaparHtml(valor) {
-
-    return String(
-      valor ?? ''
-    )
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-
-  }
-
-
-  function setGerando(estado) {
-
-    const btn =
-      document.getElementById('btnGerar');
-
-    if (estado) {
-
-      btn.disabled = true;
-
-      btn.classList.add(
-        'opacity-70',
-        'pointer-events-none'
-      );
-
-      btn.innerHTML =
-        `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Analisando...</span>`;
-
-    } else {
-
-      btn.disabled = false;
-
-      btn.classList.remove(
-        'opacity-70',
-        'pointer-events-none'
-      );
-
-      btn.innerHTML =
-        `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gerar Cortes</span>`;
-
-    }
-
-  }
-
-
-  // ==========================================================
-  // LOADING
-  // ==========================================================
-
-  function iniciarMensagensLoading() {
-
-    const loadingText =
-      document.getElementById('loadingText');
-
-    const mensagens = [
-
-      'Preparando o vídeo...',
-      'Baixando o vídeo temporariamente...',
-      'Enviando o vídeo para a IA...',
-      'Gemini está assistindo ao vídeo...',
-      'Procurando os melhores momentos...',
-      'Analisando ganchos e retenção...',
-      'Selecionando os cortes mais interessantes...',
-      'Finalizando análise...'
-
-    ];
-
-    let indice = 0;
-
-    loadingText.innerText =
-      mensagens[0];
-
-    if (loadingInterval) {
-
-      clearInterval(
-        loadingInterval
-      );
-
-    }
-
-    loadingInterval =
-      setInterval(() => {
-
-        indice =
-          (indice + 1) %
-          mensagens.length;
-
-        loadingText.innerText =
-          mensagens[indice];
-
-      }, 5000);
-
-  }
-
-
-  function pararMensagensLoading() {
-
-    if (loadingInterval) {
-
-      clearInterval(
-        loadingInterval
-      );
-
-      loadingInterval = null;
-
-    }
-
-  }
-
-
-  // ==========================================================
-  // GERAÇÃO DE CORTES
-  // ==========================================================
-
-  async function gerarCortes() {
-
-    const input =
-      document.getElementById('videoUrl');
-
-    const url =
-      input.value.trim();
-
-    // NOVO: mostra exatamente o que o frontend recebeu
-    console.log(
-      '[ClipForge] URL digitada:',
-      url
-    );
-
-    const id =
-      extrairVideoId(url);
-
-    // NOVO: mostra exatamente o ID encontrado
-    console.log(
-      '[ClipForge] ID extraído:',
-      id
-    );
-
-    if (!id) {
-
-      mostrarToast(
-        'Atenção',
-        'Insira um link válido do YouTube para continuar.',
-        'aviso'
-      );
-
-      return;
-    }
-
-    videoAtualId =
-      id;
-
-    document
-      .getElementById('cortesArea')
-      .classList.add('hidden');
-
-    document
-      .getElementById('cardsContainer')
-      .innerHTML = '';
-
-    document
-      .getElementById('loading')
-      .classList.remove('hidden');
-
-    setGerando(true);
-
-    iniciarMensagensLoading();
-
-    const controller =
-      new AbortController();
-
-    const timeoutId =
-      setTimeout(() => {
-
-        controller.abort();
-
-      }, 600000);
-
-    try {
-
-      const resposta =
-        await fetch(
-          `${BACKEND_URL}/api/analisar`,
-          {
-
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body: JSON.stringify({
-
-              youtubeUrl:
-                url,
-
-              videoId:
-                id,
-
-              duration:
-                60,
-
-              quantity:
-                3
-
-            }),
-
-            signal:
-              controller.signal
-
-          }
-        );
-
-      clearTimeout(
-        timeoutId
-      );
-
-      const data =
-        await resposta
-          .json()
-          .catch(
-            () => ({})
-          );
-
-      if (!resposta.ok) {
-
-        throw new Error(
-          data.error ||
-          data.message ||
-          `O servidor respondeu com erro ${resposta.status}.`
-        );
-
-      }
-
-      if (
-        !Array.isArray(data.clips) ||
-        data.clips.length === 0
-      ) {
-
-        throw new Error(
-          data.error ||
-          'A IA não encontrou cortes neste vídeo.'
-        );
-
-      }
-
-      finalizarGeracao(
-        data.clips
-      );
-
-    } catch (erro) {
-
-      clearTimeout(
-        timeoutId
-      );
-
-      console.error(
-        '[ClipForge] Erro na análise:',
-        erro
-      );
-
-      document
-        .getElementById('loading')
-        .classList.add('hidden');
-
-      pararMensagensLoading();
-
-      setGerando(false);
-
-      let mensagem =
-        erro?.message ||
-        'Não foi possível analisar o vídeo.';
-
-      if (
-        erro?.name === 'AbortError'
-      ) {
-
-        mensagem =
-          'A análise demorou mais de 10 minutos. Verifique o servidor e tente novamente.';
-
-      }
-
-      mostrarToast(
-        'Erro na análise',
-        mensagem,
-        'erro'
-      );
-
-    }
-
-  }
-
-
-  // ==========================================================
-  // FINALIZAR
-  // ==========================================================
-
-  function finalizarGeracao(clips) {
-
-    document
-      .getElementById('loading')
-      .classList.add('hidden');
-
-    pararMensagensLoading();
-
-    setGerando(false);
-
-    const normalizados =
-      normalizarClips(clips);
-
-    if (
-      !normalizados.length
-    ) {
-
-      mostrarToast(
-        'Nenhum corte encontrado',
-        'A IA não retornou cortes válidos.',
-        'aviso'
-      );
-
-      return;
-    }
-
-    renderizarCards(
-      normalizados
-    );
-
-    document
-      .getElementById('cortesArea')
-      .classList.remove('hidden');
-
-    document
-      .getElementById('cortesArea')
-      .scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-
-    mostrarToast(
-      'Cortes Prontos!',
-      `${normalizados.length} cortes identificados pela IA.`
-    );
-
-  }
-
-
-  // ==========================================================
-  // NORMALIZAR CORTES
-  // ==========================================================
-
-  function normalizarClips(clips) {
-
-    if (
-      !Array.isArray(clips)
-    ) {
-      return [];
-    }
-
-    return clips.map(
-      (clip, index) => {
-
-        const start =
-          Number(
-            clip.start ??
-            clip.inicio ??
-            0
-          );
-
-        const duration =
-          Number(
-            clip.duration ??
-            clip.duracao ??
-            55
-          );
-
-        const end =
-          Number(
-            clip.end ??
-            clip.fim ??
-            (
-              start +
-              duration
-            )
-          );
-
-        return {
-
-          id:
-            clip.id ||
-            index + 1,
-
-          inicio:
-            formatarTempo(start),
-
-          fim:
-            formatarTempo(end),
-
-          startSeg:
-            Math.max(
-              0,
-              start
-            ),
-
-          duracao:
-            Math.max(
-              1,
-              Math.round(duration)
-            ),
-
-          score:
-            Number(
-              clip.score ?? 80
-            ),
-
-          title:
-            clip.title ||
-            `Corte #${index + 1}`,
-
-          reason:
-            clip.reason ||
-            clip.description ||
-            '',
-
-          thumbnail:
-            clip.thumbnail ||
-            `https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg`
-
-        };
-
-      }
-    );
-
-  }
-
-
-  // ==========================================================
-  // RENDERIZAR CARDS
-  // ==========================================================
-
-  function renderizarCards(cortes) {
-
-    const container =
-      document.getElementById(
-        'cardsContainer'
-      );
-
-    container.innerHTML = '';
-
-    cortes.forEach(
-      (corte) => {
-
-        const card =
-          document.createElement('div');
-
-        const score =
-          `${Math.round(
-            Number(corte.score)
-          )}%`;
-
-        const titulo =
-          escaparHtml(corte.title);
-
-        const motivo =
-          escaparHtml(corte.reason);
-
-        const thumb =
-          escaparHtml(corte.thumbnail);
-
-        card.className =
-          "bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-500/40 transition";
-
-        card.innerHTML = `
-
-          <div>
-
-            <div class="flex items-center justify-between text-xs mb-3 gap-2">
-
-              <span
-                class="font-semibold text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-lg border border-purple-500/20 truncate"
-              >
-                ${titulo}
-              </span>
-
-              <span
-                class="text-emerald-400 font-medium whitespace-nowrap"
-              >
-                ${score} IA
-              </span>
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-white"></span>
+
+                        <span class="text-[11px] uppercase tracking-[.18em] text-zinc-500 font-bold">
+                            Resultado da análise
+                        </span>
+                    </div>
+
+                    <h2 class="text-2xl font-black tracking-tight">
+                        Seus melhores cortes
+                    </h2>
+
+                    <p
+                        id="resultadoSubtitulo"
+                        class="text-sm text-zinc-500 mt-1"
+                    >
+                        A IA encontrou estes momentos.
+                    </p>
+                </div>
+
+                <button
+                    onclick="novoVideo()"
+                    class="btn-dark rounded-xl px-4 py-2.5 text-xs font-semibold self-start sm:self-auto"
+                >
+                    <i class="fa-solid fa-plus mr-1.5"></i>
+                    Novo vídeo
+                </button>
 
             </div>
 
             <div
-              class="aspect-[9/16] bg-slate-950 rounded-xl overflow-hidden relative mb-4 border border-slate-800 flex items-center justify-center"
-            >
+                id="cardsContainer"
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            ></div>
 
-              <img
-                src="${thumb}"
-                class="w-full h-full object-cover opacity-60"
-                onerror="this.src='https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg'"
-              >
+        </section>
 
-              <div
-                class="absolute inset-0 flex items-center justify-center"
-              >
 
-                <div
-                  class="w-12 h-12 rounded-full bg-purple-600/90 flex items-center justify-center shadow-xl"
-                >
-                  <i class="fa-solid fa-play text-white ml-0.5"></i>
+        <!-- ================================
+             FEATURES
+        ================================= -->
+
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                <div class="card rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
+                        <i class="fa-solid fa-brain text-sm"></i>
+                    </div>
+
+                    <h3 class="font-bold">
+                        IA que entende o vídeo
+                    </h3>
+
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">
+                        A inteligência artificial analisa o conteúdo e identifica
+                        momentos com maior potencial de retenção.
+                    </p>
                 </div>
 
-              </div>
+                <div class="card rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
+                        <i class="fa-solid fa-scissors text-sm"></i>
+                    </div>
 
-              <span
-                class="absolute bottom-2 left-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
-              >
-                ${corte.duracao}s • ${
-                  usuario.isVip
-                    ? 'VIP'
-                    : '360p'
-                }
-              </span>
+                    <h3 class="font-bold">
+                        Corte automático
+                    </h3>
 
-              <span
-                class="absolute bottom-2 right-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
-              >
-                ${escaparHtml(corte.inicio)}
-                →
-                ${escaparHtml(corte.fim)}
-              </span>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">
+                        Escolha o momento e gere seu arquivo MP4 diretamente pelo
+                        ClipForge.
+                    </p>
+                </div>
+
+                <div class="card rounded-2xl p-6">
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
+                        <i class="fa-solid fa-crown text-sm"></i>
+                    </div>
+
+                    <h3 class="font-bold">
+                        Plano VIP
+                    </h3>
+
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">
+                        Mais liberdade para gerar e baixar seus cortes.
+                    </p>
+                </div>
 
             </div>
 
-            ${
-              motivo
-                ? `
-                  <p
-                    class="text-[11px] text-slate-500 mb-4 line-clamp-3"
-                  >
-                    ${motivo}
-                  </p>
-                `
-                : ''
-            }
+        </section>
 
-          </div>
-
-          <button
-            onclick="baixarCorte(${Number(corte.startSeg)}, ${Number(corte.duracao)}, this)"
-            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded-xl text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 active:scale-95"
-          >
-
-            <i class="fa-solid fa-download"></i>
-
-            <span>
-              ${
-                usuario.isVip
-                  ? 'Baixar Vídeo (VIP)'
-                  : 'Baixar (-50 Pontos)'
-              }
-            </span>
-
-          </button>
-
-        `;
-
-        container.appendChild(card);
-
-      }
-    );
-
-  }
+    </main>
 
 
-  // ==========================================================
-  // DOWNLOAD
-  // ==========================================================
+    <!-- ================================
+         FOOTER
+    ================================= -->
 
-  function baixarCorte(
-    start,
-    duration,
-    btn
-  ) {
+    <footer class="border-t border-white/[.06]">
 
-    if (!videoAtualId) {
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
-      mostrarToast(
-        'Erro',
-        'Vídeo não identificado.',
-        'erro'
-      );
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
 
-      return;
+                <div class="text-xs text-zinc-600">
+                    © <span id="anoAtual"></span> ClipForge Pro
+                </div>
+
+                <div class="flex items-center gap-4 text-xs text-zinc-600">
+                    <span>IA para criadores</span>
+                    <span>•</span>
+                    <span>v4.0</span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+    <!-- ================================
+         MODAL PLANOS
+    ================================= -->
+
+    <div
+        id="planModal"
+        class="hidden fixed inset-0 z-50 modal-backdrop p-4 overflow-y-auto"
+    >
+
+        <div class="min-h-full flex items-center justify-center">
+
+            <div class="modal rounded-3xl w-full max-w-3xl p-5 sm:p-7 slide-up">
+
+                <div class="flex items-start justify-between gap-4 mb-6">
+
+                    <div>
+                        <div class="text-[10px] uppercase tracking-[.2em] text-zinc-500 font-bold">
+                            ClipForge Pro
+                        </div>
+
+                        <h2 class="text-2xl font-black mt-1">
+                            Escolha seu plano
+                        </h2>
+
+                        <p class="text-sm text-zinc-500 mt-1">
+                            Tenha mais liberdade para criar seus cortes.
+                        </p>
+                    </div>
+
+                    <button
+                        onclick="fecharPlanos()"
+                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center text-zinc-400"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                </div>
+
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <!-- FREE -->
+                    <div class="rounded-2xl border border-white/[.08] bg-white/[.025] p-6">
+
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold">
+                                Free
+                            </h3>
+
+                            <span class="text-[10px] uppercase tracking-widest text-zinc-500">
+                                Atual
+                            </span>
+                        </div>
+
+                        <div class="mt-5">
+                            <span class="text-4xl font-black">
+                                200
+                            </span>
+
+                            <span class="text-sm text-zinc-500">
+                                pontos iniciais
+                            </span>
+                        </div>
+
+                        <div class="text-xs text-zinc-500 mt-2">
+                            +50 pontos diariamente
+                        </div>
+
+                        <div class="space-y-3 mt-6 text-sm text-zinc-400">
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
+                                Análise com inteligência artificial
+                            </div>
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
+                                Geração de cortes
+                            </div>
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
+                                50 pontos por download
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- VIP -->
+                    <div class="rounded-2xl border border-white/[.14] bg-white/[.045] p-6 relative overflow-hidden">
+
+                        <div class="absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl bg-white text-black text-[10px] font-black uppercase tracking-wider">
+                            VIP
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-crown text-sm"></i>
+
+                            <h3 class="font-bold">
+                                ClipForge VIP
+                            </h3>
+                        </div>
+
+                        <div class="mt-5">
+                            <span class="text-4xl font-black">
+                                R$ 19,90
+                            </span>
+
+                            <span class="text-sm text-zinc-500">
+                                / mês
+                            </span>
+                        </div>
+
+                        <div class="space-y-3 mt-6 text-sm text-zinc-400">
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-white mt-0.5"></i>
+                                Downloads sem descontar pontos
+                            </div>
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-white mt-0.5"></i>
+                                Acesso VIP validado pelo servidor
+                            </div>
+
+                            <div class="flex gap-3">
+                                <i class="fa-solid fa-check text-white mt-0.5"></i>
+                                Experiência sem limites de pontos
+                            </div>
+
+                        </div>
+
+                        <button
+                            id="btnComprarVip"
+                            onclick="criarPagamento()"
+                            class="btn-main w-full h-12 rounded-xl font-bold text-sm mt-7"
+                        >
+                            <i class="fa-solid fa-bolt mr-2"></i>
+                            Ativar VIP
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <p class="text-[10px] text-zinc-600 text-center mt-5">
+                    O pagamento é processado pelo Mercado Pago.
+                </p>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================================
+         MODAL PIX
+    ================================= -->
+
+    <div
+        id="pixModal"
+        class="hidden fixed inset-0 z-[60] modal-backdrop p-4 overflow-y-auto"
+    >
+
+        <div class="min-h-full flex items-center justify-center">
+
+            <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
+
+                <div class="flex items-center justify-between mb-6">
+
+                    <div>
+                        <h2 class="font-black text-xl">
+                            Pagamento Pix
+                        </h2>
+
+                        <p class="text-xs text-zinc-500 mt-1">
+                            Ative seu plano ClipForge VIP.
+                        </p>
+                    </div>
+
+                    <button
+                        onclick="fecharPix()"
+                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                </div>
+
+
+                <div class="text-center">
+
+                    <div
+                        id="pixLoading"
+                        class="py-10"
+                    >
+                        <div class="flex justify-center mb-4">
+                            <div class="loader-light"></div>
+                        </div>
+
+                        <p class="text-sm text-zinc-400">
+                            Gerando seu Pix...
+                        </p>
+                    </div>
+
+
+                    <div
+                        id="pixContent"
+                        class="hidden"
+                    >
+
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[.05] border border-white/[.08] text-xs text-zinc-400 mb-5">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            Pagamento seguro
+                        </div>
+
+                        <div class="qr-box inline-block">
+                            <img
+                                id="pixQrImage"
+                                src=""
+                                alt="QR Code Pix"
+                                class="w-52 h-52 sm:w-56 sm:h-56 object-contain"
+                            >
+                        </div>
+
+                        <div class="mt-5">
+
+                            <div class="text-xs text-zinc-500">
+                                Valor
+                            </div>
+
+                            <div class="text-2xl font-black mt-1">
+                                R$ 19,90
+                            </div>
+
+                        </div>
+
+                        <button
+                            onclick="copiarPix()"
+                            class="btn-dark w-full h-12 rounded-xl mt-5 text-sm font-semibold"
+                        >
+                            <i class="fa-regular fa-copy mr-2"></i>
+                            Copiar código Pix
+                        </button>
+
+                        <a
+                            id="pixTicketLink"
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="block text-xs text-zinc-500 hover:text-white mt-4 transition"
+                        >
+                            Abrir pagamento no Mercado Pago
+                        </a>
+
+                        <div
+                            id="pixStatus"
+                            class="status-loading rounded-xl border p-4 mt-5 text-left"
+                        >
+
+                            <div class="flex items-center gap-3">
+
+                                <div class="loader-light"></div>
+
+                                <div>
+                                    <div class="text-sm font-semibold">
+                                        Aguardando pagamento
+                                    </div>
+
+                                    <div class="text-xs text-zinc-600 mt-0.5">
+                                        Esta tela será atualizada automaticamente.
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================================
+         MODAL ADMIN
+    ================================= -->
+
+    <div
+        id="adminModal"
+        class="hidden fixed inset-0 z-[70] modal-backdrop p-4 overflow-y-auto"
+    >
+
+        <div class="min-h-full flex items-center justify-center">
+
+            <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
+
+                <div class="flex items-start justify-between mb-6">
+
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-4">
+                            <i class="fa-solid fa-lock text-sm"></i>
+                        </div>
+
+                        <h2 class="font-black text-xl">
+                            Área administrativa
+                        </h2>
+
+                        <p class="text-xs text-zinc-500 mt-1">
+                            Acesso restrito ao administrador.
+                        </p>
+                    </div>
+
+                    <button
+                        onclick="fecharAdmin()"
+                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                </div>
+
+
+                <div id="adminLoginArea">
+
+                    <label class="text-xs text-zinc-500">
+                        Senha administrativa
+                    </label>
+
+                    <div class="relative mt-2">
+
+                        <input
+                            id="adminPassword"
+                            type="password"
+                            class="input-dark w-full h-12 rounded-xl px-4 pr-12 text-sm"
+                            placeholder="Digite sua senha"
+                            onkeydown="if(event.key==='Enter') fazerLoginAdmin()"
+                        >
+
+                        <button
+                            onclick="toggleAdminPassword()"
+                            class="absolute right-0 top-0 h-12 w-12 text-zinc-500"
+                        >
+                            <i id="adminEye" class="fa-regular fa-eye"></i>
+                        </button>
+
+                    </div>
+
+                    <button
+                        id="btnAdminLogin"
+                        onclick="fazerLoginAdmin()"
+                        class="btn-main w-full h-12 rounded-xl mt-4 text-sm font-bold"
+                    >
+                        Entrar
+                    </button>
+
+                    <p
+                        id="adminLoginError"
+                        class="hidden text-xs text-zinc-500 mt-3 text-center"
+                    ></p>
+
+                </div>
+
+
+                <div
+                    id="adminDashboard"
+                    class="hidden"
+                >
+
+                    <div class="flex items-center justify-between mb-5">
+
+                        <div>
+                            <div class="text-xs text-zinc-500">
+                                Dashboard
+                            </div>
+
+                            <div class="font-bold mt-1">
+                                Visão geral
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="logoutAdmin()"
+                            class="text-xs text-zinc-500 hover:text-white"
+                        >
+                            Sair
+                        </button>
+
+                    </div>
+
+                    <div
+                        id="adminStats"
+                        class="grid grid-cols-2 gap-3"
+                    ></div>
+
+                    <button
+                        onclick="carregarDashboard()"
+                        class="btn-dark w-full h-11 rounded-xl mt-4 text-xs font-semibold"
+                    >
+                        <i class="fa-solid fa-rotate mr-2"></i>
+                        Atualizar dados
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================================
+         TOAST
+    ================================= -->
+
+    <div
+        id="toastContainer"
+        class="fixed bottom-5 right-5 z-[100] space-y-2 pointer-events-none max-w-[calc(100vw-40px)]"
+    ></div>
+
+
+<script>
+/* =========================================================
+   CLIPFORGE PRO V4.0
+   FRONTEND
+========================================================= */
+
+const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
+
+const SESSION_STORAGE_KEY = "clipforge_session_v4";
+const ADMIN_STORAGE_KEY = "clipforge_admin_session_v4";
+
+let sessionToken = localStorage.getItem(SESSION_STORAGE_KEY) || "";
+let adminToken = localStorage.getItem(ADMIN_STORAGE_KEY) || "";
+
+let usuario = {
+    userId: null,
+    pontos: 0,
+    isVip: false
+};
+
+let videoAtualId = "";
+let clipsAtuais = [];
+let pagamentoAtual = null;
+let pollingPix = null;
+let loadingTimer = null;
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+function formatarTempo(segundos) {
+
+    segundos = Number(segundos) || 0;
+
+    const minutos = Math.floor(segundos / 60);
+    const secs = Math.floor(segundos % 60);
+
+    return `${String(minutos).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+
+function normalizarNumero(value, fallback = 0) {
+
+    const n = Number(value);
+
+    return Number.isFinite(n) ? n : fallback;
+}
+
+
+function mostrarToast(mensagem, tipo = "normal") {
+
+    const container = $("toastContainer");
+
+    const toast = document.createElement("div");
+
+    let icon = "fa-circle-info";
+
+    if (tipo === "success") {
+        icon = "fa-circle-check";
     }
 
-    if (!usuario.isVip) {
+    if (tipo === "error") {
+        icon = "fa-circle-exclamation";
+    }
 
-      if (
-        usuario.pontos < 50
-      ) {
+    toast.className =
+        "toast pointer-events-auto glass rounded-xl px-4 py-3 flex items-center gap-3 text-sm shadow-2xl";
 
-        mostrarToast(
-          'Pontos Insuficientes',
-          'Os seus pontos acabaram! Torne-se VIP para downloads infinitos.',
-          'aviso'
+    toast.innerHTML = `
+        <i class="fa-solid ${icon} text-zinc-300"></i>
+        <span class="text-zinc-300">${escapeHtml(mensagem)}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(8px)";
+
+        setTimeout(() => toast.remove(), 250);
+
+    }, 3200);
+}
+
+
+async function fetchJson(url, options = {}) {
+
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...(options.headers || {}),
+            "Accept": "application/json"
+        }
+    });
+
+    let data = null;
+
+    try {
+        data = await response.json();
+    } catch {
+        data = null;
+    }
+
+    if (!response.ok) {
+
+        const error = new Error(
+            data?.error ||
+            data?.message ||
+            `Erro HTTP ${response.status}`
         );
 
-        abrirPlanosModal();
+        error.status = response.status;
+        error.data = data;
+
+        throw error;
+    }
+
+    return data;
+}
+
+
+function authHeaders() {
+
+    if (!sessionToken) {
+        return {};
+    }
+
+    return {
+        Authorization: `Bearer ${sessionToken}`
+    };
+}
+
+
+/* =========================================================
+   SESSÃO
+========================================================= */
+
+async function iniciarSessao() {
+
+    try {
+
+        const headers = {
+            "Content-Type": "application/json"
+        };
+
+        if (sessionToken) {
+            headers.Authorization = `Bearer ${sessionToken}`;
+        }
+
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/session`,
+            {
+                method: "POST",
+                headers
+            }
+        );
+
+        if (data.token) {
+            sessionToken = data.token;
+            localStorage.setItem(
+                SESSION_STORAGE_KEY,
+                sessionToken
+            );
+        }
+
+        aplicarUsuario(data);
+
+        await atualizarUsuario();
+
+    } catch (error) {
+
+        console.error("Erro ao iniciar sessão:", error);
+
+        sessionToken = "";
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+
+        try {
+
+            const data = await fetchJson(
+                `${BACKEND_URL}/api/session`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
+
+            if (data.token) {
+
+                sessionToken = data.token;
+
+                localStorage.setItem(
+                    SESSION_STORAGE_KEY,
+                    sessionToken
+                );
+            }
+
+            aplicarUsuario(data);
+
+        } catch (secondError) {
+
+            console.error(
+                "Não foi possível criar sessão:",
+                secondError
+            );
+
+            mostrarToast(
+                "Não foi possível conectar ao servidor.",
+                "error"
+            );
+        }
+    }
+}
+
+
+function aplicarUsuario(data) {
+
+    if (!data) return;
+
+    usuario.userId =
+        data.userId ??
+        data.user?.userId ??
+        usuario.userId;
+
+    usuario.pontos = normalizarNumero(
+        data.pontos ??
+        data.points ??
+        data.user?.pontos ??
+        data.user?.points ??
+        usuario.pontos,
+        usuario.pontos
+    );
+
+    usuario.isVip = Boolean(
+        data.isVip ??
+        data.vip ??
+        data.user?.isVip ??
+        data.user?.vip ??
+        usuario.isVip
+    );
+
+    atualizarInterfaceUsuario();
+}
+
+
+async function atualizarUsuario() {
+
+    if (!sessionToken) return;
+
+    try {
+
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/me`,
+            {
+                method: "GET",
+                headers: {
+                    ...authHeaders()
+                }
+            }
+        );
+
+        aplicarUsuario(data);
+
+    } catch (error) {
+
+        if (error.status === 401) {
+
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+
+            sessionToken = "";
+
+            await iniciarSessao();
+
+            return;
+        }
+
+        console.error(
+            "Erro ao atualizar usuário:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   INTERFACE DO USUÁRIO
+========================================================= */
+
+function atualizarInterfaceUsuario() {
+
+    const pontos = Math.max(
+        0,
+        Math.floor(usuario.pontos || 0)
+    );
+
+    $("pointsValue").textContent = pontos;
+    $("mobilePointsValue").textContent = pontos;
+
+    if (usuario.isVip) {
+
+        $("planText").textContent = "VIP";
+
+        $("planIcon").className =
+            "fa-solid fa-crown text-xs";
+
+        $("vipHeaderButton").innerHTML = `
+            <i class="fa-solid fa-crown text-[11px]"></i>
+            VIP ativo
+        `;
+
+        $("vipHeaderButton").classList.add(
+            "opacity-70"
+        );
+
+    } else {
+
+        $("planText").textContent = "FREE";
+
+        $("planIcon").className =
+            "fa-regular fa-star text-xs";
+
+        $("vipHeaderButton").innerHTML = `
+            <i class="fa-solid fa-crown text-[11px]"></i>
+            Seja VIP
+        `;
+
+        $("vipHeaderButton").classList.remove(
+            "opacity-70"
+        );
+    }
+}
+
+
+/* =========================================================
+   PLANOS
+========================================================= */
+
+function abrirPlanos() {
+
+    $("planModal").classList.remove("hidden");
+
+    document.body.classList.add("overflow-hidden");
+
+    if (usuario.isVip) {
+
+        $("btnComprarVip").disabled = true;
+
+        $("btnComprarVip").innerHTML = `
+            <i class="fa-solid fa-check mr-2"></i>
+            VIP já está ativo
+        `;
+
+        $("btnComprarVip").classList.add(
+            "opacity-60",
+            "cursor-not-allowed"
+        );
+
+    } else {
+
+        $("btnComprarVip").disabled = false;
+
+        $("btnComprarVip").innerHTML = `
+            <i class="fa-solid fa-bolt mr-2"></i>
+            Ativar VIP
+        `;
+
+        $("btnComprarVip").classList.remove(
+            "opacity-60",
+            "cursor-not-allowed"
+        );
+    }
+}
+
+
+function fecharPlanos() {
+
+    $("planModal").classList.add("hidden");
+
+    if (
+        $("pixModal").classList.contains("hidden") &&
+        $("adminModal").classList.contains("hidden")
+    ) {
+        document.body.classList.remove("overflow-hidden");
+    }
+}
+
+
+/* =========================================================
+   PIX
+========================================================= */
+
+async function criarPagamento() {
+
+    if (!sessionToken) {
+
+        mostrarToast(
+            "Sua sessão ainda não está pronta.",
+            "error"
+        );
+
+        await iniciarSessao();
+
+        if (!sessionToken) return;
+    }
+
+    if (usuario.isVip) {
+
+        mostrarToast(
+            "Seu VIP já está ativo.",
+            "success"
+        );
 
         return;
-      }
-
     }
 
-    const textoOriginal =
-      btn.innerHTML;
+    $("planModal").classList.add("hidden");
 
-    btn.innerHTML =
-      `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Preparando...</span>`;
+    $("pixModal").classList.remove("hidden");
 
-    btn.classList.add(
-      'pointer-events-none',
-      'opacity-70'
-    );
+    document.body.classList.add("overflow-hidden");
 
-    mostrarToast(
-      'Download Iniciado',
-      'O servidor está preparando seu corte.'
-    );
+    $("pixLoading").classList.remove("hidden");
+    $("pixContent").classList.add("hidden");
 
-    const url =
-      `${BACKEND_URL}/api/download?id=${encodeURIComponent(videoAtualId)}&start=${encodeURIComponent(start)}&duration=${encodeURIComponent(duration)}`;
+    try {
 
-    console.log(
-      '[ClipForge] URL de download:',
-      url
-    );
+        /*
+         * O backend agora define o preço e o plano.
+         * Não enviamos valor ou plano para evitar
+         * manipulação pelo navegador.
+         */
 
-    if (!usuario.isVip) {
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/pix/criar`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...authHeaders()
+                },
+                body: JSON.stringify({})
+            }
+        );
 
-      usuario.pontos -= 50;
+        pagamentoAtual = {
+            id:
+                data.id ??
+                data.paymentId ??
+                data.payment_id,
 
-      atualizarInterfacePontos();
+            qrCode:
+                data.qr_code ??
+                data.qrCode ??
+                data.qr_code_text ??
+                data.qrCodeText ??
+                "",
 
+            qrCodeBase64:
+                data.qr_code_base64 ??
+                data.qrCodeBase64 ??
+                "",
+
+            ticketUrl:
+                data.ticket_url ??
+                data.ticketUrl ??
+                ""
+        };
+
+        if (!pagamentoAtual.id) {
+            throw new Error(
+                "O servidor não retornou o ID do pagamento."
+            );
+        }
+
+        renderizarPix();
+
+        iniciarPollingPix();
+
+    } catch (error) {
+
+        console.error(
+            "Erro ao criar Pix:",
+            error
+        );
+
+        $("pixLoading").innerHTML = `
+            <div class="w-12 h-12 rounded-2xl bg-white/[.05] flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-triangle-exclamation text-zinc-300"></i>
+            </div>
+
+            <div class="font-semibold">
+                Não foi possível gerar o Pix
+            </div>
+
+            <p class="text-xs text-zinc-600 mt-2">
+                ${escapeHtml(error.message)}
+            </p>
+
+            <button
+                onclick="criarPagamento()"
+                class="btn-dark rounded-xl px-5 py-2.5 text-xs font-semibold mt-5"
+            >
+                Tentar novamente
+            </button>
+        `;
+    }
+}
+
+
+function renderizarPix() {
+
+    $("pixLoading").classList.add("hidden");
+
+    $("pixContent").classList.remove("hidden");
+
+    const qrBase64 = pagamentoAtual.qrCodeBase64;
+
+    const qrCode = pagamentoAtual.qrCode;
+
+    if (qrBase64) {
+
+        let src = qrBase64;
+
+        if (
+            !qrBase64.startsWith("data:image") &&
+            !qrBase64.startsWith("http")
+        ) {
+            src = `data:image/png;base64,${qrBase64}`;
+        }
+
+        $("pixQrImage").src = src;
+
+    } else if (qrCode) {
+
+        $("pixQrImage").src =
+            `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
+
+    } else {
+
+        $("pixQrImage").alt =
+            "QR Code não disponível";
+
+        $("pixQrImage").src = "";
     }
 
-    window.location.assign(
-      url
+    if (pagamentoAtual.ticketUrl) {
+
+        $("pixTicketLink").href =
+            pagamentoAtual.ticketUrl;
+
+        $("pixTicketLink").classList.remove(
+            "hidden"
+        );
+
+    } else {
+
+        $("pixTicketLink").classList.add(
+            "hidden"
+        );
+    }
+
+    atualizarStatusPix(
+        "Aguardando pagamento",
+        "Faça o pagamento via Pix. Esta tela será atualizada automaticamente.",
+        "loading"
+    );
+}
+
+
+async function copiarPix() {
+
+    const codigo = pagamentoAtual?.qrCode;
+
+    if (!codigo) {
+
+        mostrarToast(
+            "Código Pix indisponível.",
+            "error"
+        );
+
+        return;
+    }
+
+    try {
+
+        await navigator.clipboard.writeText(
+            codigo
+        );
+
+        mostrarToast(
+            "Código Pix copiado!",
+            "success"
+        );
+
+    } catch {
+
+        const textarea =
+            document.createElement("textarea");
+
+        textarea.value = codigo;
+
+        document.body.appendChild(textarea);
+
+        textarea.select();
+
+        document.execCommand("copy");
+
+        textarea.remove();
+
+        mostrarToast(
+            "Código Pix copiado!",
+            "success"
+        );
+    }
+}
+
+
+function iniciarPollingPix() {
+
+    if (pollingPix) {
+        clearInterval(pollingPix);
+    }
+
+    consultarStatusPix();
+
+    pollingPix = setInterval(
+        consultarStatusPix,
+        3500
+    );
+}
+
+
+async function consultarStatusPix() {
+
+    if (!pagamentoAtual?.id) return;
+
+    try {
+
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/pix/status/${encodeURIComponent(
+                pagamentoAtual.id
+            )}`,
+            {
+                method: "GET",
+                headers: {
+                    ...authHeaders()
+                }
+            }
+        );
+
+        const status = String(
+            data.status ??
+            data.payment?.status ??
+            ""
+        ).toLowerCase();
+
+        if (
+            status === "approved" ||
+            status === "aprovado"
+        ) {
+
+            if (pollingPix) {
+
+                clearInterval(
+                    pollingPix
+                );
+
+                pollingPix = null;
+            }
+
+            atualizarStatusPix(
+                "Pagamento aprovado!",
+                "Seu plano VIP foi ativado no servidor.",
+                "success"
+            );
+
+            aplicarUsuario({
+                ...data,
+                isVip: true,
+                vip: true
+            });
+
+            await atualizarUsuario();
+
+            mostrarToast(
+                "VIP ativado com sucesso!",
+                "success"
+            );
+
+            setTimeout(() => {
+
+                fecharPix();
+
+                abrirPlanos();
+
+            }, 1800);
+
+            return;
+        }
+
+        if (
+            status === "rejected" ||
+            status === "cancelled" ||
+            status === "cancelado"
+        ) {
+
+            atualizarStatusPix(
+                "Pagamento não aprovado",
+                "O pagamento foi recusado ou cancelado.",
+                "error"
+            );
+
+            if (pollingPix) {
+
+                clearInterval(
+                    pollingPix
+                );
+
+                pollingPix = null;
+            }
+
+            return;
+        }
+
+        atualizarStatusPix(
+            "Aguardando pagamento",
+            "Ainda não recebemos a confirmação do Mercado Pago.",
+            "loading"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Erro ao consultar Pix:",
+            error
+        );
+
+        if (error.status === 401) {
+
+            await iniciarSessao();
+
+        }
+    }
+}
+
+
+function atualizarStatusPix(
+    titulo,
+    descricao,
+    tipo
+) {
+
+    const box = $("pixStatus");
+
+    box.className =
+        "rounded-xl border p-4 mt-5 text-left";
+
+    if (tipo === "success") {
+
+        box.classList.add(
+            "status-success"
+        );
+
+        box.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-white/[.06] flex items-center justify-center">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+
+                <div>
+                    <div class="text-sm font-semibold">
+                        ${escapeHtml(titulo)}
+                    </div>
+
+                    <div class="text-xs text-zinc-500 mt-0.5">
+                        ${escapeHtml(descricao)}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return;
+    }
+
+    if (tipo === "error") {
+
+        box.classList.add(
+            "status-error"
+        );
+
+        box.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-white/[.06] flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
+
+                <div>
+                    <div class="text-sm font-semibold">
+                        ${escapeHtml(titulo)}
+                    </div>
+
+                    <div class="text-xs text-zinc-500 mt-0.5">
+                        ${escapeHtml(descricao)}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return;
+    }
+
+    box.classList.add(
+        "status-loading"
+    );
+
+    box.innerHTML = `
+        <div class="flex items-center gap-3">
+
+            <div class="loader-light"></div>
+
+            <div>
+                <div class="text-sm font-semibold">
+                    ${escapeHtml(titulo)}
+                </div>
+
+                <div class="text-xs text-zinc-600 mt-0.5">
+                    ${escapeHtml(descricao)}
+                </div>
+            </div>
+
+        </div>
+    `;
+}
+
+
+function fecharPix() {
+
+    if (pollingPix) {
+
+        clearInterval(
+            pollingPix
+        );
+
+        pollingPix = null;
+    }
+
+    $("pixModal").classList.add("hidden");
+
+    if (
+        $("planModal").classList.contains("hidden") &&
+        $("adminModal").classList.contains("hidden")
+    ) {
+        document.body.classList.remove("overflow-hidden");
+    }
+}
+
+
+/* =========================================================
+   YOUTUBE
+========================================================= */
+
+function extrairYouTubeId(url) {
+
+    if (!url) return null;
+
+    const value = String(url).trim();
+
+    const patterns = [
+
+        /(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i,
+
+        /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i,
+
+        /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i,
+
+        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i,
+
+        /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i
+    ];
+
+    for (const pattern of patterns) {
+
+        const match = value.match(pattern);
+
+        if (match) {
+            return match[1];
+        }
+    }
+
+    try {
+
+        const parsed = new URL(value);
+
+        const id =
+            parsed.searchParams.get("v");
+
+        if (
+            id &&
+            /^[A-Za-z0-9_-]{11}$/.test(id)
+        ) {
+            return id;
+        }
+
+    } catch {}
+
+    return null;
+}
+
+
+/* =========================================================
+   GERAR CORTES
+========================================================= */
+
+async function gerarCortes() {
+
+    const input = $("videoUrl");
+
+    const url = input.value.trim();
+
+    fecharErro();
+
+    if (!url) {
+
+        mostrarErro(
+            "Cole o link de um vídeo do YouTube."
+        );
+
+        input.focus();
+
+        return;
+    }
+
+    const videoId =
+        extrairYouTubeId(url);
+
+    if (!videoId) {
+
+        mostrarErro(
+            "O link informado não parece ser um link válido do YouTube."
+        );
+
+        input.focus();
+
+        return;
+    }
+
+    if (!sessionToken) {
+
+        await iniciarSessao();
+
+        if (!sessionToken) {
+            return;
+        }
+    }
+
+    videoAtualId = videoId;
+
+    $("resultados").classList.add("hidden");
+
+    $("loadingArea").classList.remove("hidden");
+
+    $("btnGerar").disabled = true;
+
+    $("btnGerar").innerHTML = `
+        <div class="loader"></div>
+        <span>Analisando...</span>
+    `;
+
+    iniciarAnimacaoLoading();
+
+    try {
+
+        const controller =
+            new AbortController();
+
+        const timeout =
+            setTimeout(
+                () => controller.abort(),
+                10 * 60 * 1000
+            );
+
+        let data;
+
+        try {
+
+            data = await fetchJson(
+                `${BACKEND_URL}/api/analisar`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...authHeaders()
+                    },
+                    body: JSON.stringify({
+                        youtubeUrl: url,
+                        videoId: videoId,
+                        duration: 60,
+                        quantity: 3
+                    }),
+                    signal: controller.signal
+                }
+            );
+
+        } finally {
+
+            clearTimeout(timeout);
+        }
+
+        if (!data?.clips) {
+
+            throw new Error(
+                "O servidor não retornou os cortes."
+            );
+        }
+
+        clipsAtuais =
+            Array.isArray(data.clips)
+                ? data.clips
+                : [];
+
+        if (!clipsAtuais.length) {
+
+            throw new Error(
+                "A IA não encontrou cortes para este vídeo."
+            );
+        }
+
+        renderizarCortes(
+            clipsAtuais,
+            data
+        );
+
+        mostrarToast(
+            `${clipsAtuais.length} cortes encontrados!`,
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Erro na análise:",
+            error
+        );
+
+        let mensagem =
+            error.message ||
+            "Não foi possível analisar o vídeo.";
+
+        if (
+            error.name === "AbortError"
+        ) {
+            mensagem =
+                "A análise demorou mais que o esperado. Tente novamente.";
+        }
+
+        if (
+            error.status === 401
+        ) {
+
+            mensagem =
+                "Sua sessão expirou. Atualizando a sessão...";
+        }
+
+        mostrarErro(mensagem);
+
+        if (
+            error.status === 401
+        ) {
+
+            await iniciarSessao();
+        }
+
+    } finally {
+
+        pararAnimacaoLoading();
+
+        $("loadingArea").classList.add("hidden");
+
+        $("btnGerar").disabled = false;
+
+        $("btnGerar").innerHTML = `
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Gerar cortes</span>
+        `;
+    }
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+function iniciarAnimacaoLoading() {
+
+    let progress = 15;
+
+    $("loadingBar").style.width =
+        `${progress}%`;
+
+    const mensagens = [
+        "Lendo o conteúdo do vídeo...",
+        "Analisando os momentos mais interessantes...",
+        "Identificando trechos com potencial...",
+        "Selecionando os melhores cortes...",
+        "Preparando os resultados..."
+    ];
+
+    let index = 0;
+
+    $("loadingText").textContent =
+        mensagens[0];
+
+    loadingTimer =
+        setInterval(() => {
+
+            progress =
+                Math.min(
+                    92,
+                    progress + Math.random() * 13
+                );
+
+            $("loadingBar").style.width =
+                `${progress}%`;
+
+            index =
+                Math.min(
+                    mensagens.length - 1,
+                    index + 1
+                );
+
+            $("loadingText").textContent =
+                mensagens[index];
+
+        }, 3500);
+}
+
+
+function pararAnimacaoLoading() {
+
+    if (loadingTimer) {
+
+        clearInterval(
+            loadingTimer
+        );
+
+        loadingTimer = null;
+    }
+
+    $("loadingBar").style.width =
+        "100%";
+}
+
+
+/* =========================================================
+   RENDER CORTES
+========================================================= */
+
+function renderizarCortes(
+    clips,
+    data
+) {
+
+    const container =
+        $("cardsContainer");
+
+    container.innerHTML = "";
+
+    $("resultadoSubtitulo").textContent =
+        `${clips.length} cortes encontrados pela IA.`;
+
+    clips.forEach(
+        (clip, index) => {
+
+            const card =
+                criarCardCorte(
+                    clip,
+                    index
+                );
+
+            container.appendChild(card);
+        }
+    );
+
+    $("resultados").classList.remove(
+        "hidden"
     );
 
     setTimeout(() => {
 
-      btn.innerHTML =
-        `<i class="fa-solid fa-check text-emerald-400"></i><span>Download iniciado</span>`;
+        $("resultados").scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
 
-      setTimeout(() => {
+    }, 100);
+}
 
-        btn.innerHTML =
-          textoOriginal;
 
-        btn.classList.remove(
-          'pointer-events-none',
-          'opacity-70'
+function obterInicioClip(clip) {
+
+    return normalizarNumero(
+        clip.start ??
+        clip.inicio ??
+        clip.startTime ??
+        clip.inicioSegundos ??
+        0
+    );
+}
+
+
+function obterDuracaoClip(clip) {
+
+    return normalizarNumero(
+        clip.duration ??
+        clip.duracao ??
+        clip.length ??
+        55,
+        55
+    );
+}
+
+
+function obterTituloClip(clip, index) {
+
+    return (
+        clip.title ??
+        clip.titulo ??
+        clip.name ??
+        `Corte ${index + 1}`
+    );
+}
+
+
+function obterDescricaoClip(clip) {
+
+    return (
+        clip.description ??
+        clip.descricao ??
+        clip.reason ??
+        clip.motivo ??
+        "Momento selecionado pela inteligência artificial."
+    );
+}
+
+
+function criarCardCorte(
+    clip,
+    index
+) {
+
+    const start =
+        obterInicioClip(clip);
+
+    const duration =
+        obterDuracaoClip(clip);
+
+    const title =
+        obterTituloClip(
+            clip,
+            index
         );
 
-      }, 2500);
+    const description =
+        obterDescricaoClip(
+            clip
+        );
 
-    }, 1500);
+    const score =
+        clip.score ??
+        clip.pontuacao ??
+        clip.viralScore ??
+        null;
 
-  }
+    const end =
+        start + duration;
+
+    const card =
+        document.createElement("article");
+
+    card.className =
+        "card rounded-2xl overflow-hidden fade-in";
+
+    card.style.animationDelay =
+        `${index * 70}ms`;
+
+    card.innerHTML = `
+
+        <div class="relative aspect-video bg-black">
+
+            <img
+                src="https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg"
+                alt=""
+                class="w-full h-full object-cover opacity-70"
+                loading="lazy"
+                onerror="this.style.display='none'"
+            >
+
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+
+            <div class="absolute top-3 left-3">
+
+                <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">
+                    CORTE ${index + 1}
+                </span>
+
+            </div>
+
+            <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
+
+                <div>
+
+                    <div class="text-xs text-zinc-400">
+                        ${formatarTempo(start)}
+                        →
+                        ${formatarTempo(end)}
+                    </div>
+
+                    <div class="text-sm font-bold mt-1 line-clamp-2">
+                        ${escapeHtml(title)}
+                    </div>
+
+                </div>
+
+                ${
+                    score !== null
+                        ? `
+                            <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">
+                                ${escapeHtml(score)}
+                            </div>
+                        `
+                        : ""
+                }
+
+            </div>
+
+        </div>
 
 
-  // ==========================================================
-  // MODAIS
-  // ==========================================================
+        <div class="p-5">
 
-  function abrirPlanosModal() {
+            <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">
+                ${escapeHtml(description)}
+            </p>
 
-    document
-      .getElementById('modalPlanos')
-      .classList.remove('hidden');
+            <div class="grid grid-cols-2 gap-2 mt-5">
 
-  }
+                <button
+                    onclick="abrirYouTube(${JSON.stringify(start)})"
+                    class="btn-dark h-11 rounded-xl text-xs font-semibold"
+                >
+                    <i class="fa-brands fa-youtube mr-1.5"></i>
+                    Assistir
+                </button>
+
+                <button
+                    onclick="baixarCorte(${JSON.stringify(start)}, ${JSON.stringify(duration)}, ${JSON.stringify(index)})"
+                    class="btn-main h-11 rounded-xl text-xs font-bold"
+                >
+                    <i class="fa-solid fa-download mr-1.5"></i>
+                    Baixar
+                </button>
+
+            </div>
+
+            <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
+
+                <span>
+                    Duração: ${Math.round(duration)}s
+                </span>
+
+                <span>
+                    ${
+                        usuario.isVip
+                            ? "VIP"
+                            : "50 pontos"
+                    }
+                </span>
+
+            </div>
+
+        </div>
+    `;
+
+    return card;
+}
 
 
-  function fecharPlanosModal() {
+/* =========================================================
+   YOUTUBE
+========================================================= */
 
-    document
-      .getElementById('modalPlanos')
-      .classList.add('hidden');
+function abrirYouTube(start) {
 
-  }
+    if (!videoAtualId) return;
+
+    const url =
+        `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
+
+    window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+    );
+}
 
 
-  // ==========================================================
-  // PIX
-  // ==========================================================
+/* =========================================================
+   DOWNLOAD
+========================================================= */
 
-  async function assinarVipPix() {
+async function baixarCorte(
+    start,
+    duration,
+    index
+) {
 
-    fecharPlanosModal();
+    if (!sessionToken) {
 
-    document
-      .getElementById('modalPix')
-      .classList.remove('hidden');
+        await iniciarSessao();
 
-    document
-      .getElementById('pixCopiaCola')
-      .value = '';
+        if (!sessionToken) return;
+    }
 
-    document
-      .getElementById('pixQrContainer')
-      .innerHTML =
-        `
-          <i class="fa-solid fa-circle-notch fa-spin text-slate-800 text-4xl"></i>
-        `;
+    const pontosNecessarios =
+        usuario.isVip
+            ? 0
+            : 50;
 
-    document
-      .getElementById('pixStatusText')
-      .innerHTML =
-        `
-          <div class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></div>
-          <span>Gerando pagamento Pix...</span>
-        `;
+    if (
+        !usuario.isVip &&
+        usuario.pontos < pontosNecessarios
+    ) {
+
+        mostrarToast(
+            "Você não tem pontos suficientes. Ative o VIP para baixar sem descontar pontos.",
+            "error"
+        );
+
+        abrirPlanos();
+
+        return;
+    }
+
+
+    const buttons =
+        document.querySelectorAll(
+            "#cardsContainer button"
+        );
+
+    /*
+     * Apenas feedback visual.
+     * O backend continua sendo responsável
+     * por descontar os pontos.
+     */
+
+    mostrarToast(
+        usuario.isVip
+            ? "Preparando seu corte..."
+            : "Preparando seu corte. 50 pontos serão utilizados se o download for concluído.",
+        "normal"
+    );
+
 
     try {
 
-      const res =
-        await fetch(
-          `${BACKEND_URL}/api/pix/criar`,
-          {
-
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body: JSON.stringify({
-
-              userId:
-                'user_123',
-
-              valor:
-                19.90,
-
-              plano:
-                'VIP'
-
-            })
-
-          }
-        );
-
-      const data =
-        await res
-          .json()
-          .catch(
-            () => ({})
-          );
-
-      if (!res.ok) {
-
-        throw new Error(
-          data.error ||
-          data.message ||
-          `Erro ${res.status} ao criar pagamento.`
-        );
-
-      }
-
-      if (
-        !data.qr_code
-      ) {
-
-        throw new Error(
-          data.error ||
-          'O Mercado Pago não retornou o código Pix.'
-        );
-
-      }
-
-      document
-        .getElementById('pixCopiaCola')
-        .value =
-          data.qr_code;
-
-      document
-        .getElementById('pixQrContainer')
-        .innerHTML =
-          `
-            <img
-              src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.qr_code)}"
-              class="w-36 h-36 rounded-lg"
-              alt="QR Code Pix"
-            >
-          `;
-
-      document
-        .getElementById('pixStatusText')
-        .innerHTML =
-          `
-            <div class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-            <span>Aguardando confirmação do banco...</span>
-          `;
-
-      monitorarPagamentoVip(
-        data.id
-      );
-
-    } catch (err) {
-
-      console.error(
-        '[Pix]',
-        err
-      );
-
-      document
-        .getElementById('pixQrContainer')
-        .innerHTML =
-          `
-            <i class="fa-solid fa-triangle-exclamation text-red-400 text-4xl"></i>
-          `;
-
-      document
-        .getElementById('pixStatusText')
-        .innerHTML =
-          `
-            <span class="text-red-400">
-              Não foi possível gerar o Pix.
-            </span>
-          `;
-
-      mostrarToast(
-        'Erro no Pix',
-        err.message ||
-          'Não foi possível gerar o pagamento.',
-        'erro'
-      );
-
-    }
-
-  }
+        const params =
+            new URLSearchParams({
+                id: videoAtualId,
+                start: String(
+                    Math.max(
+                        0,
+                        Math.floor(start)
+                    )
+                ),
+                duration: String(
+                    Math.max(
+                        20,
+                        Math.min(
+                            60,
+                            Math.floor(duration)
+                        )
+                    )
+                )
+            });
 
 
-  // ==========================================================
-  // MONITORAR PAGAMENTO
-  // ==========================================================
-
-  function monitorarPagamentoVip(paymentId) {
-
-    if (pollingInterval) {
-
-      clearInterval(
-        pollingInterval
-      );
-
-    }
-
-    pollingInterval =
-      setInterval(
-        async () => {
-
-          try {
-
-            const res =
-              await fetch(
-                `${BACKEND_URL}/api/pix/status/${encodeURIComponent(paymentId)}`
-              );
-
-            const d =
-              await res
-                .json()
-                .catch(
-                  () => ({})
-                );
-
-            if (!res.ok) {
-
-              console.warn(
-                '[Pix Status]',
-                d
-              );
-
-              return;
-            }
-
-            if (
-              d.status === 'approved'
-            ) {
-
-              clearInterval(
-                pollingInterval
-              );
-
-              pollingInterval =
-                null;
-
-              ativarVip();
-
-            }
-
-          } catch (e) {
-
-            console.warn(
-              '[Pix] Falha ao consultar:',
-              e
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/download?${params.toString()}`,
+                {
+                    method: "GET",
+                    headers: {
+                        ...authHeaders()
+                    }
+                }
             );
 
-          }
 
-        },
-        3000
-      );
+        if (!response.ok) {
 
-  }
+            let errorData = null;
+
+            try {
+                errorData =
+                    await response.json();
+            } catch {}
+
+            if (response.status === 401) {
+
+                await iniciarSessao();
+
+                throw new Error(
+                    "Sua sessão expirou. Tente o download novamente."
+                );
+            }
+
+            if (response.status === 402) {
+
+                await atualizarUsuario();
+
+                throw new Error(
+                    errorData?.error ||
+                    "Você não possui pontos suficientes para este download."
+                );
+            }
+
+            throw new Error(
+                errorData?.error ||
+                errorData?.message ||
+                `Falha no download (${response.status}).`
+            );
+        }
 
 
-  // ==========================================================
-  // ATIVAR VIP
-  // ==========================================================
+        const blob =
+            await response.blob();
 
-  function ativarVip() {
 
-    usuario.isVip =
-      true;
+        if (
+            !blob ||
+            blob.size === 0
+        ) {
+            throw new Error(
+                "O servidor retornou um arquivo vazio."
+            );
+        }
 
-    atualizarInterfacePontos();
 
-    fecharPixModal();
+        let filename =
+            `clipforge-corte-${Number(index) + 1}.mp4`;
 
-    mostrarToast(
-      '👑 Bem-vindo ao VIP!',
-      'Downloads infinitos ativados.'
+        const disposition =
+            response.headers.get(
+                "Content-Disposition"
+            );
+
+        if (disposition) {
+
+            const match =
+                disposition.match(
+                    /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i
+                );
+
+            if (match?.[1]) {
+
+                try {
+
+                    filename =
+                        decodeURIComponent(
+                            match[1]
+                        );
+
+                } catch {
+
+                    filename =
+                        match[1];
+                }
+            }
+        }
+
+
+        const blobUrl =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href = blobUrl;
+        link.download = filename;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        link.remove();
+
+        setTimeout(
+            () => URL.revokeObjectURL(blobUrl),
+            5000
+        );
+
+
+        /*
+         * O backend é a fonte da verdade.
+         * Atualizamos a interface depois do sucesso.
+         */
+
+        await atualizarUsuario();
+
+        mostrarToast(
+            usuario.isVip
+                ? "Corte baixado com sucesso!"
+                : "Corte baixado! Seus pontos foram atualizados.",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Erro no download:",
+            error
+        );
+
+        mostrarToast(
+            error.message ||
+            "Não foi possível baixar o corte.",
+            "error"
+        );
+    }
+}
+
+
+/* =========================================================
+   NOVO VÍDEO
+========================================================= */
+
+function novoVideo() {
+
+    $("resultados").classList.add(
+        "hidden"
     );
 
-    document
-      .querySelectorAll(
-        '#cardsContainer button span'
-      )
-      .forEach(
-        span => {
+    $("cardsContainer").innerHTML = "";
 
-          span.innerText =
-            'Baixar Vídeo (VIP)';
+    $("videoUrl").value = "";
 
-        }
-      );
+    $("videoUrl").focus();
 
-    document
-      .querySelectorAll(
-        '#cardsContainer .text-slate-300'
-      )
-      .forEach(
-        el => {
-
-          if (
-            el.innerText.includes('360p')
-          ) {
-
-            el.innerText =
-              el.innerText.replace(
-                '360p',
-                'VIP'
-              );
-
-          }
-
-        }
-      );
-
-  }
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
 
 
-  function fecharPixModal() {
+/* =========================================================
+   ERROS
+========================================================= */
 
-    if (
-      pollingInterval
-    ) {
+function mostrarErro(mensagem) {
 
-      clearInterval(
-        pollingInterval
-      );
+    $("errorText").textContent =
+        mensagem;
 
-      pollingInterval =
-        null;
+    $("errorArea").classList.remove(
+        "hidden"
+    );
 
-    }
-
-    document
-      .getElementById('modalPix')
-      .classList.add('hidden');
-
-  }
+    $("errorArea").scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+    });
+}
 
 
-  function copiarPix() {
+function fecharErro() {
 
-    const input =
-      document.getElementById(
-        'pixCopiaCola'
-      );
+    $("errorArea").classList.add(
+        "hidden"
+    );
+}
 
-    if (
-      !input.value
-    ) {
 
-      mostrarToast(
-        'Atenção',
-        'Ainda não existe um código Pix para copiar.',
-        'aviso'
-      );
+/* =========================================================
+   ADMIN
+========================================================= */
 
-      return;
-    }
+function abrirAdmin() {
 
-    if (
-      navigator.clipboard &&
-      navigator.clipboard.writeText
-    ) {
+    $("adminModal").classList.remove(
+        "hidden"
+    );
 
-      navigator.clipboard
-        .writeText(input.value)
-        .then(() => {
+    document.body.classList.add(
+        "overflow-hidden"
+    );
 
-          mostrarToast(
-            'Pix Copiado!',
-            'Cole no seu aplicativo do banco.'
-          );
+    if (adminToken) {
 
-        })
-        .catch(() => {
+        $("adminLoginArea").classList.add(
+            "hidden"
+        );
 
-          input.select();
+        $("adminDashboard").classList.remove(
+            "hidden"
+        );
 
-          document.execCommand(
-            'copy'
-          );
-
-          mostrarToast(
-            'Pix Copiado!',
-            'Cole no seu aplicativo do banco.'
-          );
-
-        });
+        carregarDashboard();
 
     } else {
 
-      input.select();
+        $("adminLoginArea").classList.remove(
+            "hidden"
+        );
 
-      document.execCommand(
-        'copy'
-      );
+        $("adminDashboard").classList.add(
+            "hidden"
+        );
 
-      mostrarToast(
-        'Pix Copiado!',
-        'Cole no seu aplicativo do banco.'
-      );
+        setTimeout(
+            () => $("adminPassword").focus(),
+            100
+        );
+    }
+}
 
+
+function fecharAdmin() {
+
+    $("adminModal").classList.add(
+        "hidden"
+    );
+
+    if (
+        $("planModal").classList.contains("hidden") &&
+        $("pixModal").classList.contains("hidden")
+    ) {
+        document.body.classList.remove(
+            "overflow-hidden"
+        );
+    }
+}
+
+
+function toggleAdminPassword() {
+
+    const input =
+        $("adminPassword");
+
+    const eye =
+        $("adminEye");
+
+    if (
+        input.type === "password"
+    ) {
+
+        input.type = "text";
+
+        eye.className =
+            "fa-regular fa-eye-slash";
+
+    } else {
+
+        input.type = "password";
+
+        eye.className =
+            "fa-regular fa-eye";
+    }
+}
+
+
+async function fazerLoginAdmin() {
+
+    const password =
+        $("adminPassword").value.trim();
+
+    if (!password) {
+
+        $("adminLoginError").textContent =
+            "Digite a senha administrativa.";
+
+        $("adminLoginError").classList.remove(
+            "hidden"
+        );
+
+        return;
     }
 
-  }
+    const button =
+        $("btnAdminLogin");
 
+    button.disabled = true;
 
-  // ==========================================================
-  // ADMIN
-  // ==========================================================
+    button.innerHTML = `
+        <div class="loader"></div>
+    `;
 
-  function abrirAdminModal() {
-
-    document
-      .getElementById('modalAdmin')
-      .classList.remove('hidden');
-
-  }
-
-
-  function fecharAdminModal() {
-
-    document
-      .getElementById('modalAdmin')
-      .classList.add('hidden');
-
-  }
-
-
-  async function entrarAdmin() {
-
-    const pass =
-      document
-        .getElementById('adminPass')
-        .value
-        .trim();
-
-    if (!pass) {
-
-      mostrarToast(
-        'Atenção',
-        'Digite a senha do administrador.',
-        'aviso'
-      );
-
-      return;
-    }
+    $("adminLoginError").classList.add(
+        "hidden"
+    );
 
     try {
 
-      const res =
-        await fetch(
-          `${BACKEND_URL}/api/admin/login`,
-          {
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/admin/login`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        password
+                    })
+                }
+            );
 
-            method: 'POST',
 
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
+        const token =
+            data.token ??
+            data.adminToken;
 
-            body:
-              JSON.stringify({
-                password:
-                  pass
-              })
 
-          }
+        if (!token) {
+
+            throw new Error(
+                "O servidor não retornou um token administrativo."
+            );
+        }
+
+
+        adminToken = token;
+
+        localStorage.setItem(
+            ADMIN_STORAGE_KEY,
+            adminToken
         );
 
-      const loginData =
-        await res
-          .json()
-          .catch(
-            () => ({})
-          );
 
-      if (!res.ok) {
-
-        throw new Error(
-          loginData.error ||
-          'Senha incorreta.'
+        $("adminLoginArea").classList.add(
+            "hidden"
         );
 
-      }
-
-      adminTokenSalvo =
-        pass;
-
-      document
-        .getElementById('adminLogin')
-        .classList.add('hidden');
-
-      document
-        .getElementById('adminPainel')
-        .classList.remove('hidden');
-
-      const dashboardRes =
-        await fetch(
-          `${BACKEND_URL}/api/admin/dashboard`,
-          {
-            headers: {
-              'Authorization':
-                pass
-            }
-          }
+        $("adminDashboard").classList.remove(
+            "hidden"
         );
 
-      const d =
-        await dashboardRes
-          .json()
-          .catch(
-            () => ({})
-          );
 
-      if (
-        !dashboardRes.ok
-      ) {
+        await carregarDashboard();
 
-        throw new Error(
-          d.error ||
-          'Não foi possível carregar o painel.'
+        mostrarToast(
+            "Login administrativo realizado.",
+            "success"
         );
 
-      }
+    } catch (error) {
 
-      const metricas =
-        d.metricas ||
-        d.metrics ||
-        {};
+        console.error(
+            "Erro no login admin:",
+            error
+        );
 
-      const servidor =
-        d.servidor ||
-        d.system ||
-        {};
+        $("adminLoginError").textContent =
+            error.message ||
+            "Senha inválida.";
 
-      const faturamento =
-        metricas.valorArrecadado ??
-        0;
+        $("adminLoginError").classList.remove(
+            "hidden"
+        );
 
-      document
-        .getElementById('admFaturamento')
-        .innerText =
-          `R$ ${Number(
-            faturamento
-          ).toFixed(2).replace(
-            '.',
-            ','
-          )}`;
+    } finally {
 
-      document
-        .getElementById('admVendas')
-        .innerText =
-          metricas.totalVendas ??
-          metricas.vendas ??
-          0;
+        button.disabled = false;
 
-      document
-        .getElementById('admDownloads')
-        .innerText =
-          metricas.totalDownloads ??
-          metricas.downloads ??
-          0;
-
-      document
-        .getElementById('admRam')
-        .innerText =
-          `${servidor.memoriaMB ?? d.memoriaUsadaMb ?? 0} MB`;
-
-    } catch (err) {
-
-      console.error(
-        '[Admin]',
-        err
-      );
-
-      mostrarToast(
-        'Erro',
-        err.message ||
-          'Não foi possível entrar no painel.',
-        'aviso'
-      );
-
+        button.textContent =
+            "Entrar";
     }
+}
 
-  }
+
+async function carregarDashboard() {
+
+    if (!adminToken) return;
+
+    const container =
+        $("adminStats");
+
+    container.innerHTML = `
+        <div class="col-span-2 py-8 text-center">
+            <div class="flex justify-center">
+                <div class="loader-light"></div>
+            </div>
+        </div>
+    `;
+
+    try {
+
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/admin/dashboard`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization:
+                            `Bearer ${adminToken}`
+                    }
+                }
+            );
 
 
-  // ==========================================================
-  // FECHAR MODAIS
-  // ==========================================================
+        const metrics =
+            data.metrics ??
+            data;
 
-  document.addEventListener(
-    'click',
-    function(event) {
 
-      const planos =
-        document.getElementById(
-          'modalPlanos'
+        const total =
+            metrics.totalRequests ??
+            metrics.requests ??
+            metrics.total ??
+            0;
+
+        const analyses =
+            metrics.analyses ??
+            metrics.analysis ??
+            metrics.totalAnalyses ??
+            0;
+
+        const downloads =
+            metrics.downloads ??
+            metrics.totalDownloads ??
+            0;
+
+        const approved =
+            metrics.approvedPayments ??
+            metrics.pagamentosAprovados ??
+            metrics.approved ??
+            0;
+
+        const revenue =
+            metrics.revenue ??
+            metrics.receita ??
+            0;
+
+
+        container.innerHTML = `
+
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
+                    Requests
+                </div>
+                <div class="text-2xl font-black mt-2">
+                    ${escapeHtml(total)}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
+                    Análises
+                </div>
+                <div class="text-2xl font-black mt-2">
+                    ${escapeHtml(analyses)}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
+                    Downloads
+                </div>
+                <div class="text-2xl font-black mt-2">
+                    ${escapeHtml(downloads)}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
+                    Pagamentos
+                </div>
+                <div class="text-2xl font-black mt-2">
+                    ${escapeHtml(approved)}
+                </div>
+            </div>
+
+            <div class="col-span-2 rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
+                    Receita
+                </div>
+                <div class="text-2xl font-black mt-2">
+                    R$ ${formatarMoeda(revenue)}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+
+        console.error(
+            "Erro dashboard:",
+            error
         );
 
-      const pix =
-        document.getElementById(
-          'modalPix'
-        );
+        if (
+            error.status === 401 ||
+            error.status === 403
+        ) {
 
-      const admin =
-        document.getElementById(
-          'modalAdmin'
-        );
+            logoutAdmin();
 
-      if (
-        event.target === planos
-      ) {
+            $("adminLoginError").textContent =
+                "Sessão administrativa expirada.";
 
-        fecharPlanosModal();
+            $("adminLoginError").classList.remove(
+                "hidden"
+            );
 
-      }
+            return;
+        }
 
-      if (
-        event.target === pix
-      ) {
-
-        fecharPixModal();
-
-      }
-
-      if (
-        event.target === admin
-      ) {
-
-        fecharAdminModal();
-
-      }
-
+        container.innerHTML = `
+            <div class="col-span-2 rounded-xl border border-white/[.07] p-4 text-center text-xs text-zinc-500">
+                Não foi possível carregar o dashboard.
+            </div>
+        `;
     }
-  );
+}
 
 
-  // ==========================================================
-  // ESC
-  // ==========================================================
+function formatarMoeda(value) {
 
-  document.addEventListener(
-    'keydown',
-    function(event) {
+    const n =
+        Number(value) || 0;
 
-      if (
-        event.key !== 'Escape'
-      ) {
-        return;
-      }
+    return n.toLocaleString(
+        "pt-BR",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
+}
 
-      fecharPlanosModal();
-      fecharPixModal();
-      fecharAdminModal();
 
+function logoutAdmin() {
+
+    adminToken = "";
+
+    localStorage.removeItem(
+        ADMIN_STORAGE_KEY
+    );
+
+    $("adminDashboard").classList.add(
+        "hidden"
+    );
+
+    $("adminLoginArea").classList.remove(
+        "hidden"
+    );
+
+    $("adminPassword").value = "";
+
+    mostrarToast(
+        "Sessão administrativa encerrada."
+    );
+}
+
+
+/* =========================================================
+   MODAIS — ESC
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key !== "Escape") {
+            return;
+        }
+
+        if (
+            !$("pixModal").classList.contains(
+                "hidden"
+            )
+        ) {
+
+            fecharPix();
+
+            return;
+        }
+
+        if (
+            !$("adminModal").classList.contains(
+                "hidden"
+            )
+        ) {
+
+            fecharAdmin();
+
+            return;
+        }
+
+        if (
+            !$("planModal").classList.contains(
+                "hidden"
+            )
+        ) {
+
+            fecharPlanos();
+        }
     }
-  );
+);
 
 
-  // ==========================================================
-  // INICIALIZAÇÃO
-  // ==========================================================
+/* =========================================================
+   CLIQUE NO BACKDROP
+========================================================= */
 
-  atualizarInterfacePontos();
+$("planModal").addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target ===
+            $("planModal")
+        ) {
+            fecharPlanos();
+        }
+    }
+);
+
+
+$("pixModal").addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target ===
+            $("pixModal")
+        ) {
+            fecharPix();
+        }
+    }
+);
+
+
+$("adminModal").addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target ===
+            $("adminModal")
+        ) {
+            fecharAdmin();
+        }
+    }
+);
+
+
+/* =========================================================
+   INICIALIZAÇÃO
+========================================================= */
+
+async function inicializar() {
+
+    $("anoAtual").textContent =
+        new Date().getFullYear();
+
+    atualizarInterfaceUsuario();
+
+    await iniciarSessao();
+
+    /*
+     * Mantém os dados da conta atualizados
+     * enquanto a página estiver aberta.
+     */
+    setInterval(
+        atualizarUsuario,
+        60000
+    );
+}
+
+
+inicializar();
 
 </script>
 
