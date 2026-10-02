@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.1.6 COMPLETO
+ * CLIPFORGE PRO — BACKEND 13.1.7 COMPLETO
  * Node.js + Express
  *
  * Compatível com index.html V13.0.7
@@ -9,13 +9,14 @@
  * ------------------------------------------------------------
  * - Gemini Interactions API oficial e uniforme
  * - Modelo principal: gemini-3.8-flash (thinking_level: "low")
- * - Fallbacks oficiais: gemini-3.7-flash, gemini-3.6-flash
+ * - Fallbacks automáticos: gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
  * - Chaveamento instantâneo em HTTP 503 (alta demanda)
  * - Retry único com backoff para 429 antes de chavear modelo
  * - Bloqueio de troca inútil em erros de credencial (400/401/403)
  * - spawnCapture seguro: limpa killTimer e aguarda o close real
  * - Stream com res.on("finish") para não apagar workDir prematuramente
  * - Pipeline: Downloader Externo -> RapidAPI -> yt-dlp -> FFmpeg
+ * - Suporte híbrido a FFmpeg local (bin/) e fallback via @ffmpeg-installer
  * - Sem dependência externa de 'dotenv'
  * ============================================================
  */
@@ -41,7 +42,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-const VERSION = "13.1.6";
+const VERSION = "13.1.7";
 
 const FREE_POINTS = Number(process.env.FREE_POINTS || 200);
 const DAILY_POINTS = Number(process.env.DAILY_POINTS || 50);
@@ -68,7 +69,7 @@ const GEMINI_MODEL =
 
 const GEMINI_FALLBACK_MODELS = (
   process.env.GEMINI_FALLBACK_MODELS ||
-  "gemini-3.7-flash,gemini-3.6-flash"
+  "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash"
 )
   .split(",")
   .map((v) => v.trim())
@@ -120,7 +121,7 @@ const DOWNLOAD_DIR = path.join(TEMP_ROOT, "downloads");
 const OUTPUT_DIR = path.join(TEMP_ROOT, "outputs");
 
 /* ============================================================
-   BINÁRIOS
+   BINÁRIOS (COM DETECÇÃO INTELIGENTE DE FALLBACK)
 ============================================================ */
 
 function findExecutable(candidates = []) {
@@ -133,6 +134,35 @@ function findExecutable(candidates = []) {
   return null;
 }
 
+// 1. Resolução FFmpeg
+let resolvedFfmpeg = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN;
+if (!resolvedFfmpeg) {
+  try {
+    resolvedFfmpeg = require("@ffmpeg-installer/ffmpeg").path;
+  } catch {
+    resolvedFfmpeg = findExecutable([
+      path.join(process.cwd(), "bin", "ffmpeg"),
+      path.join(process.cwd(), "ffmpeg"),
+    ]) || "ffmpeg";
+  }
+}
+const FFMPEG_BIN = resolvedFfmpeg;
+
+// 2. Resolução FFprobe
+let resolvedFfprobe = process.env.FFPROBE_PATH || process.env.FFPROBE_BIN;
+if (!resolvedFfprobe) {
+  try {
+    resolvedFfprobe = require("@ffprobe-installer/ffprobe").path;
+  } catch {
+    resolvedFfprobe = findExecutable([
+      path.join(process.cwd(), "bin", "ffprobe"),
+      path.join(process.cwd(), "ffprobe"),
+    ]) || "ffprobe";
+  }
+}
+const FFPROBE_BIN = resolvedFfprobe;
+
+// 3. Resolução yt-dlp
 const YTDLP_BIN =
   process.env.YTDLP_PATH ||
   process.env.YTDLP_BIN ||
@@ -141,24 +171,6 @@ const YTDLP_BIN =
     path.join(process.cwd(), "yt-dlp"),
   ]) ||
   "yt-dlp";
-
-const FFMPEG_BIN =
-  process.env.FFMPEG_PATH ||
-  process.env.FFMPEG_BIN ||
-  findExecutable([
-    path.join(process.cwd(), "bin", "ffmpeg"),
-    path.join(process.cwd(), "ffmpeg"),
-  ]) ||
-  "ffmpeg";
-
-const FFPROBE_BIN =
-  process.env.FFPROBE_PATH ||
-  process.env.FFPROBE_BIN ||
-  findExecutable([
-    path.join(process.cwd(), "bin", "ffprobe"),
-    path.join(process.cwd(), "ffprobe"),
-  ]) ||
-  "ffprobe";
 
 const YTDLP_COOKIES_FILE = process.env.YTDLP_COOKIES_FILE || "";
 
@@ -406,7 +418,6 @@ function spawnCapture(command, args, options = {}) {
     });
 
     child.on("close", (code, signal) => {
-      // Limpa ambos os temporizadores assim que o processo de fato encerra
       if (termTimer) clearTimeout(termTimer);
       if (killTimer) clearTimeout(killTimer);
 
@@ -573,8 +584,8 @@ async function requestGeminiModel(model, url, prompt) {
   if (!outText && Array.isArray(data?.steps)) {
     for (const step of data.steps) {
       if (Array.isArray(step?.content)) {
-        for (const c of step.content) {
-          if (c?.text) outText += c.text + "\n";
+        for (const content of step.content) {
+          if (content?.text) outText += content.text + "\n";
         }
       }
     }
@@ -1021,7 +1032,6 @@ app.post("/api/download", requireUser, async (req, res) => {
       await safeCleanDir();
     });
 
-    // Garante que o diretório só seja limpo quando a resposta terminar de ser transmitida
     res.on("finish", safeCleanDir);
     res.on("close", safeCleanDir);
 
