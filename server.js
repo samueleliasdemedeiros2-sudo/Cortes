@@ -1,215 +1,720 @@
-"use strict";
-
-/*
+/**
  * ============================================================
  * CLIPFORGE PRO
- * SERVER 13.0.4
+ * Backend 13.0.6
  * ============================================================
  *
- * Gemini:
- *   /v1beta/models/${GEMINI_MODEL}:generateContent
+ * Node.js + Express
  *
- * Pipeline de vídeo:
- *   EXTERNAL_DOWNLOAD_URL
- *        ↓
- *   RapidAPI
- *        ↓
- *   yt-dlp
- *        ↓
- *   ffprobe
- *        ↓
- *   FFmpeg H.264 + AAC + yuv420p
+ * Principais recursos:
+ * - Gemini Interactions API
+ * - Gemini 3.8 Flash
+ * - Análise direta de URLs públicas do YouTube
+ * - Saída estruturada JSON
+ * - Download externo opcional
+ * - RapidAPI
+ * - yt-dlp fallback
+ * - FFmpeg
+ * - Sessões em memória
+ * - Sistema de usuários
+ * - Pontos/análises
+ * - Mercado Pago / Pix
+ * - Webhook Mercado Pago
+ * - Área administrativa
+ * - Métricas
+ * - CORS
  *
  * ============================================================
  */
 
+"use strict";
+
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
 const os = require("os");
-const crypto = require("crypto");
 const { spawn } = require("child_process");
-const { pipeline } = require("stream/promises");
-const { Readable } = require("stream");
-
-const app = express();
 
 /* ============================================================
    CONFIGURAÇÃO
    ============================================================ */
 
+const APP_VERSION = "13.0.6";
+
+const app = express();
+
 const PORT = Number(process.env.PORT || 10000);
 
-const FRONTEND_URL = String(process.env.FRONTEND_URL || "*")
-  .split(",")
-  .map((v) => v.trim())
-  .filter(Boolean);
+const HOST = process.env.HOST || "0.0.0.0";
 
-const RAPIDAPI_KEY = String(process.env.RAPIDAPI_KEY || "").trim();
+const NODE_ENV = process.env.NODE_ENV || "production";
 
-const RAPIDAPI_HOST = String(
-  process.env.RAPIDAPI_HOST || "yt-api.p.rapidapi.com"
-).trim();
+/* ============================================================
+   GEMINI
+   ============================================================ */
 
-const MP_ACCESS_TOKEN = String(process.env.MP_ACCESS_TOKEN || "").trim();
-
-const MP_PAYER_EMAIL = String(
-  process.env.MP_PAYER_EMAIL || "pagamentos@clipforge.app"
-).trim();
-
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "").trim();
-
-const SESSION_SECRET = String(
-  process.env.SESSION_SECRET ||
-    crypto.randomBytes(32).toString("hex")
-).trim();
-
-const GEMINI_API_KEY = String(
-  process.env.GEMINI_API_KEY || ""
-).trim();
-
-/*
- * Evita usar acidentalmente um modelo 3.8 configurado
- * no Render enquanto esta versão do backend está padronizada
- * para Gemini 2.5 Flash.
- */
-const configuredGeminiModel = String(
-  process.env.GEMINI_MODEL || ""
-).trim();
+const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY ||
+  process.env.GOOGLE_API_KEY ||
+  "";
 
 const GEMINI_MODEL =
-  configuredGeminiModel &&
-  !/gemini-3\.8-flash/i.test(configuredGeminiModel)
-    ? configuredGeminiModel
-    : "gemini-2.5-flash";
+  process.env.GEMINI_MODEL ||
+  "gemini-3.8-flash";
 
 const GEMINI_ENDPOINT =
-  `https://generativelanguage.googleapis.com/v1beta/models/` +
-  `${encodeURIComponent(GEMINI_MODEL)}:generateContent`;
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
 
-const YTDLP_PATH = String(
+/* ============================================================
+   RAPIDAPI
+   ============================================================ */
+
+const RAPIDAPI_KEY =
+  process.env.RAPIDAPI_KEY ||
+  process.env.X_RAPIDAPI_KEY ||
+  "";
+
+const RAPIDAPI_HOST =
+  process.env.RAPIDAPI_HOST ||
+  "youtube-media-downloader.p.rapidapi.com";
+
+/* ============================================================
+   DOWNLOAD EXTERNO
+   ============================================================ */
+
+const EXTERNAL_DOWNLOAD_URL =
+  process.env.EXTERNAL_DOWNLOAD_URL ||
+  "";
+
+/* ============================================================
+   YT-DLP / FFMPEG
+   ============================================================ */
+
+const YTDLP_PATH =
   process.env.YTDLP_PATH ||
-    path.join(__dirname, "bin", "yt-dlp")
-).trim();
+  path.join(process.cwd(), "bin", "yt-dlp");
 
-const YTDLP_COOKIES_FILE = String(
-  process.env.YTDLP_COOKIES_FILE || ""
-).trim();
+const FFMPEG_PATH =
+  process.env.FFMPEG_PATH ||
+  "ffmpeg";
 
-const FFMPEG_PATH = String(
-  process.env.FFMPEG_PATH || "ffmpeg"
-).trim();
+const FFPROBE_PATH =
+  process.env.FFPROBE_PATH ||
+  "ffprobe";
 
-const FFPROBE_PATH = String(
-  process.env.FFPROBE_PATH || "ffprobe"
-).trim();
+const YTDLP_COOKIES_FILE =
+  process.env.YTDLP_COOKIES_FILE ||
+  "";
 
-const TEMP_DIR = String(
-  process.env.TEMP_DIR ||
-    path.join(os.tmpdir(), "clipforge")
-).trim();
+/* ============================================================
+   MERCADO PAGO
+   ============================================================ */
+
+const MP_ACCESS_TOKEN =
+  process.env.MP_ACCESS_TOKEN ||
+  process.env.MERCADOPAGO_ACCESS_TOKEN ||
+  "";
+
+const MP_WEBHOOK_SECRET =
+  process.env.MP_WEBHOOK_SECRET ||
+  "";
+
+/* ============================================================
+   ADMIN
+   ============================================================ */
+
+const ADMIN_USER =
+  process.env.ADMIN_USER ||
+  "admin";
+
+const ADMIN_PASSWORD =
+  process.env.ADMIN_PASSWORD ||
+  "";
+
+/* ============================================================
+   FRONTEND / CORS
+   ============================================================ */
+
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ||
+  "";
+
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://clipforge.netlify.app",
+  "https://clipforge-pro.netlify.app",
+  "https://clipforgepro.netlify.app",
+];
+
+const ALLOWED_ORIGINS = [
+  ...new Set(
+    [
+      ...DEFAULT_ALLOWED_ORIGINS,
+      FRONTEND_URL,
+      ...(process.env.ALLOWED_ORIGINS || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ].filter(Boolean)
+  ),
+];
+
+/* ============================================================
+   DIRETÓRIOS
+   ============================================================ */
+
+const TEMP_ROOT = path.join(
+  os.tmpdir(),
+  "clipforge-pro"
+);
+
+const DOWNLOAD_DIR = path.join(
+  TEMP_ROOT,
+  "downloads"
+);
+
+const OUTPUT_DIR = path.join(
+  TEMP_ROOT,
+  "outputs"
+);
+
+/* ============================================================
+   ESTADO EM MEMÓRIA
+   ============================================================ */
+
+const users = new Map();
+const sessions = new Map();
+const adminSessions = new Map();
+const payments = new Map();
+
+/* ============================================================
+   MÉTRICAS
+   ============================================================ */
+
+const metrics = {
+  startedAt: new Date().toISOString(),
+
+  requests: 0,
+  analyses: 0,
+  analysisSuccess: 0,
+  analysisFailures: 0,
+
+  geminiRequests: 0,
+  geminiSuccess: 0,
+  geminiFailures: 0,
+
+  downloads: 0,
+  downloadSuccess: 0,
+  downloadFailures: 0,
+
+  externalDownloadAttempts: 0,
+  rapidApiAttempts: 0,
+  ytdlpAttempts: 0,
+
+  pixCreated: 0,
+  pixApproved: 0,
+  pixRejected: 0,
+
+  errors: 0,
+};
+
+/* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+
+function now() {
+  return Date.now();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomId(prefix = "") {
+  return (
+    prefix +
+    crypto.randomBytes(12).toString("hex")
+  );
+}
+
+function safeString(value, fallback = "") {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
+function clampNumber(
+  value,
+  min,
+  max,
+  fallback
+) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+
+  return Math.min(
+    max,
+    Math.max(min, n)
+  );
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+
+    return (
+      url.protocol === "http:" ||
+      url.protocol === "https:"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/* ============================================================
+   YOUTUBE
+   ============================================================ */
+
+function extractYouTubeVideoId(input) {
+  if (!input) {
+    return null;
+  }
+
+  const value = String(input).trim();
+
+  /*
+   * ID puro
+   */
+  if (
+    /^[a-zA-Z0-9_-]{11}$/.test(value)
+  ) {
+    return value;
+  }
+
+  let url;
+
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+
+  const host =
+    url.hostname.toLowerCase();
+
+  /*
+   * youtube.com/watch?v=
+   */
+  if (
+    host === "youtube.com" ||
+    host === "www.youtube.com" ||
+    host === "m.youtube.com"
+  ) {
+    const id = url.searchParams.get("v");
+
+    if (
+      id &&
+      /^[a-zA-Z0-9_-]{11}$/.test(id)
+    ) {
+      return id;
+    }
+
+    /*
+     * /shorts/ID
+     */
+    const shortsMatch =
+      url.pathname.match(
+        /\/shorts\/([a-zA-Z0-9_-]{11})/
+      );
+
+    if (shortsMatch) {
+      return shortsMatch[1];
+    }
+
+    /*
+     * /embed/ID
+     */
+    const embedMatch =
+      url.pathname.match(
+        /\/embed\/([a-zA-Z0-9_-]{11})/
+      );
+
+    if (embedMatch) {
+      return embedMatch[1];
+    }
+
+    /*
+     * /live/ID
+     */
+    const liveMatch =
+      url.pathname.match(
+        /\/live\/([a-zA-Z0-9_-]{11})/
+      );
+
+    if (liveMatch) {
+      return liveMatch[1];
+    }
+  }
+
+  /*
+   * youtu.be/ID
+   */
+  if (
+    host === "youtu.be" ||
+    host === "www.youtu.be"
+  ) {
+    const id =
+      url.pathname
+        .replace(/^\/+/, "")
+        .split("/")[0];
+
+    if (
+      /^[a-zA-Z0-9_-]{11}$/.test(id)
+    ) {
+      return id;
+    }
+  }
+
+  return null;
+}
+
+function normalizeYouTubeUrl(input) {
+  const videoId =
+    extractYouTubeVideoId(input);
+
+  if (!videoId) {
+    return null;
+  }
+
+  return {
+    videoId,
+    url:
+      `https://www.youtube.com/watch?v=${videoId}`,
+  };
+}
+
+/* ============================================================
+   DIRETÓRIOS
+   ============================================================ */
+
+async function ensureDirectories() {
+  await fsp.mkdir(
+    DOWNLOAD_DIR,
+    {
+      recursive: true,
+    }
+  );
+
+  await fsp.mkdir(
+    OUTPUT_DIR,
+    {
+      recursive: true,
+    }
+  );
+}
+
+/* ============================================================
+   LIMPEZA
+   ============================================================ */
+
+async function safeRemove(file) {
+  if (!file) {
+    return;
+  }
+
+  try {
+    await fsp.rm(file, {
+      recursive: true,
+      force: true,
+    });
+  } catch {}
+}
+
+async function cleanupOldFiles() {
+  const dirs = [
+    DOWNLOAD_DIR,
+    OUTPUT_DIR,
+  ];
+
+  const cutoff =
+    Date.now() -
+    60 * 60 * 1000;
+
+  for (const dir of dirs) {
+    try {
+      const entries =
+        await fsp.readdir(
+          dir,
+          {
+            withFileTypes: true,
+          }
+        );
+
+      for (const entry of entries) {
+        const fullPath =
+          path.join(
+            dir,
+            entry.name
+          );
+
+        try {
+          const stat =
+            await fsp.stat(
+              fullPath
+            );
+
+          if (
+            stat.mtimeMs <
+            cutoff
+          ) {
+            await safeRemove(
+              fullPath
+            );
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+}
+
+/* ============================================================
+   USUÁRIOS
+   ============================================================ */
+
+function getOrCreateUser(userId) {
+  const id =
+    userId ||
+    randomId("user_");
+
+  let user =
+    users.get(id);
+
+  if (!user) {
+    user = {
+      id,
+      createdAt:
+        new Date().toISOString(),
+
+      analyses: 0,
+      downloads: 0,
+
+      points: 10,
+
+      vip: false,
+
+      lastAnalysisAt: null,
+      lastDownloadAt: null,
+    };
+
+    users.set(id, user);
+  }
+
+  return user;
+}
+
+/* ============================================================
+   SESSÕES
+   ============================================================ */
+
+function createSession(userId) {
+  const token =
+    randomId("sess_");
+
+  sessions.set(
+    token,
+    {
+      userId,
+      createdAt: now(),
+      expiresAt:
+        now() +
+        30 *
+          24 *
+          60 *
+          60 *
+          1000,
+    }
+  );
+
+  return token;
+}
+
+function getSessionUser(req) {
+  const auth =
+    req.headers.authorization ||
+    "";
+
+  if (
+    !auth.startsWith("Bearer ")
+  ) {
+    return null;
+  }
+
+  const token =
+    auth.slice(7).trim();
+
+  if (!token) {
+    return null;
+  }
+
+  const session =
+    sessions.get(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (
+    session.expiresAt <
+    now()
+  ) {
+    sessions.delete(token);
+    return null;
+  }
+
+  return getOrCreateUser(
+    session.userId
+  );
+}
+
+/* ============================================================
+   MIDDLEWARE DE USUÁRIO
+   ============================================================ */
+
+function requireUser(req, res, next) {
+  const user =
+    getSessionUser(req);
+
+  if (!user) {
+    return res.status(401).json({
+      ok: false,
+      error:
+        "Sessão inválida ou expirada.",
+      code:
+        "UNAUTHORIZED",
+    });
+  }
+
+  req.user = user;
+
+  next();
+}
 
 /*
- * Downloader externo.
- *
- * POST padrão:
- * {
- *   url: "...",
- *   videoId: "...",
- *   output: "mp4"
- * }
- *
- * Também pode ser configurado:
- * EXTERNAL_DOWNLOAD_METHOD=GET
- *
- * Nesse caso:
- * ?url=...&videoId=...
+ * Compatibilidade:
+ * algumas versões do frontend podem
+ * enviar apenas userId.
  */
-const EXTERNAL_DOWNLOAD_URL = String(
-  process.env.EXTERNAL_DOWNLOAD_URL || ""
-).trim();
+function resolveRequestUser(req) {
+  const sessionUser =
+    getSessionUser(req);
 
-const EXTERNAL_DOWNLOAD_TOKEN = String(
-  process.env.EXTERNAL_DOWNLOAD_TOKEN || ""
-).trim();
+  if (sessionUser) {
+    return sessionUser;
+  }
 
-const EXTERNAL_DOWNLOAD_METHOD = String(
-  process.env.EXTERNAL_DOWNLOAD_METHOD || "POST"
-).trim().toUpperCase();
+  const headerUser =
+    req.headers["x-user-id"];
 
-const DOWNLOAD_TIMEOUT = Math.max(
-  30_000,
-  Number(process.env.DOWNLOAD_TIMEOUT || 180_000)
-);
+  const bodyUser =
+    req.body &&
+    (
+      req.body.userId ||
+      req.body.user_id
+    );
 
-const GEMINI_TIMEOUT = Math.max(
-  30_000,
-  Number(process.env.GEMINI_TIMEOUT || 180_000)
-);
+  const userId =
+    headerUser ||
+    bodyUser;
 
-const RAPIDAPI_TIMEOUT = Math.max(
-  5_000,
-  Number(process.env.RAPIDAPI_TIMEOUT || 30_000)
-);
+  if (userId) {
+    return getOrCreateUser(
+      safeString(userId)
+    );
+  }
 
-const STREAM_TEST_TIMEOUT = Math.max(
-  3_000,
-  Number(process.env.STREAM_TEST_TIMEOUT || 10_000)
-);
+  return null;
+}
 
-const MAX_CLIPS = Math.max(
-  1,
-  Math.min(10, Number(process.env.MAX_CLIPS || 5))
-);
+/* ============================================================
+   ADMIN
+   ============================================================ */
 
-const DEFAULT_CLIP_DURATION = Math.max(
-  1,
-  Number(process.env.DEFAULT_CLIP_DURATION || 55)
-);
+function createAdminSession() {
+  const token =
+    randomId("admin_");
 
-const MIN_CLIP_DURATION = Math.max(
-  1,
-  Number(process.env.MIN_CLIP_DURATION || 20)
-);
+  adminSessions.set(
+    token,
+    {
+      createdAt: now(),
+      expiresAt:
+        now() +
+        12 *
+          60 *
+          60 *
+          1000,
+    }
+  );
 
-const MAX_CLIP_DURATION = Math.max(
-  MIN_CLIP_DURATION,
-  Number(process.env.MAX_CLIP_DURATION || 60)
-);
+  return token;
+}
 
-const INITIAL_POINTS = Math.max(
-  0,
-  Number(process.env.INITIAL_POINTS || 200)
-);
+function requireAdmin(req, res, next) {
+  const auth =
+    req.headers.authorization ||
+    "";
 
-const DAILY_POINTS = Math.max(
-  0,
-  Number(process.env.DAILY_POINTS || 50)
-);
+  if (
+    !auth.startsWith("Bearer ")
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error:
+        "Autenticação administrativa necessária.",
+    });
+  }
 
-const DOWNLOAD_COST = Math.max(
-  1,
-  Number(process.env.DOWNLOAD_COST || 50)
-);
+  const token =
+    auth.slice(7).trim();
 
-const VIP_PRICE = Number(
-  process.env.VIP_PRICE || 19.9
-);
+  const session =
+    adminSessions.get(token);
 
-const SESSION_DAYS = Math.max(
-  1,
-  Number(process.env.SESSION_DAYS || 30)
-);
+  if (!session) {
+    return res.status(401).json({
+      ok: false,
+      error:
+        "Sessão administrativa inválida.",
+    });
+  }
 
-const ADMIN_SESSION_HOURS = Math.max(
-  1,
-  Number(process.env.ADMIN_SESSION_HOURS || 12)
-);
+  if (
+    session.expiresAt <
+    now()
+  ) {
+    adminSessions.delete(token);
 
-fs.mkdirSync(TEMP_DIR, {
-  recursive: true,
-});
+    return res.status(401).json({
+      ok: false,
+      error:
+        "Sessão administrativa expirada.",
+    });
+  }
+
+  req.admin = true;
+
+  next();
+}
 
 /* ============================================================
    CORS
@@ -217,18 +722,66 @@ fs.mkdirSync(TEMP_DIR, {
 
 const corsOptions = {
   origin(origin, callback) {
+    /*
+     * Permite ferramentas sem Origin,
+     * curl, health checks etc.
+     */
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    /*
+     * Desenvolvimento
+     */
     if (
-      !origin ||
-      FRONTEND_URL.includes("*") ||
-      FRONTEND_URL.includes(origin)
+      NODE_ENV !== "production" &&
+      (
+        origin.startsWith(
+          "http://localhost:"
+        ) ||
+        origin.startsWith(
+          "http://127.0.0.1:"
+        )
+      )
     ) {
       return callback(null, true);
     }
 
-    return callback(null, false);
-  },
+    if (
+      ALLOWED_ORIGINS.includes(
+        origin
+      )
+    ) {
+      return callback(
+        null,
+        true
+      );
+    }
 
-  credentials: false,
+    /*
+     * Netlify
+     */
+    if (
+      origin.endsWith(
+        ".netlify.app"
+      )
+    ) {
+      return callback(
+        null,
+        true
+      );
+    }
+
+    /*
+     * Em produção rejeita origem
+     * desconhecida.
+     */
+    return callback(
+      new Error(
+        "Origem não permitida pelo CORS."
+      )
+    );
+  },
 
   methods: [
     "GET",
@@ -242,12 +795,33 @@ const corsOptions = {
   allowedHeaders: [
     "Content-Type",
     "Authorization",
-    "X-Admin-Token",
+    "X-User-Id",
+    "X-Requested-With",
   ],
+
+  credentials: true,
+
+  maxAge: 86400,
 };
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+/* ============================================================
+   MIDDLEWARE
+   ============================================================ */
+
+app.disable("x-powered-by");
+
+app.use(
+  cors(corsOptions)
+);
+
+/*
+ * Express 5:
+ * regex em vez de app.options("*")
+ */
+app.options(
+  /.*/,
+  cors(corsOptions)
+);
 
 app.use(
   express.json({
@@ -262,1718 +836,849 @@ app.use(
   })
 );
 
+app.use(
+  (req, res, next) => {
+    metrics.requests++;
+
+    res.setHeader(
+      "X-ClipForge-Version",
+      APP_VERSION
+    );
+
+    next();
+  }
+);
+
 /* ============================================================
-   MEMÓRIA
+   GEMINI SCHEMA
    ============================================================ */
 
-const usuarios = new Map();
-const pagamentos = new Map();
-const adminSessions = new Map();
+const geminiSchema = {
+  type: "object",
 
-const metrics = {
-  startedAt: Date.now(),
+  properties: {
+    title: {
+      type: "string",
+      description:
+        "Título curto do vídeo.",
+    },
 
-  requests: 0,
+    summary: {
+      type: "string",
+      description:
+        "Resumo breve do conteúdo.",
+    },
 
-  analyses: 0,
+    clips: {
+      type: "array",
 
-  downloads: 0,
-  downloadFailures: 0,
+      items: {
+        type: "object",
 
-  rapidApiAttempts: 0,
-  rapidApiSuccesses: 0,
+        properties: {
+          start: {
+            type: "number",
+          },
 
-  ytdlpAttempts: 0,
-  ytdlpSuccesses: 0,
+          end: {
+            type: "number",
+          },
 
-  externalDownloadAttempts: 0,
-  externalDownloadSuccesses: 0,
+          title: {
+            type: "string",
+          },
 
-  geminiAttempts: 0,
-  geminiSuccesses: 0,
-  geminiFailures: 0,
+          description: {
+            type: "string",
+          },
 
-  pixCreated: 0,
-  pixApproved: 0,
+          score: {
+            type: "number",
+          },
+
+          reason: {
+            type: "string",
+          },
+        },
+
+        required: [
+          "start",
+          "end",
+          "title",
+          "description",
+          "score",
+          "reason",
+        ],
+      },
+    },
+  },
+
+  required: [
+    "title",
+    "summary",
+    "clips",
+  ],
 };
 
 /* ============================================================
-   LOG
+   PROMPT GEMINI
    ============================================================ */
 
-function log(...args) {
-  console.log(...args);
-}
+function buildGeminiPrompt({
+  videoId,
+  maxClips = 8,
+  minDuration = 20,
+  maxDuration = 90,
+}) {
+  return `
+Você é o sistema de análise de vídeos do ClipForge Pro.
 
-function warn(...args) {
-  console.warn(...args);
-}
+Analise o vídeo do YouTube fornecido junto desta mensagem.
 
-function errorLog(...args) {
-  console.error(...args);
+Identifique os melhores momentos para criar cortes curtos,
+com foco em trechos que tenham potencial de retenção,
+viralização e interesse do público.
+
+Procure principalmente:
+
+- frases fortes;
+- momentos engraçados;
+- histórias interessantes;
+- opiniões relevantes;
+- revelações;
+- conflitos;
+- perguntas e respostas;
+- momentos emocionais;
+- ensinamentos;
+- momentos surpreendentes;
+- trechos que funcionem isoladamente.
+
+REGRAS:
+
+1. Retorne somente JSON compatível com o schema.
+2. Não invente acontecimentos.
+3. Não crie timestamps aleatórios.
+4. Os timestamps devem estar dentro do vídeo.
+5. Cada corte deve ter entre ${minDuration} e ${maxDuration} segundos sempre que possível.
+6. Evite cortes excessivamente parecidos.
+7. Evite sobreposição entre cortes.
+8. Priorize começo e fim naturais.
+9. Gere no máximo ${maxClips} cortes.
+10. score deve ser um número entre 0 e 100.
+11. title deve ser curto e chamativo.
+12. description deve explicar o conteúdo do corte.
+13. reason deve explicar por que o momento é interessante.
+14. Se não houver bons momentos, retorne clips como array vazio.
+
+ID do vídeo:
+${videoId}
+
+O resultado deve conter:
+
+{
+  "title": "título",
+  "summary": "resumo",
+  "clips": [
+    {
+      "start": 0,
+      "end": 60,
+      "title": "Título do corte",
+      "description": "Descrição",
+      "score": 95,
+      "reason": "Motivo"
+    }
+  ]
+}
+`.trim();
 }
 
 /* ============================================================
-   UTILITÁRIOS
+   EXTRAÇÃO DA RESPOSTA GEMINI
    ============================================================ */
 
-function randomId(prefix = "") {
-  return (
-    prefix +
-    crypto.randomBytes(16).toString("hex")
-  );
-}
-
-function clamp(value, min, max) {
-  return Math.min(
-    Math.max(value, min),
-    max
-  );
-}
-
-function numberOr(value, fallback) {
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-}
-
-function safeFilename(name) {
-  return (
-    String(name || "clip")
-      .replace(/[^\w\-]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 80) ||
-    "clip"
-  );
-}
-
-function safeErrorText(text) {
-  const value = String(text || "");
-
-  if (!value) {
+function extractGeminiOutputText(data) {
+  if (!data) {
     return "";
   }
 
-  let sanitized = value;
-
-  const secrets = [
-    GEMINI_API_KEY,
-    RAPIDAPI_KEY,
-    MP_ACCESS_TOKEN,
-    ADMIN_PASSWORD,
-    SESSION_SECRET,
-    EXTERNAL_DOWNLOAD_TOKEN,
-  ].filter(Boolean);
-
-  for (const secret of secrets) {
-    sanitized = sanitized.split(secret).join("[REDACTED]");
-  }
-
-  return sanitized.slice(0, 1500);
-}
-
-function fileExists(file) {
-  try {
-    return fs.existsSync(file);
-  } catch {
-    return false;
-  }
-}
-
-function removeFile(file) {
-  try {
-    fs.rmSync(file, {
-      force: true,
-    });
-  } catch {}
-}
-
-/* ============================================================
-   SESSÃO HMAC
-   ============================================================ */
-
-function hmac(input) {
-  return crypto
-    .createHmac("sha256", SESSION_SECRET)
-    .update(input)
-    .digest("hex");
-}
-
-function createUserToken(userId) {
-  const payload = Buffer.from(
-    JSON.stringify({
-      userId,
-      exp:
-        Date.now() +
-        SESSION_DAYS *
-          24 *
-          60 *
-          60 *
-          1000,
-    })
-  ).toString("base64url");
-
-  return (
-    payload +
-    "." +
-    hmac(payload)
-  );
-}
-
-function verifyUserToken(token) {
-  try {
-    if (!token || typeof token !== "string") {
-      return null;
-    }
-
-    const parts = token.split(".");
-
-    if (parts.length !== 2) {
-      return null;
-    }
-
-    const [payload, signature] = parts;
-
-    const expected = hmac(payload);
-
-    if (
-      signature.length !== expected.length ||
-      !crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected)
-      )
-    ) {
-      return null;
-    }
-
-    const decoded = JSON.parse(
-      Buffer.from(
-        payload,
-        "base64url"
-      ).toString("utf8")
-    );
-
-    if (
-      !decoded.userId ||
-      !decoded.exp
-    ) {
-      return null;
-    }
-
-    if (
-      Date.now() >
-      Number(decoded.exp)
-    ) {
-      return null;
-    }
-
-    return decoded;
-  } catch {
-    return null;
-  }
-}
-
-function getBearerToken(req) {
-  const header = String(
-    req.headers.authorization || ""
-  );
-
+  /*
+   * Forma atual conveniente
+   */
   if (
-    !header
-      .toLowerCase()
-      .startsWith("bearer ")
+    typeof data.output_text ===
+      "string" &&
+    data.output_text.trim()
   ) {
-    return "";
+    return data.output_text.trim();
   }
 
-  return header
-    .slice(7)
-    .trim();
-}
-
-function getSuppliedUserToken(req) {
-  return (
-    getBearerToken(req) ||
-    String(
-      req.body?.token ||
-        req.query?.token ||
-        ""
-    ).trim()
-  );
-}
-
-/* ============================================================
-   USUÁRIOS
-   ============================================================ */
-
-function createUser(userId) {
-  const now = Date.now();
-
-  const user = {
-    id:
-      userId ||
-      randomId("user_"),
-
-    points:
-      INITIAL_POINTS,
-
-    vip: false,
-
-    vipUntil: null,
-
-    createdAt: now,
-
-    updatedAt: now,
-
-    lastDailyBonusAt: now,
-
-    downloads: 0,
-
-    analyses: 0,
-  };
-
-  usuarios.set(
-    user.id,
-    user
-  );
-
-  return user;
-}
-
-function getOrCreateUser(userId) {
+  /*
+   * Algumas respostas podem usar
+   * camelCase.
+   */
   if (
-    userId &&
-    usuarios.has(userId)
+    typeof data.outputText ===
+      "string" &&
+    data.outputText.trim()
   ) {
-    return usuarios.get(userId);
+    return data.outputText.trim();
   }
 
-  return createUser(userId);
-}
-
-function applyDailyBonus(user) {
-  const now = Date.now();
-
-  const last = Number(
-    user.lastDailyBonusAt || 0
-  );
-
-  const dayMs =
-    24 *
-    60 *
-    60 *
-    1000;
-
+  /*
+   * steps é a estrutura atual
+   * documentada da Interactions API.
+   */
   if (
-    now - last >= dayMs
+    Array.isArray(data.steps)
   ) {
-    user.points += DAILY_POINTS;
+    const texts = [];
 
-    user.lastDailyBonusAt = now;
-
-    user.updatedAt = now;
-
-    return true;
-  }
-
-  return false;
-}
-
-function isVip(user) {
-  if (!user) {
-    return false;
-  }
-
-  if (user.vip === true) {
-    if (!user.vipUntil) {
-      return true;
-    }
-
-    if (
-      Date.now() <
-      Number(user.vipUntil)
+    for (
+      const step of data.steps
     ) {
-      return true;
-    }
-
-    user.vip = false;
-    user.vipUntil = null;
-    user.updatedAt = Date.now();
-  }
-
-  return false;
-}
-
-function userPublic(user) {
-  if (!user) {
-    return null;
-  }
-
-  return {
-    id: user.id,
-
-    points: user.points,
-
-    vip: isVip(user),
-
-    vipUntil: user.vipUntil,
-
-    downloads:
-      user.downloads || 0,
-
-    analyses:
-      user.analyses || 0,
-
-    createdAt:
-      user.createdAt,
-  };
-}
-
-/* ============================================================
-   YOUTUBE
-   ============================================================ */
-
-function extractYouTubeId(input) {
-  const value = String(input || "").trim();
-
-  if (!value) {
-    return null;
-  }
-
-  if (
-    /^[a-zA-Z0-9_-]{11}$/.test(value)
-  ) {
-    return value;
-  }
-
-  try {
-    const url = new URL(value);
-
-    const hostname =
-      url.hostname.toLowerCase();
-
-    if (
-      hostname === "youtu.be" ||
-      hostname === "www.youtu.be"
-    ) {
-      const id = url.pathname
-        .replace(/^\/+/, "")
-        .split("/")[0];
-
-      return /^[a-zA-Z0-9_-]{11}$/.test(id)
-        ? id
-        : null;
-    }
-
-    if (
-      hostname.includes("youtube.com") ||
-      hostname.includes(
-        "youtube-nocookie.com"
-      )
-    ) {
-      const v =
-        url.searchParams.get("v");
+      if (!step) continue;
 
       if (
-        v &&
-        /^[a-zA-Z0-9_-]{11}$/.test(v)
+        typeof step.text ===
+        "string"
       ) {
-        return v;
+        texts.push(step.text);
       }
 
-      const parts =
-        url.pathname
-          .split("/")
-          .filter(Boolean);
-
-      const candidates = [
-        parts[0] === "shorts"
-          ? parts[1]
-          : null,
-
-        parts[0] === "embed"
-          ? parts[1]
-          : null,
-
-        parts[0] === "live"
-          ? parts[1]
-          : null,
-      ];
-
-      for (
-        const candidate of candidates
+      if (
+        Array.isArray(
+          step.content
+        )
       ) {
-        if (
-          candidate &&
-          /^[a-zA-Z0-9_-]{11}$/.test(
-            candidate
-          )
+        for (
+          const item of step.content
         ) {
-          return candidate;
+          if (
+            item &&
+            typeof item.text ===
+              "string"
+          ) {
+            texts.push(
+              item.text
+            );
+          }
         }
       }
     }
-  } catch {
+
+    if (texts.length) {
+      return texts.join("\n").trim();
+    }
+  }
+
+  /*
+   * outputs
+   */
+  if (
+    Array.isArray(data.outputs)
+  ) {
+    const texts = [];
+
+    for (
+      const output of data.outputs
+    ) {
+      if (!output) continue;
+
+      if (
+        typeof output.text ===
+        "string"
+      ) {
+        texts.push(
+          output.text
+        );
+      }
+
+      if (
+        Array.isArray(
+          output.content
+        )
+      ) {
+        for (
+          const item of output.content
+        ) {
+          if (
+            item &&
+            typeof item.text ===
+              "string"
+          ) {
+            texts.push(
+              item.text
+            );
+          }
+        }
+      }
+    }
+
+    if (texts.length) {
+      return texts.join("\n").trim();
+    }
+  }
+
+  /*
+   * candidates - compatibilidade
+   */
+  if (
+    Array.isArray(
+      data.candidates
+    )
+  ) {
+    const texts = [];
+
+    for (
+      const candidate of data.candidates
+    ) {
+      const parts =
+        candidate &&
+        candidate.content &&
+        Array.isArray(
+          candidate.content.parts
+        )
+          ? candidate.content.parts
+          : [];
+
+      for (
+        const part of parts
+      ) {
+        if (
+          part &&
+          typeof part.text ===
+            "string"
+        ) {
+          texts.push(
+            part.text
+          );
+        }
+      }
+    }
+
+    if (texts.length) {
+      return texts.join("\n").trim();
+    }
+  }
+
+  return "";
+}
+
+/* ============================================================
+   JSON
+   ============================================================ */
+
+function extractJsonFromText(text) {
+  if (!text) {
     return null;
+  }
+
+  let value =
+    String(text).trim();
+
+  /*
+   * Remove fences markdown.
+   */
+  value =
+    value
+      .replace(
+        /^```json\s*/i,
+        ""
+      )
+      .replace(
+        /^```\s*/i,
+        ""
+      )
+      .replace(
+        /\s*```$/i,
+        ""
+      )
+      .trim();
+
+  /*
+   * JSON direto
+   */
+  try {
+    return JSON.parse(value);
+  } catch {}
+
+  /*
+   * Procurar objeto.
+   */
+  const first =
+    value.indexOf("{");
+
+  const last =
+    value.lastIndexOf("}");
+
+  if (
+    first !== -1 &&
+    last !== -1 &&
+    last > first
+  ) {
+    try {
+      return JSON.parse(
+        value.slice(
+          first,
+          last + 1
+        )
+      );
+    } catch {}
   }
 
   return null;
 }
 
-function normalizeYouTubeUrl(input) {
-  const id =
-    extractYouTubeId(input);
-
-  if (!id) {
-    return null;
-  }
-
-  return (
-    "https://www.youtube.com/watch?v=" +
-    id
-  );
-}
-
 /* ============================================================
-   AUTH USER
+   NORMALIZAÇÃO DOS CLIPES
    ============================================================ */
 
-async function requireUser(
-  req,
-  res,
-  next
+function normalizarClips(
+  clips,
+  options = {}
 ) {
-  try {
-    const token =
-      getSuppliedUserToken(req);
+  if (!Array.isArray(clips)) {
+    return [];
+  }
 
-    const payload =
-      verifyUserToken(token);
+  const minDuration =
+    Number(
+      options.minDuration ||
+        20
+    );
 
-    if (!payload?.userId) {
-      return res.status(401).json({
-        success: false,
-        error:
-          "Sessão inválida ou expirada.",
-        code: "AUTH_REQUIRED",
-      });
+  const maxDuration =
+    Number(
+      options.maxDuration ||
+        90
+    );
+
+  const maxClips =
+    Number(
+      options.maxClips ||
+        8
+    );
+
+  const normalized =
+    [];
+
+  for (
+    const clip of clips
+  ) {
+    if (!clip) {
+      continue;
     }
 
-    const user =
-      usuarios.get(
-        payload.userId
+    let start =
+      Number(
+        clip.start ??
+          clip.startTime ??
+          clip.inicio ??
+          clip.begin
       );
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error:
-          "Usuário não encontrado.",
-        code: "USER_NOT_FOUND",
-      });
-    }
-
-    applyDailyBonus(user);
-
-    req.user = user;
-
-    req.userToken = token;
-
-    next();
-  } catch (err) {
-    next(err);
-  }
-}
-
-/* ============================================================
-   ADMIN
-   ============================================================ */
-
-function createAdminToken() {
-  const payload = Buffer.from(
-    JSON.stringify({
-      id: randomId("admin_"),
-
-      exp:
-        Date.now() +
-        ADMIN_SESSION_HOURS *
-          60 *
-          60 *
-          1000,
-    })
-  ).toString("base64url");
-
-  const signature = hmac(
-    "admin:" + payload
-  );
-
-  const token =
-    payload +
-    "." +
-    signature;
-
-  adminSessions.set(token, {
-    createdAt: Date.now(),
-
-    expiresAt:
-      Date.now() +
-      ADMIN_SESSION_HOURS *
-        60 *
-        60 *
-        1000,
-  });
-
-  return token;
-}
-
-function verifyAdminToken(token) {
-  try {
-    if (!token) {
-      return false;
-    }
-
-    const session =
-      adminSessions.get(token);
-
-    if (!session) {
-      return false;
-    }
+    let end =
+      Number(
+        clip.end ??
+          clip.endTime ??
+          clip.fim ??
+          clip.finish
+      );
 
     if (
-      Date.now() >
-      session.expiresAt
+      !Number.isFinite(start) ||
+      !Number.isFinite(end)
     ) {
-      adminSessions.delete(token);
-
-      return false;
+      continue;
     }
 
-    return true;
-  } catch {
-    return false;
-  }
-}
+    start =
+      Math.max(
+        0,
+        start
+      );
 
-function requireAdmin(
-  req,
-  res,
-  next
-) {
-  const token = String(
-    req.headers["x-admin-token"] ||
-      getBearerToken(req) ||
-      req.body?.token ||
-      ""
-  ).trim();
+    end =
+      Math.max(
+        start,
+        end
+      );
 
-  if (
-    !verifyAdminToken(token)
-  ) {
-    return res.status(401).json({
-      success: false,
-      error:
-        "Acesso administrativo não autorizado.",
+    /*
+     * Se o modelo retornar duração
+     * curta demais, tenta preservar
+     * o início e ajustar o final.
+     */
+    let duration =
+      end - start;
+
+    if (
+      duration <
+      minDuration
+    ) {
+      end =
+        start +
+        minDuration;
+
+      duration =
+        end - start;
+    }
+
+    /*
+     * Limita duração máxima.
+     */
+    if (
+      duration >
+      maxDuration
+    ) {
+      end =
+        start +
+        maxDuration;
+    }
+
+    duration =
+      end - start;
+
+    if (
+      duration <
+      minDuration
+    ) {
+      continue;
+    }
+
+    const score =
+      clampNumber(
+        clip.score ??
+          clip.rating ??
+          clip.potential,
+        0,
+        100,
+        70
+      );
+
+    normalized.push({
+      start:
+        Number(
+          start.toFixed(2)
+        ),
+
+      end:
+        Number(
+          end.toFixed(2)
+        ),
+
+      duration:
+        Number(
+          duration.toFixed(2)
+        ),
+
+      title:
+        safeString(
+          clip.title ||
+            clip.name ||
+            "Corte recomendado"
+        ).slice(
+          0,
+          140
+        ),
+
+      description:
+        safeString(
+          clip.description ||
+            clip.summary ||
+            ""
+        ).slice(
+          0,
+          500
+        ),
+
+      score:
+        Number(
+          score.toFixed(1)
+        ),
+
+      reason:
+        safeString(
+          clip.reason ||
+            clip.explanation ||
+            ""
+        ).slice(
+          0,
+          500
+        ),
     });
   }
 
-  req.adminToken = token;
+  /*
+   * Score maior primeiro.
+   */
+  normalized.sort(
+    (a, b) =>
+      b.score - a.score
+  );
 
-  next();
+  /*
+   * Remove sobreposição.
+   */
+  const result = [];
+
+  for (
+    const clip of normalized
+  ) {
+    const overlap =
+      result.some(
+        (existing) => {
+          const overlapStart =
+            Math.max(
+              existing.start,
+              clip.start
+            );
+
+          const overlapEnd =
+            Math.min(
+              existing.end,
+              clip.end
+            );
+
+          return (
+            overlapEnd >
+            overlapStart
+          );
+        }
+      );
+
+    if (overlap) {
+      continue;
+    }
+
+    result.push(clip);
+
+    if (
+      result.length >=
+      maxClips
+    ) {
+      break;
+    }
+  }
+
+  /*
+   * Ordem cronológica para o frontend.
+   */
+  result.sort(
+    (a, b) =>
+      a.start - b.start
+  );
+
+  return result;
 }
 
 /* ============================================================
    GEMINI
    ============================================================ */
 
-async function analisarComGemini(
+async function analisarComGemini({
   youtubeUrl,
-  videoId
-) {
+  videoId,
+  maxClips,
+  minDuration,
+  maxDuration,
+}) {
   if (!GEMINI_API_KEY) {
     throw new Error(
       "GEMINI_API_KEY não configurada."
     );
   }
 
-  metrics.geminiAttempts++;
+  metrics.geminiRequests++;
 
-  const prompt = `
-Você é o sistema de seleção inteligente
-de cortes do ClipForge Pro.
+  const prompt =
+    buildGeminiPrompt({
+      videoId,
+      maxClips,
+      minDuration,
+      maxDuration,
+    });
 
-Analise o vídeo público do YouTube fornecido.
+  /*
+   * Interactions API atual:
+   * - modelo Gemini 3.8 Flash
+   * - vídeo por URL pública do YouTube
+   * - resposta JSON estruturada
+   */
+  const body = {
+    model: GEMINI_MODEL,
 
-Objetivo:
-encontrar até ${MAX_CLIPS} trechos de maior potencial
-para Shorts, TikTok e Reels.
-
-REGRAS:
-
-1. Retorne no máximo ${MAX_CLIPS} cortes.
-
-2. Cada corte deve ter entre
-${MIN_CLIP_DURATION} e ${MAX_CLIP_DURATION} segundos.
-
-3. Os timestamps devem ser números em segundos.
-
-4. Não invente acontecimentos.
-
-5. Preserve frases completas.
-
-6. Evite iniciar no meio de uma frase.
-
-7. Procure momentos com:
-- informação forte;
-- opinião;
-- surpresa;
-- humor;
-- conflito;
-- emoção;
-- revelação;
-- história interessante;
-- frase de impacto.
-
-8. "score" deve ser um número inteiro
-entre 0 e 100.
-
-9. "title" deve ser curto e chamativo,
-mas factual.
-
-10. "reason" deve explicar por que
-aquele trecho pode funcionar como corte.
-
-ID DO VÍDEO:
-${videoId}
-`.trim();
-
-  const payload = {
-    contents: [
+    input: [
       {
-        role: "user",
+        type: "text",
+        text: prompt,
+      },
 
-        parts: [
-          {
-            text: prompt,
-          },
-
-          {
-            fileData: {
-              fileUri:
-                youtubeUrl,
-            },
-          },
-        ],
+      {
+        type: "video",
+        uri: youtubeUrl,
       },
     ],
 
-    generationConfig: {
-      temperature: 0.2,
-
-      responseMimeType:
+    response_format: {
+      type: "text",
+      mime_type:
         "application/json",
 
-      responseSchema: {
-        type: "OBJECT",
-
-        properties: {
-          clips: {
-            type: "ARRAY",
-
-            items: {
-              type: "OBJECT",
-
-              properties: {
-                start: {
-                  type: "INTEGER",
-                },
-
-                end: {
-                  type: "INTEGER",
-                },
-
-                title: {
-                  type: "STRING",
-                },
-
-                reason: {
-                  type: "STRING",
-                },
-
-                score: {
-                  type: "INTEGER",
-                },
-              },
-
-              required: [
-                "start",
-                "end",
-                "title",
-                "reason",
-                "score",
-              ],
-            },
-          },
-        },
-
-        required: [
-          "clips",
-        ],
-      },
+      schema:
+        geminiSchema,
     },
   };
 
-  log(
+  console.log(
     `[Gemini] Modelo: ${GEMINI_MODEL}`
   );
 
-  log(
+  console.log(
+    "[Gemini] Endpoint: Interactions API"
+  );
+
+  console.log(
     "[Gemini] Enviando URL pública do YouTube para análise..."
   );
 
   let response;
 
   try {
-    response = await fetch(
-      GEMINI_ENDPOINT,
-      {
-        method: "POST",
+    response =
+      await fetch(
+        GEMINI_ENDPOINT,
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type":
-            "application/json",
+          headers: {
+            "Content-Type":
+              "application/json",
 
-          "x-goog-api-key":
-            GEMINI_API_KEY,
-        },
+            "x-goog-api-key":
+              GEMINI_API_KEY,
+          },
 
-        body:
-          JSON.stringify(payload),
+          body:
+            JSON.stringify(body),
 
-        signal:
-          AbortSignal.timeout(
-            GEMINI_TIMEOUT
-          ),
-      }
-    );
-  } catch (err) {
+          signal:
+            AbortSignal.timeout(
+              180000
+            ),
+        }
+      );
+  } catch (error) {
     metrics.geminiFailures++;
 
     throw new Error(
-      "Falha de conexão com Gemini: " +
-        safeErrorText(
-          err.message || err
-        )
+      `Falha de conexão com Gemini: ${error.message}`
     );
   }
 
   const rawText =
     await response.text();
 
-  if (!response.ok) {
-    metrics.geminiFailures++;
-
-    throw new Error(
-      `Gemini HTTP ${response.status}: ` +
-        safeErrorText(rawText)
-    );
-  }
-
-  let data;
+  let data = null;
 
   try {
     data =
-      JSON.parse(rawText);
+      rawText
+        ? JSON.parse(rawText)
+        : null;
   } catch {
-    metrics.geminiFailures++;
-
-    throw new Error(
-      "Gemini retornou resposta inválida."
-    );
-  }
-
-  const candidate =
-    data?.candidates?.[0];
-
-  if (
-    candidate?.finishReason ===
-    "SAFETY"
-  ) {
-    metrics.geminiFailures++;
-
-    throw new Error(
-      "Gemini bloqueou a resposta por política de segurança."
-    );
-  }
-
-  const parts =
-    candidate?.content?.parts ||
-    [];
-
-  const candidateText =
-    parts
-      .map(
-        (part) =>
-          part?.text || ""
-      )
-      .join("")
-      .trim();
-
-  if (!candidateText) {
-    metrics.geminiFailures++;
-
-    throw new Error(
-      "Gemini respondeu sem conteúdo estruturado."
-    );
-  }
-
-  let parsed;
-
-  try {
-    parsed =
-      JSON.parse(candidateText);
-  } catch {
-    const cleaned =
-      candidateText
-        .replace(
-          /^```json\s*/i,
-          ""
-        )
-        .replace(
-          /^```\s*/i,
-          ""
-        )
-        .replace(
-          /\s*```$/i,
-          ""
-        )
-        .trim();
-
-    try {
-      parsed =
-        JSON.parse(cleaned);
-    } catch {
-      metrics.geminiFailures++;
-
-      throw new Error(
-        "Gemini retornou JSON inválido."
-      );
-    }
-  }
-
-  if (
-    !parsed ||
-    !Array.isArray(
-      parsed.clips
-    )
-  ) {
-    metrics.geminiFailures++;
-
-    throw new Error(
-      "Gemini não retornou a lista 'clips'."
-    );
-  }
-
-  metrics.geminiSuccesses++;
-
-  return parsed.clips;
-}
-
-/* ============================================================
-   NORMALIZAÇÃO
-   ============================================================ */
-
-function normalizarClips(
-  clips
-) {
-  const result = [];
-
-  for (
-    const clip of Array.isArray(clips)
-      ? clips
-      : []
-  ) {
-    const start =
-      Math.max(
-        0,
-        numberOr(
-          clip.start,
-          0
-        )
-      );
-
-    let end =
-      numberOr(
-        clip.end,
-        start +
-          DEFAULT_CLIP_DURATION
-      );
-
-    if (end <= start) {
-      end =
-        start +
-        DEFAULT_CLIP_DURATION;
-    }
-
-    let duration =
-      end - start;
-
-    duration =
-      clamp(
-        duration,
-        MIN_CLIP_DURATION,
-        MAX_CLIP_DURATION
-      );
-
-    end =
-      start +
-      duration;
-
-    const title =
-      String(
-        clip.title ||
-          "Corte selecionado"
-      )
-        .trim()
-        .slice(0, 160);
-
-    const reason =
-      String(
-        clip.reason ||
-          "Trecho selecionado pela IA."
-      )
-        .trim()
-        .slice(0, 500);
-
-    const score =
-      clamp(
-        numberOr(
-          clip.score,
-          70
-        ),
-        0,
-        100
-      );
-
-    const candidate = {
-      inicio:
-        Math.round(
-          start * 100
-        ) / 100,
-
-      fim:
-        Math.round(
-          end * 100
-        ) / 100,
-
-      duracao:
-        Math.round(
-          duration * 100
-        ) / 100,
-
-      titulo:
-        title ||
-        "Corte selecionado",
-
-      motivo:
-        reason ||
-        "Trecho selecionado pela IA.",
-
-      score:
-        Math.round(score),
-    };
-
-    const duplicate =
-      result.some(
-        (existing) => {
-          const overlapStart =
-            Math.max(
-              existing.inicio,
-              candidate.inicio
-            );
-
-          const overlapEnd =
-            Math.min(
-              existing.fim,
-              candidate.fim
-            );
-
-          const overlap =
-            Math.max(
-              0,
-              overlapEnd -
-                overlapStart
-            );
-
-          const shorter =
-            Math.min(
-              existing.duracao,
-              candidate.duracao
-            );
-
-          return (
-            shorter > 0 &&
-            overlap /
-              shorter >=
-              0.8
-          );
-        }
-      );
-
-    if (!duplicate) {
-      result.push(
-        candidate
-      );
-    }
-
-    if (
-      result.length >=
-      MAX_CLIPS
-    ) {
-      break;
-    }
-  }
-
-  result.sort(
-    (a, b) =>
-      b.score - a.score
-  );
-
-  return result.slice(
-    0,
-    MAX_CLIPS
-  );
-}
-
-/* ============================================================
-   RAPIDAPI
-   ============================================================ */
-
-function inferStreamAudio(value) {
-  if (!value) {
-    return null;
-  }
-
-  if (
-    value.audio !== undefined
-  ) {
-    return Boolean(
-      value.audio
-    );
-  }
-
-  if (
-    value.hasAudio !== undefined
-  ) {
-    return Boolean(
-      value.hasAudio
-    );
-  }
-
-  const text = [
-    value.mimeType,
-    value.mime,
-    value.type,
-    value.codecs,
-    value.codec,
-    value.audioCodec,
-    value.audioQuality,
-    value.quality,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (
-    /mp4a|aac|opus|vorbis|audio/i.test(
-      text
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    /video\/mp4.*audio/i.test(
-      text
-    )
-  ) {
-    return true;
-  }
-
-  return null;
-}
-
-async function consultarYTAPI(
-  videoId
-) {
-  if (!RAPIDAPI_KEY) {
-    throw new Error(
-      "RAPIDAPI_KEY não configurada."
-    );
-  }
-
-  metrics.rapidApiAttempts++;
-
-  const url =
-    `https://${RAPIDAPI_HOST}` +
-    `/dl?id=${encodeURIComponent(
-      videoId
-    )}&cgeo=BR`;
-
-  log(
-    `[YT-API] Consultando: ${videoId}`
-  );
-
-  const response =
-    await fetch(url, {
-      method: "GET",
-
-      headers: {
-        "x-rapidapi-key":
-          RAPIDAPI_KEY,
-
-        "x-rapidapi-host":
-          RAPIDAPI_HOST,
-
-        Accept:
-          "application/json",
-      },
-
-      signal:
-        AbortSignal.timeout(
-          RAPIDAPI_TIMEOUT
-        ),
-    });
-
-  const text =
-    await response.text();
-
-  let data;
-
-  try {
-    data =
-      JSON.parse(text);
-  } catch {
-    throw new Error(
-      `YT-API retornou resposta não-JSON (HTTP ${response.status}).`
-    );
+    data = null;
   }
 
   if (!response.ok) {
+    metrics.geminiFailures++;
+
+    const message =
+      data &&
+      data.error &&
+      data.error.message
+        ? data.error.message
+        : rawText;
+
     throw new Error(
-      `YT-API HTTP ${response.status}: ` +
-        safeErrorText(
-          data?.message ||
-            "erro desconhecido"
-        )
+      `Gemini HTTP ${response.status}: ${message}`
     );
   }
 
-  const streams = [];
-
-  function addStream(value) {
-    if (
-      !value ||
-      typeof value !==
-        "object"
-    ) {
-      return;
-    }
-
-    const urlValue =
-      value.url ||
-      value.downloadUrl ||
-      value.download_url ||
-      value.videoUrl ||
-      value.video_url ||
-      value.link;
-
-    if (
-      !urlValue ||
-      typeof urlValue !==
-        "string"
-    ) {
-      return;
-    }
-
-    if (
-      !/^https?:\/\//i.test(
-        urlValue
-      )
-    ) {
-      return;
-    }
-
-    const mime =
-      String(
-        value.mimeType ||
-          value.mime ||
-          value.type ||
-          ""
-      ).toLowerCase();
-
-    const audio =
-      inferStreamAudio(
-        value
-      );
-
-    const height =
-      Number(
-        value.height ||
-          value.videoHeight ||
-          value.resolution?.height ||
-          0
-      );
-
-    const width =
-      Number(
-        value.width ||
-          value.videoWidth ||
-          value.resolution?.width ||
-          0
-      );
-
-    const quality =
-      String(
-        value.qualityLabel ||
-          value.quality ||
-          value.resolution ||
-          ""
-      );
-
-    streams.push({
-      url: urlValue,
-
-      mime,
-
-      audio,
-
-      height:
-        Number.isFinite(
-          height
-        )
-          ? height
-          : 0,
-
-      width:
-        Number.isFinite(
-          width
-        )
-          ? width
-          : 0,
-
-      quality,
-    });
-  }
-
-  function walk(
-    value,
-    depth = 0
-  ) {
-    if (
-      depth > 8 ||
-      value == null
-    ) {
-      return;
-    }
-
-    if (
-      Array.isArray(value)
-    ) {
-      for (
-        const item of value
-      ) {
-        walk(
-          item,
-          depth + 1
-        );
-      }
-
-      return;
-    }
-
-    if (
-      typeof value !==
-      "object"
-    ) {
-      return;
-    }
-
-    addStream(value);
-
-    for (
-      const nested of Object.values(
-        value
-      )
-    ) {
-      if (
-        nested &&
-        (
-          Array.isArray(
-            nested
-          ) ||
-          typeof nested ===
-            "object"
-        )
-      ) {
-        walk(
-          nested,
-          depth + 1
-        );
-      }
-    }
-  }
-
-  walk(data);
-
-  const unique = [];
-
-  const seen = new Set();
-
-  for (
-    const stream of streams
-  ) {
-    if (
-      seen.has(
-        stream.url
-      )
-    ) {
-      continue;
-    }
-
-    seen.add(
-      stream.url
+  const outputText =
+    extractGeminiOutputText(
+      data
     );
 
-    unique.push(
-      stream
-    );
-  }
+  if (!outputText) {
+    metrics.geminiFailures++;
 
-  if (!unique.length) {
     throw new Error(
-      "YT-API não retornou streams."
+      "Gemini não retornou texto de saída."
     );
   }
 
-  const candidates =
-    unique.filter(
-      (stream) =>
-        stream.audio === true ||
-        (
-          stream.audio === null &&
-          /video\/mp4/i.test(
-            stream.mime
-          )
-        )
+  const parsed =
+    extractJsonFromText(
+      outputText
     );
 
-  const usable =
-    candidates.length
-      ? candidates
-      : unique;
+  if (!parsed) {
+    metrics.geminiFailures++;
 
-  usable.sort(
-    (a, b) => {
-      function score(
-        stream
-      ) {
-        let value = 0;
+    console.error(
+      "[Gemini] Resposta não é JSON válido:",
+      outputText.slice(
+        0,
+        2000
+      )
+    );
 
-        if (
-          stream.audio === true
-        ) {
-          value +=
-            1000000;
-        }
+    throw new Error(
+      "Gemini retornou uma resposta que não pôde ser convertida em JSON."
+    );
+  }
 
-        if (
-          /video\/mp4/i.test(
-            stream.mime
-          )
-        ) {
-          value +=
-            500000;
-        }
-
-        if (
-          /video/i.test(
-            stream.mime
-          )
-        ) {
-          value +=
-            100000;
-        }
-
-        value +=
-          Math.min(
-            stream.height ||
-              0,
-            2160
-          ) * 100;
-
-        value +=
-          Math.min(
-            stream.width ||
-              0,
-            3840
-          );
-
-        return value;
+  const clips =
+    normalizarClips(
+      parsed.clips,
+      {
+        maxClips,
+        minDuration,
+        maxDuration,
       }
+    );
 
-      return (
-        score(b) -
-        score(a)
-      );
-    }
-  );
-
-  log(
-    `[YT-API] Streams encontradas: ${unique.length}`
-  );
-
-  log(
-    `[YT-API] Candidatas A/V: ${candidates.length}`
-  );
-
-  log(
-    `[YT-API] Streams com áudio detectado: ${
-      unique.filter(
-        (s) =>
-          s.audio === true
-      ).length
-    }`
-  );
+  metrics.geminiSuccess++;
 
   return {
-    all: unique,
+    title:
+      safeString(
+        parsed.title ||
+          "Vídeo analisado"
+      ),
 
-    candidates:
-      usable,
+    summary:
+      safeString(
+        parsed.summary ||
+          ""
+      ),
 
-    raw: data,
+    clips,
   };
 }
 
 /* ============================================================
-   TESTE DE STREAM
+   PROCESSAMENTO DE COMANDOS
    ============================================================ */
 
-async function testarStream(
-  url
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () =>
-        controller.abort(),
-      STREAM_TEST_TIMEOUT
-    );
-
-  try {
-    const response =
-      await fetch(url, {
-        method: "GET",
-
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
-
-          Accept:
-            "*/*",
-
-          "Accept-Language":
-            "en-US,en;q=0.9",
-
-          Referer:
-            "https://www.youtube.com/",
-
-          Origin:
-            "https://www.youtube.com",
-
-          Range:
-            "bytes=0-1023",
-        },
-
-        redirect: "follow",
-
-        signal:
-          controller.signal,
-      });
-
-    const result = {
-      ok:
-        response.status >=
-          200 &&
-        response.status <
-          300,
-
-      status:
-        response.status,
-
-      contentType:
-        response.headers.get(
-          "content-type"
-        ) || "",
-
-      contentLength:
-        response.headers.get(
-          "content-length"
-        ) || "",
-
-      finalUrl:
-        response.url,
-    };
-
-    try {
-      await response.body?.cancel();
-    } catch {}
-
-    return result;
-  } catch (err) {
-    return {
-      ok: false,
-
-      status: 0,
-
-      error:
-        err.message ||
-        String(err),
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/* ============================================================
-   DOWNLOAD STREAM
-   ============================================================ */
-
-async function baixarStreamParaArquivo(
-  url,
-  outputPath
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () =>
-        controller.abort(),
-      DOWNLOAD_TIMEOUT
-    );
-
-  try {
-    const response =
-      await fetch(url, {
-        method: "GET",
-
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
-
-          Accept:
-            "*/*",
-
-          "Accept-Language":
-            "en-US,en;q=0.9",
-
-          Referer:
-            "https://www.youtube.com/",
-
-          Origin:
-            "https://www.youtube.com",
-        },
-
-        redirect: "follow",
-
-        signal:
-          controller.signal,
-      });
-
-    if (!response.ok) {
-      throw new Error(
-        `Stream retornou HTTP ${response.status}.`
-      );
-    }
-
-    if (!response.body) {
-      throw new Error(
-        "Stream não possui corpo."
-      );
-    }
-
-    await pipeline(
-      Readable.fromWeb(
-        response.body
-      ),
-      fs.createWriteStream(
-        outputPath
-      )
-    );
-
-    if (
-      !fileExists(
-        outputPath
-      )
-    ) {
-      throw new Error(
-        "Arquivo não foi criado."
-      );
-    }
-
-    const stat =
-      fs.statSync(
-        outputPath
-      );
-
-    if (
-      stat.size < 1024
-    ) {
-      throw new Error(
-        `Arquivo baixado é muito pequeno (${stat.size} bytes).`
-      );
-    }
-
-    return {
-      path: outputPath,
-
-      size: stat.size,
-    };
-  } catch (err) {
-    removeFile(
-      outputPath
-    );
-
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/* ============================================================
-   EXECUÇÃO DE PROCESSOS
-   ============================================================ */
-
-function executar(
+function runCommand(
   command,
   args,
   options = {}
 ) {
   return new Promise(
     (resolve, reject) => {
-      log(
-        `[Processo] ${command} ${args
-          .map((arg) =>
-            String(arg)
-          )
-          .join(" ")}`
-      );
-
       const child =
         spawn(
           command,
@@ -1983,14 +1688,14 @@ function executar(
               options.cwd ||
               process.cwd(),
 
-            env:
-              process.env,
+            env: {
+              ...process.env,
+              ...(options.env ||
+                {}),
+            },
 
-            stdio: [
-              "ignore",
-              "pipe",
-              "pipe",
-            ],
+            windowsHide:
+              true,
           }
         );
 
@@ -2013,38 +1718,48 @@ function executar(
         }
       );
 
+      const timeout =
+        setTimeout(
+          () => {
+            try {
+              child.kill(
+                "SIGKILL"
+              );
+            } catch {}
+
+            reject(
+              new Error(
+                "Processo excedeu o tempo limite."
+              )
+            );
+          },
+          options.timeout ||
+            300000
+        );
+
       child.on(
         "error",
-        (err) => {
-          reject(err);
+        (error) => {
+          clearTimeout(
+            timeout
+          );
+
+          reject(error);
         }
       );
 
       child.on(
         "close",
         (code) => {
-          if (code === 0) {
-            return resolve({
-              code,
-              stdout,
-              stderr,
-            });
-          }
+          clearTimeout(
+            timeout
+          );
 
-          const message =
-            stderr.trim() ||
-            stdout.trim() ||
-            `processo terminou com código ${code}`;
-
-          const err =
-            new Error(
-              message
-            );
-
-          err.code =
-            code;
-
-          reject(err);
+          resolve({
+            code,
+            stdout,
+            stderr,
+          });
         }
       );
     }
@@ -2052,433 +1767,70 @@ function executar(
 }
 
 /* ============================================================
-   FFPROBE
+   DOWNLOAD EXTERNO
    ============================================================ */
 
-async function ffprobeDuration(
-  filePath
-) {
-  try {
-    const result =
-      await executar(
-        FFPROBE_PATH,
-        [
-          "-v",
-          "error",
-
-          "-show_entries",
-          "format=duration",
-
-          "-of",
-          "default=noprint_wrappers=1:nokey=1",
-
-          filePath,
-        ]
-      );
-
-    const duration =
-      Number(
-        result.stdout.trim()
-      );
-
-    return Number.isFinite(
-      duration
-    ) &&
-      duration > 0
-      ? duration
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function validarVideoOriginal(
-  filePath
-) {
-  if (
-    !fileExists(filePath)
-  ) {
-    throw new Error(
-      "Arquivo original não foi encontrado."
-    );
-  }
-
-  const stat =
-    fs.statSync(
-      filePath
-    );
-
-  if (
-    stat.size < 1024
-  ) {
-    throw new Error(
-      `Arquivo de vídeo inválido (${stat.size} bytes).`
-    );
-  }
-
-  const duration =
-    await ffprobeDuration(
-      filePath
-    );
-
-  if (!duration) {
-    throw new Error(
-      "Arquivo não possui vídeo reproduzível."
-    );
-  }
-
-  return duration;
-}
-
-/* ============================================================
-   CORTE FFMPEG
-   ============================================================ */
-
-async function cortarVideo(
-  inputPath,
-  outputPath,
-  start,
-  duration
-) {
-  const safeStart =
-    Math.max(
-      0,
-      Number(start) || 0
-    );
-
-  const safeDuration =
-    Math.max(
-      1,
-      Number(duration) || 1
-    );
-
-  await executar(
-    FFMPEG_PATH,
-    [
-      "-y",
-
-      "-hide_banner",
-
-      "-loglevel",
-      "error",
-
-      "-ss",
-      safeStart.toFixed(3),
-
-      "-i",
-      inputPath,
-
-      "-t",
-      safeDuration.toFixed(3),
-
-      "-map",
-      "0:v:0",
-
-      "-map",
-      "0:a:0?",
-
-      "-c:v",
-      "libx264",
-
-      "-preset",
-      "veryfast",
-
-      "-crf",
-      "23",
-
-      "-pix_fmt",
-      "yuv420p",
-
-      "-c:a",
-      "aac",
-
-      "-b:a",
-      "128k",
-
-      "-ar",
-      "44100",
-
-      "-movflags",
-      "+faststart",
-
-      "-avoid_negative_ts",
-      "make_zero",
-
-      "-max_muxing_queue_size",
-      "2048",
-
-      outputPath,
-    ]
-  );
-
-  if (
-    !fileExists(
-      outputPath
-    )
-  ) {
-    throw new Error(
-      "FFmpeg não gerou o MP4."
-    );
-  }
-
-  const stat =
-    fs.statSync(
-      outputPath
-    );
-
-  if (
-    stat.size <
-    10 * 1024
-  ) {
-    throw new Error(
-      `MP4 gerado é muito pequeno (${stat.size} bytes).`
-    );
-  }
-
-  const outputDuration =
-    await ffprobeDuration(
-      outputPath
-    );
-
-  if (
-    !outputDuration ||
-    outputDuration <
-      0.5
-  ) {
-    throw new Error(
-      "MP4 gerado está sem duração válida."
-    );
-  }
-
-  return {
-    path: outputPath,
-
-    size: stat.size,
-
-    duration:
-      outputDuration,
-  };
-}
-
-/* ============================================================
-   RAPIDAPI DOWNLOAD
-   ============================================================ */
-
-async function baixarViaRapidAPI(
-  videoId,
-  originalPath
-) {
-  const info =
-    await consultarYTAPI(
-      videoId
-    );
-
-  const candidates =
-    info.candidates.slice(
-      0,
-      4
-    );
-
-  if (!candidates.length) {
-    throw new Error(
-      "YT-API não forneceu streams candidatas."
-    );
-  }
-
-  let saw403 = false;
-
-  for (
-    const stream of candidates
-  ) {
-    log(
-      `[Download] Testando stream: ${
-        stream.quality ||
-        stream.height ||
-        "desconhecida"
-      }`
-    );
-
-    const test =
-      await testarStream(
-        stream.url
-      );
-
-    if (
-      test.status ===
-      403
-    ) {
-      saw403 = true;
-
-      warn(
-        "[YT-API] Stream retornou HTTP 403."
-      );
-
-      continue;
-    }
-
-    if (
-      !test.ok
-    ) {
-      continue;
-    }
-
-    try {
-      await baixarStreamParaArquivo(
-        stream.url,
-        originalPath
-      );
-
-      await validarVideoOriginal(
-        originalPath
-      );
-
-      metrics.rapidApiSuccesses++;
-
-      log(
-        "[YT-API] Download validado com sucesso."
-      );
-
-      return {
-        path:
-          originalPath,
-
-        source:
-          "rapidapi",
-      };
-    } catch (err) {
-      warn(
-        `[YT-API] Falha durante transferência: ${safeErrorText(
-          err.message
-        )}`
-      );
-
-      removeFile(
-        originalPath
-      );
-    }
-  }
-
-  if (saw403) {
-    throw new Error(
-      "Todas as streams testadas pela YT-API retornaram HTTP 403."
-    );
-  }
-
-  throw new Error(
-    "Nenhuma stream da YT-API pôde ser baixada."
-  );
-}
-
-/* ============================================================
-   DOWNLOADER EXTERNO
-   ============================================================ */
-
-function externalHeaders() {
-  const headers = {
-    Accept:
-      "*/*",
-  };
-
-  if (
-    EXTERNAL_DOWNLOAD_METHOD ===
-    "POST"
-  ) {
-    headers[
-      "Content-Type"
-    ] =
-      "application/json";
-  }
-
-  if (
-    EXTERNAL_DOWNLOAD_TOKEN
-  ) {
-    headers.Authorization =
-      `Bearer ${EXTERNAL_DOWNLOAD_TOKEN}`;
-
-    headers[
-      "x-api-key"
-    ] =
-      EXTERNAL_DOWNLOAD_TOKEN;
-  }
-
-  return headers;
-}
-
-async function baixarViaServicoExterno(
+async function downloadWithExternalService({
   youtubeUrl,
   videoId,
-  originalPath
-) {
+  outputPath,
+}) {
   if (
     !EXTERNAL_DOWNLOAD_URL
   ) {
     throw new Error(
-      "EXTERNAL_DOWNLOAD_URL não configurada."
+      "Downloader externo não configurado."
     );
   }
 
   metrics.externalDownloadAttempts++;
 
-  log(
-    `[External] Iniciando downloader externo para ${videoId}`
+  console.log(
+    "[Download] Tentando downloader externo..."
   );
 
-  let requestUrl =
-    EXTERNAL_DOWNLOAD_URL;
-
-  const requestOptions = {
-    method:
-      EXTERNAL_DOWNLOAD_METHOD,
-
-    headers:
-      externalHeaders(),
-
-    signal:
-      AbortSignal.timeout(
-        DOWNLOAD_TIMEOUT
-      ),
+  const payload = {
+    url: youtubeUrl,
+    videoId,
+    output: "mp4",
   };
 
-  if (
-    EXTERNAL_DOWNLOAD_METHOD ===
-    "GET"
-  ) {
-    const separator =
-      requestUrl.includes("?")
-        ? "&"
-        : "?";
+  let response;
 
-    requestUrl +=
-      separator +
-      "url=" +
-      encodeURIComponent(
-        youtubeUrl
-      ) +
-      "&videoId=" +
-      encodeURIComponent(
-        videoId
+  try {
+    response =
+      await fetch(
+        EXTERNAL_DOWNLOAD_URL,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Accept:
+              "application/json, video/mp4, video/*",
+          },
+
+          body:
+            JSON.stringify(
+              payload
+            ),
+
+          signal:
+            AbortSignal.timeout(
+              180000
+            ),
+        }
       );
-  } else {
-    requestOptions.body =
-      JSON.stringify({
-        url:
-          youtubeUrl,
-
-        videoId,
-
-        output:
-          "mp4",
-      });
+  } catch (error) {
+    throw new Error(
+      `Downloader externo indisponível: ${error.message}`
+    );
   }
 
-  const response =
-    await fetch(
-      requestUrl,
-      requestOptions
-    );
-
   if (!response.ok) {
-    const body =
+    const text =
       await response
         .text()
         .catch(
@@ -2486,8 +1838,9 @@ async function baixarViaServicoExterno(
         );
 
     throw new Error(
-      `Downloader externo HTTP ${response.status}: ${safeErrorText(
-        body
+      `Downloader externo HTTP ${response.status}: ${text.slice(
+        0,
+        500
       )}`
     );
   }
@@ -2500,8 +1853,7 @@ async function baixarViaServicoExterno(
     ).toLowerCase();
 
   /*
-   * Caso 1:
-   * endpoint já devolve o MP4.
+   * Resposta binária direta.
    */
   if (
     contentType.includes(
@@ -2511,135 +1863,512 @@ async function baixarViaServicoExterno(
       "application/octet-stream"
     )
   ) {
-    if (
-      !response.body
-    ) {
+    const buffer =
+      Buffer.from(
+        await response.arrayBuffer()
+      );
+
+    if (!buffer.length) {
       throw new Error(
-        "Downloader externo não retornou corpo."
+        "Downloader externo retornou arquivo vazio."
       );
     }
 
-    await pipeline(
-      Readable.fromWeb(
-        response.body
-      ),
-      fs.createWriteStream(
-        originalPath
-      )
+    await fsp.writeFile(
+      outputPath,
+      buffer
     );
 
-    const duration =
-      await validarVideoOriginal(
-        originalPath
-      );
-
-    metrics.externalDownloadSuccesses++;
-
-    log(
-      "[External] MP4 recebido diretamente."
-    );
-
-    return {
-      path:
-        originalPath,
-
-      source:
-        "external",
-
-      duration,
-    };
+    return outputPath;
   }
 
   /*
-   * Caso 2:
-   * endpoint devolve JSON contendo URL.
+   * Resposta JSON com URL.
    */
+  const data =
+    await response.json();
+
+  const downloadUrl =
+    data.url ||
+    data.downloadUrl ||
+    data.download_url ||
+    data.videoUrl ||
+    data.video_url ||
+    data.result?.url ||
+    data.data?.url;
+
+  if (!downloadUrl) {
+    throw new Error(
+      "Downloader externo não retornou uma URL de vídeo."
+    );
+  }
+
+  const videoResponse =
+    await fetch(
+      downloadUrl,
+      {
+        signal:
+          AbortSignal.timeout(
+            180000
+          ),
+      }
+    );
+
+  if (!videoResponse.ok) {
+    throw new Error(
+      `Falha ao baixar arquivo do downloader externo: HTTP ${videoResponse.status}`
+    );
+  }
+
+  const buffer =
+    Buffer.from(
+      await videoResponse.arrayBuffer()
+    );
+
+  if (!buffer.length) {
+    throw new Error(
+      "Arquivo retornado pelo downloader externo está vazio."
+    );
+  }
+
+  await fsp.writeFile(
+    outputPath,
+    buffer
+  );
+
+  return outputPath;
+}
+
+/* ============================================================
+   RAPIDAPI
+   ============================================================ */
+
+async function fetchRapidApiData(
+  videoId
+) {
+  if (
+    !RAPIDAPI_KEY
+  ) {
+    throw new Error(
+      "RapidAPI não configurado."
+    );
+  }
+
+  metrics.rapidApiAttempts++;
+
+  const endpoint =
+    `https://${RAPIDAPI_HOST}/dl?id=${encodeURIComponent(
+      videoId
+    )}&cgeo=BR`;
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method: "GET",
+
+        headers: {
+          "x-rapidapi-key":
+            RAPIDAPI_KEY,
+
+          "x-rapidapi-host":
+            RAPIDAPI_HOST,
+
+          Accept:
+            "application/json",
+        },
+
+        signal:
+          AbortSignal.timeout(
+            60000
+          ),
+      }
+    );
+
   const text =
     await response.text();
 
-  let data;
+  let data = null;
 
   try {
     data =
-      JSON.parse(text);
-  } catch {
+      text
+        ? JSON.parse(text)
+        : null;
+  } catch {}
+
+  if (!response.ok) {
     throw new Error(
-      "Downloader externo não retornou MP4 nem JSON."
+      `RapidAPI HTTP ${response.status}: ${text.slice(
+        0,
+        500
+      )}`
     );
   }
 
-  const downloadUrl =
-    data?.url ||
-    data?.downloadUrl ||
-    data?.download_url ||
-    data?.videoUrl ||
-    data?.video_url ||
-    data?.result?.url ||
-    data?.data?.url;
+  return data;
+}
+
+/* ============================================================
+   EXTRAÇÃO DE STREAMS
+   ============================================================ */
+
+function collectUrls(
+  value,
+  result = [],
+  depth = 0
+) {
+  if (
+    depth >
+    8
+  ) {
+    return result;
+  }
 
   if (
-    !downloadUrl
+    value === null ||
+    value === undefined
   ) {
+    return result;
+  }
+
+  if (
+    typeof value ===
+    "string"
+  ) {
+    if (
+      /^https?:\/\//i.test(
+        value
+      )
+    ) {
+      result.push({
+        url: value,
+      });
+    }
+
+    return result;
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    for (
+      const item of value
+    ) {
+      collectUrls(
+        item,
+        result,
+        depth + 1
+      );
+    }
+
+    return result;
+  }
+
+  if (
+    typeof value ===
+    "object"
+  ) {
+    const candidateUrl =
+      value.url ||
+      value.href ||
+      value.downloadUrl ||
+      value.download_url ||
+      value.videoUrl ||
+      value.video_url;
+
+    if (
+      typeof candidateUrl ===
+        "string" &&
+      /^https?:\/\//i.test(
+        candidateUrl
+      )
+    ) {
+      result.push({
+        url:
+          candidateUrl,
+
+        quality:
+          value.quality ||
+          value.qualityLabel ||
+          value.resolution ||
+          value.label ||
+          "",
+
+        height:
+          Number(
+            value.height ||
+              value.videoHeight ||
+              0
+          ),
+
+        width:
+          Number(
+            value.width ||
+              value.videoWidth ||
+              0
+          ),
+
+        hasAudio:
+          Boolean(
+            value.hasAudio ??
+              value.audio ??
+              value.audioUrl
+          ),
+
+        mime:
+          value.mimeType ||
+          value.mime ||
+          "",
+      });
+    }
+
+    for (
+      const key of Object.keys(
+        value
+      )
+    ) {
+      collectUrls(
+        value[key],
+        result,
+        depth + 1
+      );
+    }
+  }
+
+  return result;
+}
+
+function deduplicateStreams(
+  streams
+) {
+  const map =
+    new Map();
+
+  for (
+    const stream of streams
+  ) {
+    if (
+      !stream ||
+      !stream.url
+    ) {
+      continue;
+    }
+
+    if (
+      !map.has(
+        stream.url
+      )
+    ) {
+      map.set(
+        stream.url,
+        stream
+      );
+    }
+  }
+
+  return Array.from(
+    map.values()
+  );
+}
+
+/* ============================================================
+   DOWNLOAD DE STREAM
+   ============================================================ */
+
+async function downloadStream(
+  url,
+  outputPath
+) {
+  const response =
+    await fetch(
+      url,
+      {
+        method: "GET",
+
+        signal:
+          AbortSignal.timeout(
+            120000
+          ),
+      }
+    );
+
+  if (!response.ok) {
     throw new Error(
-      "Downloader externo não retornou URL do arquivo."
+      `Stream HTTP ${response.status}`
     );
   }
 
-  await baixarStreamParaArquivo(
-    downloadUrl,
-    originalPath
-  );
-
-  const duration =
-    await validarVideoOriginal(
-      originalPath
+  const buffer =
+    Buffer.from(
+      await response.arrayBuffer()
     );
 
-  metrics.externalDownloadSuccesses++;
+  if (!buffer.length) {
+    throw new Error(
+      "Stream retornou arquivo vazio."
+    );
+  }
 
-  log(
-    "[External] URL externa convertida em MP4 válido."
+  await fsp.writeFile(
+    outputPath,
+    buffer
   );
 
-  return {
-    path:
-      originalPath,
+  return outputPath;
+}
 
-    source:
-      "external",
+/* ============================================================
+   RAPIDAPI DOWNLOAD
+   ============================================================ */
 
-    duration,
-  };
+async function downloadWithRapidApi({
+  videoId,
+  outputPath,
+}) {
+  const data =
+    await fetchRapidApiData(
+      videoId
+    );
+
+  let streams =
+    collectUrls(data);
+
+  streams =
+    deduplicateStreams(
+      streams
+    );
+
+  /*
+   * Preferir maior resolução.
+   */
+  streams.sort(
+    (a, b) => {
+      const ah =
+        Number(
+          a.height || 0
+        );
+
+      const bh =
+        Number(
+          b.height || 0
+        );
+
+      return bh - ah;
+    }
+  );
+
+  console.log(
+    `[YT-API] Streams encontradas: ${streams.length}`
+  );
+
+  /*
+   * Limita tentativas para
+   * não ficar preso em dezenas
+   * de URLs expiradas.
+   */
+  const candidates =
+    streams.slice(
+      0,
+      8
+    );
+
+  let lastError =
+    null;
+
+  for (
+    const stream of candidates
+  ) {
+    try {
+      console.log(
+        `[Download] Testando stream: ${
+          stream.quality ||
+          stream.height ||
+          "unknown"
+        }`
+      );
+
+      await downloadStream(
+        stream.url,
+        outputPath
+      );
+
+      return outputPath;
+    } catch (error) {
+      lastError =
+        error;
+
+      console.log(
+        `[Download] Stream falhou: ${error.message}`
+      );
+
+      await safeRemove(
+        outputPath
+      );
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      "Nenhuma stream RapidAPI pôde ser baixada."
+    )
+  );
 }
 
 /* ============================================================
    YT-DLP
    ============================================================ */
 
-function ytdlpExiste() {
-  try {
-    return fileExists(
-      YTDLP_PATH
+function detectYtDlpError(
+  stderr
+) {
+  const text =
+    safeString(
+      stderr
+    ).toLowerCase();
+
+  if (
+    text.includes(
+      "sign in to confirm"
+    ) ||
+    text.includes(
+      "not a bot"
+    ) ||
+    text.includes(
+      "login_required"
+    ) ||
+    text.includes(
+      "use --cookies-from-browser"
+    )
+  ) {
+    return (
+      "O YouTube bloqueou o IP deste servidor com proteção anti-bot. " +
+      "O yt-dlp não conseguiu acessar o vídeo."
     );
-  } catch {
-    return false;
   }
+
+  if (
+    text.includes(
+      "http error 403"
+    )
+  ) {
+    return (
+      "O YouTube retornou HTTP 403 ao yt-dlp."
+    );
+  }
+
+  return null;
 }
 
-async function baixarComYtDlp(
+async function downloadWithYtDlp({
   youtubeUrl,
-  outputPath
-) {
+  outputPath,
+}) {
   metrics.ytdlpAttempts++;
 
-  if (!ytdlpExiste()) {
-    throw new Error(
-      `yt-dlp não encontrado em ${YTDLP_PATH}`
-    );
-  }
-
-  log(
-    "[YT-DLP] Fallback ativado."
+  console.log(
+    `[YT-DLP] Executável: ${YTDLP_PATH}`
   );
 
   const args = [
@@ -2650,15 +2379,6 @@ async function baixarComYtDlp(
     "--newline",
 
     "--restrict-filenames",
-
-    "--retries",
-    "3",
-
-    "--fragment-retries",
-    "3",
-
-    "--socket-timeout",
-    "30",
 
     "-f",
     "bv*+ba/b",
@@ -2673,1179 +2393,353 @@ async function baixarComYtDlp(
   ];
 
   if (
-    YTDLP_COOKIES_FILE &&
-    fileExists(
-      YTDLP_COOKIES_FILE
-    )
+    YTDLP_COOKIES_FILE
   ) {
     args.splice(
-      args.length - 1,
+      1,
       0,
       "--cookies",
       YTDLP_COOKIES_FILE
     );
+  }
 
-    log(
-      "[YT-DLP] Cookies autorizados configurados."
+  let result;
+
+  try {
+    result =
+      await runCommand(
+        YTDLP_PATH,
+        args,
+        {
+          timeout:
+            300000,
+        }
+      );
+  } catch (error) {
+    throw new Error(
+      `Falha ao executar yt-dlp: ${error.message}`
+    );
+  }
+
+  if (
+    result.code !== 0
+  ) {
+    const antiBot =
+      detectYtDlpError(
+        result.stderr
+      );
+
+    if (antiBot) {
+      throw new Error(
+        antiBot
+      );
+    }
+
+    throw new Error(
+      `yt-dlp terminou com código ${result.code}. ${result.stderr.slice(
+        -2000
+      )}`
     );
   }
 
   try {
-    await executar(
-      YTDLP_PATH,
-      args
+    await fsp.access(
+      outputPath
     );
+  } catch {
+    throw new Error(
+      "yt-dlp terminou sem gerar o arquivo MP4."
+    );
+  }
 
-    if (
-      !fileExists(
-        outputPath
-      )
-    ) {
-      throw new Error(
-        "yt-dlp finalizou sem gerar arquivo."
-      );
-    }
-
-    await validarVideoOriginal(
+  const stat =
+    await fsp.stat(
       outputPath
     );
 
-    metrics.ytdlpSuccesses++;
-
-    log(
-      "[YT-DLP] Vídeo validado com sucesso."
+  if (
+    stat.size <
+    10000
+  ) {
+    throw new Error(
+      "yt-dlp gerou um arquivo inválido ou vazio."
     );
-
-    return {
-      path:
-        outputPath,
-
-      source:
-        "ytdlp",
-    };
-  } catch (err) {
-    const message =
-      String(
-        err?.message ||
-          err ||
-          ""
-      );
-
-    if (
-      /Sign in to confirm|not a bot|LOGIN_REQUIRED/i.test(
-        message
-      )
-    ) {
-      throw new Error(
-        "O YouTube bloqueou o IP deste servidor com proteção anti-bot."
-      );
-    }
-
-    if (
-      /403|Forbidden/i.test(
-        message
-      )
-    ) {
-      throw new Error(
-        "O YouTube retornou HTTP 403 ao yt-dlp."
-      );
-    }
-
-    throw err;
   }
+
+  return outputPath;
 }
 
 /* ============================================================
-   PIPELINE PRINCIPAL
+   FFPROBE
    ============================================================ */
 
-async function obterVideoOriginal(
+async function probeVideo(
+  inputPath
+) {
+  const result =
+    await runCommand(
+      FFPROBE_PATH,
+      [
+        "-v",
+        "error",
+
+        "-show_entries",
+        "format=duration",
+
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+
+        inputPath,
+      ],
+      {
+        timeout:
+          60000,
+      }
+    );
+
+  if (
+    result.code !== 0
+  ) {
+    return {
+      duration: null,
+    };
+  }
+
+  const duration =
+    Number(
+      result.stdout.trim()
+    );
+
+  return {
+    duration:
+      Number.isFinite(
+        duration
+      )
+        ? duration
+        : null,
+  };
+}
+
+/* ============================================================
+   FFMPEG
+   ============================================================ */
+
+async function renderClip({
+  inputPath,
+  outputPath,
+  start,
+  duration,
+}) {
+  const safeStart =
+    Math.max(
+      0,
+      Number(start) || 0
+    );
+
+  const safeDuration =
+    Math.max(
+      1,
+      Number(duration) || 1
+    );
+
+  const result =
+    await runCommand(
+      FFMPEG_PATH,
+      [
+        "-y",
+
+        "-ss",
+        String(
+          safeStart
+        ),
+
+        "-i",
+        inputPath,
+
+        "-t",
+        String(
+          safeDuration
+        ),
+
+        "-map",
+        "0:v:0",
+
+        "-map",
+        "0:a:0?",
+
+        "-c:v",
+        "libx264",
+
+        "-preset",
+        "veryfast",
+
+        "-crf",
+        "23",
+
+        "-pix_fmt",
+        "yuv420p",
+
+        "-c:a",
+        "aac",
+
+        "-b:a",
+        "128k",
+
+        "-movflags",
+        "+faststart",
+
+        outputPath,
+      ],
+      {
+        timeout:
+          300000,
+      }
+    );
+
+  if (
+    result.code !== 0
+  ) {
+    throw new Error(
+      `FFmpeg falhou: ${result.stderr.slice(
+        -2500
+      )}`
+    );
+  }
+
+  try {
+    const stat =
+      await fsp.stat(
+        outputPath
+      );
+
+    if (
+      stat.size <
+      10000
+    ) {
+      throw new Error(
+        "FFmpeg gerou arquivo inválido."
+      );
+    }
+  } catch (error) {
+    if (
+      error.code ===
+      "ENOENT"
+    ) {
+      throw new Error(
+        "FFmpeg não gerou o MP4."
+      );
+    }
+
+    throw error;
+  }
+
+  return outputPath;
+}
+
+/* ============================================================
+   DOWNLOAD PRINCIPAL
+   ============================================================ */
+
+async function downloadOriginalVideo({
   youtubeUrl,
   videoId,
-  originalPath
-) {
-  const failures = [];
+}) {
+  const base =
+    `${videoId}-${Date.now()}`;
+
+  const outputPath =
+    path.join(
+      DOWNLOAD_DIR,
+      `${base}.mp4`
+    );
 
   /*
-   * 1. EXTERNAL
+   * 1. Downloader externo
    */
   if (
     EXTERNAL_DOWNLOAD_URL
   ) {
     try {
-      return await baixarViaServicoExterno(
-        youtubeUrl,
-        videoId,
-        originalPath
-      );
-    } catch (err) {
-      const message =
-        safeErrorText(
-          err.message ||
-            err
-        );
-
-      failures.push(
-        "external: " +
-          message
+      await downloadWithExternalService(
+        {
+          youtubeUrl,
+          videoId,
+          outputPath,
+        }
       );
 
-      warn(
-        `[External] Falhou: ${message}`
+      return {
+        path: outputPath,
+        method:
+          "external",
+      };
+    } catch (error) {
+      console.log(
+        `[Download] Downloader externo falhou: ${error.message}`
       );
 
-      removeFile(
-        originalPath
+      await safeRemove(
+        outputPath
       );
     }
   }
 
   /*
-   * 2. RAPIDAPI
+   * 2. RapidAPI
    */
   if (
     RAPIDAPI_KEY
   ) {
     try {
-      return await baixarViaRapidAPI(
-        videoId,
-        originalPath
-      );
-    } catch (err) {
-      const message =
-        safeErrorText(
-          err.message ||
-            err
-        );
-
-      failures.push(
-        "rapidapi: " +
-          message
+      await downloadWithRapidApi(
+        {
+          videoId,
+          outputPath,
+        }
       );
 
-      warn(
-        `[YT-API] Falhou: ${message}`
+      return {
+        path: outputPath,
+        method:
+          "rapidapi",
+      };
+    } catch (error) {
+      console.log(
+        `[Download] RapidAPI falhou: ${error.message}`
       );
 
-      removeFile(
-        originalPath
+      await safeRemove(
+        outputPath
       );
     }
   }
 
   /*
-   * 3. YT-DLP
+   * 3. yt-dlp
    */
-  if (
-    ytdlpExiste()
-  ) {
-    try {
-      return await baixarComYtDlp(
+  try {
+    await downloadWithYtDlp(
+      {
         youtubeUrl,
-        originalPath
-      );
-    } catch (err) {
-      const message =
-        safeErrorText(
-          err.message ||
-            err
-        );
-
-      failures.push(
-        "yt-dlp: " +
-          message
-      );
-
-      warn(
-        `[YT-DLP] Falhou: ${message}`
-      );
-
-      removeFile(
-        originalPath
-      );
-    }
-  }
-
-  const finalError =
-    new Error(
-      "Não foi possível obter o vídeo. " +
-        failures.join(
-          " | "
-        )
+        outputPath,
+      }
     );
 
-  finalError.code =
-    "DOWNLOAD_SOURCE_UNAVAILABLE";
-
-  throw finalError;
-}
-
-/* ============================================================
-   REEMBOLSO
-   ============================================================ */
-
-function createRefundController(
-  user,
-  amount
-) {
-  let refunded = false;
-
-  return {
-    get refunded() {
-      return refunded;
-    },
-
-    refund() {
-      if (
-        refunded ||
-        amount <= 0
-      ) {
-        return false;
-      }
-
-      user.points += amount;
-
-      user.updatedAt =
-        Date.now();
-
-      refunded = true;
-
-      return true;
-    },
-  };
-}
-
-/* ============================================================
-   ROTAS GERAIS
-   ============================================================ */
-
-app.use(
-  (req, res, next) => {
-    metrics.requests++;
-
-    next();
-  }
-);
-
-app.get(
-  "/",
-  (req, res) => {
-    res.json({
-      success: true,
-
-      name:
-        "ClipForge Pro",
-
-      version:
-        "13.0.4",
-
-      status:
-        "online",
-
-      uptime:
-        process.uptime(),
-
-      time:
-        new Date().toISOString(),
-    });
-  }
-);
-
-app.get(
-  "/api/status",
-  (req, res) => {
-    res.json({
-      success: true,
-
-      name:
-        "ClipForge Pro",
-
-      version:
-        "13.0.4",
-
-      status:
-        "online",
-
-      uptime:
-        process.uptime(),
-
-      node:
-        process.version,
-
-      geminiConfigured:
-        Boolean(
-          GEMINI_API_KEY
-        ),
-
-      geminiModel:
-        GEMINI_MODEL,
-
-      rapidApiConfigured:
-        Boolean(
-          RAPIDAPI_KEY
-        ),
-
-      ytDlpAvailable:
-        ytdlpExiste(),
-
-      ffmpeg:
-        FFMPEG_PATH,
-
-      ffprobe:
-        FFPROBE_PATH,
-
-      externalDownloaderConfigured:
-        Boolean(
-          EXTERNAL_DOWNLOAD_URL
-        ),
-
-      externalDownloaderMethod:
-        EXTERNAL_DOWNLOAD_METHOD,
-
-      time:
-        new Date().toISOString(),
-    });
-  }
-);
-
-/* ============================================================
-   SESSÃO
-   ============================================================ */
-
-app.post(
-  "/api/session",
-  (req, res) => {
-    const suppliedToken =
-      getSuppliedUserToken(
-        req
-      );
-
-    const payload =
-      verifyUserToken(
-        suppliedToken
-      );
-
-    let user;
-
-    if (
-      payload?.userId &&
-      usuarios.has(
-        payload.userId
-      )
-    ) {
-      user =
-        usuarios.get(
-          payload.userId
-        );
-    } else {
-      user =
-        createUser();
-    }
-
-    const bonus =
-      applyDailyBonus(
-        user
-      );
-
-    const token =
-      createUserToken(
-        user.id
-      );
-
-    res.json({
-      success: true,
-
-      token,
-
-      user:
-        userPublic(
-          user
-        ),
-
-      dailyBonus:
-        bonus
-          ? DAILY_POINTS
-          : 0,
-    });
-  }
-);
-
-app.get(
-  "/api/me",
-  requireUser,
-  (req, res) => {
-    res.json({
-      success: true,
-
-      user:
-        userPublic(
-          req.user
-        ),
-    });
-  }
-);
-
-/* ============================================================
-   ANALISAR
-   ============================================================ */
-
-app.post(
-  "/api/analisar",
-  requireUser,
-  async (
-    req,
-    res
-  ) => {
-    const youtubeUrl =
-      normalizeYouTubeUrl(
-        req.body?.url ||
-          req.body?.youtubeUrl ||
-          req.body?.videoUrl
-      );
-
-    if (!youtubeUrl) {
-      return res.status(400).json({
-        success: false,
-
-        error:
-          "URL do YouTube inválida.",
-      });
-    }
-
-    const videoId =
-      extractYouTubeId(
-        youtubeUrl
-      );
-
-    if (!videoId) {
-      return res.status(400).json({
-        success: false,
-
-        error:
-          "Não foi possível extrair o ID do vídeo.",
-      });
-    }
-
-    try {
-      log(
-        "=========================================="
-      );
-
-      log(
-        "[Análise] CLIPFORGE 13.0.4"
-      );
-
-      log(
-        `[Análise] Usuário: ${req.user.id}`
-      );
-
-      log(
-        `[Análise] Vídeo: ${videoId}`
-      );
-
-      const rawClips =
-        await analisarComGemini(
-          youtubeUrl,
-          videoId
-        );
-
-      const clips =
-        normalizarClips(
-          rawClips
-        );
-
-      req.user.analyses =
-        Number(
-          req.user.analyses ||
-            0
-        ) + 1;
-
-      req.user.updatedAt =
-        Date.now();
-
-      metrics.analyses++;
-
-      if (!clips.length) {
-        return res.status(422).json({
-          success: false,
-
-          error:
-            "A IA não localizou trechos com duração adequada neste vídeo.",
-
-          clips: [],
-        });
-      }
-
-      return res.json({
-        success: true,
-
-        videoId,
-
-        url:
-          youtubeUrl,
-
-        clips,
-
-        user:
-          userPublic(
-            req.user
-          ),
-      });
-    } catch (err) {
-      metrics.geminiFailures++;
-
-      const message =
-        safeErrorText(
-          err.message ||
-            err
-        );
-
-      errorLog(
-        `[Análise] Erro: ${message}`
-      );
-
-      return res.status(502).json({
-        success: false,
-
-        error:
-          message ||
-          "Falha na análise pela IA.",
-
-        code:
-          "GEMINI_ANALYSIS_FAILED",
-      });
-    }
-  }
-);
-
-/* ============================================================
-   DOWNLOAD
-   ============================================================ */
-
-app.post(
-  "/api/download",
-  requireUser,
-  async (
-    req,
-    res
-  ) => {
-    const youtubeUrl =
-      normalizeYouTubeUrl(
-        req.body?.url ||
-          req.body?.youtubeUrl ||
-          req.body?.videoUrl
-      );
-
-    if (!youtubeUrl) {
-      return res.status(400).json({
-        success: false,
-
-        error:
-          "URL do YouTube inválida.",
-      });
-    }
-
-    const videoId =
-      extractYouTubeId(
-        youtubeUrl
-      );
-
-    if (!videoId) {
-      return res.status(400).json({
-        success: false,
-
-        error:
-          "Vídeo do YouTube inválido.",
-      });
-    }
-
-    const start =
-      Math.max(
-        0,
-        numberOr(
-          req.body?.start ??
-            req.body?.inicio,
-          0
-        )
-      );
-
-    let duration =
-      numberOr(
-        req.body?.duration ??
-          req.body?.duracao,
-        DEFAULT_CLIP_DURATION
-      );
-
-    duration =
-      clamp(
-        duration,
-        1,
-        MAX_CLIP_DURATION
-      );
-
-    const vip =
-      isVip(
-        req.user
-      );
-
-    if (
-      !vip &&
-      req.user.points <
-        DOWNLOAD_COST
-    ) {
-      return res.status(402).json({
-        success: false,
-
-        error:
-          `Você precisa de ${DOWNLOAD_COST} pontos para baixar este corte.`,
-
-        code:
-          "INSUFFICIENT_POINTS",
-
-        points:
-          req.user.points,
-
-        cost:
-          DOWNLOAD_COST,
-      });
-    }
-
-    const jobId =
-      randomId("");
-
-    const originalPath =
-      path.join(
-        TEMP_DIR,
-        `${jobId}-original.mp4`
-      );
-
-    const clipPath =
-      path.join(
-        TEMP_DIR,
-        `${jobId}-clip.mp4`
-      );
-
-    let charged = false;
-
-    if (!vip) {
-      req.user.points -=
-        DOWNLOAD_COST;
-
-      req.user.updatedAt =
-        Date.now();
-
-      charged = true;
-    }
-
-    const refund =
-      createRefundController(
-        req.user,
-        charged
-          ? DOWNLOAD_COST
-          : 0
-      );
-
-    let renderCompleted =
-      false;
-
-    try {
-      log(
-        "=========================================="
-      );
-
-      log(
-        "[Download] CLIPFORGE 13.0.4"
-      );
-
-      log(
-        `[Download] Usuário: ${req.user.id}`
-      );
-
-      log(
-        `[Download] VIP: ${vip}`
-      );
-
-      log(
-        `[Download] Pontos cobrados: ${
-          charged
-            ? DOWNLOAD_COST
-            : 0
-        }`
-      );
-
-      log(
-        `[Download] Vídeo: ${videoId}`
-      );
-
-      log(
-        `[Download] Start: ${start}`
-      );
-
-      log(
-        `[Download] Duration: ${duration}`
-      );
-
-      const acquired =
-        await obterVideoOriginal(
-          youtubeUrl,
-          videoId,
-          originalPath
-        );
-
-      const sourceDuration =
-        acquired.duration ||
-        (await validarVideoOriginal(
-          originalPath
-        ));
-
-      log(
-        `[Download] Duração real: ${sourceDuration.toFixed(
-          2
-        )}s`
-      );
-
-      if (
-        start >=
-        sourceDuration
-      ) {
-        throw new Error(
-          `O início (${start}s) excede a duração do vídeo (${sourceDuration.toFixed(
-            1
-          )}s).`
-        );
-      }
-
-      const safeStart =
-        clamp(
-          start,
-          0,
-          Math.max(
-            0,
-            sourceDuration -
-              0.1
-          )
-        );
-
-      const available =
-        sourceDuration -
-        safeStart;
-
-      const renderDuration =
-        Math.min(
-          duration,
-          available
-        );
-
-      if (
-        renderDuration <
-        1
-      ) {
-        throw new Error(
-          "Não existe duração suficiente para gerar o corte."
-        );
-      }
-
-      log(
-        `[FFmpeg] Início ajustado: ${safeStart.toFixed(
-          2
-        )}s`
-      );
-
-      log(
-        `[FFmpeg] Duração ajustada: ${renderDuration.toFixed(
-          2
-        )}s`
-      );
-
-      const result =
-        await cortarVideo(
-          originalPath,
-          clipPath,
-          safeStart,
-          renderDuration
-        );
-
-      /*
-       * Validação final independente.
-       */
-      const finalDuration =
-        await validarVideoOriginal(
-          clipPath
-        );
-
-      if (
-        finalDuration <
-        0.5
-      ) {
-        throw new Error(
-          "O corte final não possui duração válida."
-        );
-      }
-
-      renderCompleted =
-        true;
-
-      req.user.downloads =
-        Number(
-          req.user.downloads ||
-            0
-        ) + 1;
-
-      req.user.updatedAt =
-        Date.now();
-
-      metrics.downloads++;
-
-      const filename =
-        `${safeFilename(
-          req.body?.title ||
-            req.body?.titulo ||
-            "clipforge"
-        )}.mp4`;
-
-      res.status(200);
-
-      res.setHeader(
-        "Content-Type",
-        "video/mp4"
-      );
-
-      res.setHeader(
-        "Content-Length",
-        String(
-          result.size
-        )
-      );
-
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filename}"`
-      );
-
-      res.setHeader(
-        "Cache-Control",
-        "no-store"
-      );
-
-      const stream =
-        fs.createReadStream(
-          clipPath
-        );
-
-      let streamStarted =
-        false;
-
-      stream.on(
-        "data",
-        () => {
-          streamStarted =
-            true;
-        }
-      );
-
-      stream.on(
-        "error",
-        (err) => {
-          errorLog(
-            `[Download] Erro de transmissão: ${safeErrorText(
-              err.message
-            )}`
-          );
-
-          /*
-           * Não devolve pontos depois que
-           * o render já foi concluído.
-           */
-          if (
-            !renderCompleted &&
-            !streamStarted
-          ) {
-            refund.refund();
-          }
-        }
-      );
-
-      const cleanup =
-        () => {
-          removeFile(
-            originalPath
-          );
-
-          removeFile(
-            clipPath
-          );
-        };
-
-      stream.on(
-        "end",
-        cleanup
-      );
-
-      res.on(
-        "close",
-        cleanup
-      );
-
-      stream.pipe(res);
-    } catch (err) {
-      metrics.downloadFailures++;
-
-      const message =
-        safeErrorText(
-          err.message ||
-            err
-        );
-
-      errorLog(
-        `[Download] Erro: ${message}`
-      );
-
-      let refundedPoints = 0;
-
-      /*
-       * Reembolso somente se o render/download
-       * não foi concluído.
-       */
-      if (
-        !renderCompleted
-      ) {
-        if (
-          refund.refund()
-        ) {
-          refundedPoints =
-            charged
-              ? DOWNLOAD_COST
-              : 0;
-        }
-      }
-
-      removeFile(
-        originalPath
-      );
-
-      removeFile(
-        clipPath
-      );
-
-      if (
-        res.headersSent
-      ) {
-        return res.end();
-      }
-
-      const youtubeBlocked =
-        /anti-bot|not a bot|LOGIN_REQUIRED|bloqueou o IP/i.test(
-          message
-        );
-
-      const rapidApi403 =
-        /403|Forbidden/i.test(
-          message
-        );
-
-      return res.status(502).json({
-        success: false,
-
-        error:
-          message ||
-          "Falha ao gerar o corte.",
-
-        code:
-          "DOWNLOAD_FAILED",
-
-        refundedPoints,
-
-        points:
-          req.user.points,
-
-        diagnostics: {
-          youtubeBlocked,
-
-          rapidApi403,
-
-          externalDownloaderConfigured:
-            Boolean(
-              EXTERNAL_DOWNLOAD_URL
-            ),
-
-          sourcePipeline:
-            [
-              EXTERNAL_DOWNLOAD_URL
-                ? "external"
-                : null,
-
-              RAPIDAPI_KEY
-                ? "rapidapi"
-                : null,
-
-              ytdlpExiste()
-                ? "yt-dlp"
-                : null,
-            ].filter(Boolean),
-        },
-      });
-    }
-  }
-);
-
-/* ============================================================
-   ADMIN LOGIN
-   ============================================================ */
-
-app.post(
-  "/api/admin/login",
-  (req, res) => {
-    const password =
-      String(
-        req.body?.password ||
-          ""
-      );
-
-    if (
-      !ADMIN_PASSWORD
-    ) {
-      return res.status(503).json({
-        success: false,
-
-        error:
-          "ADMIN_PASSWORD não configurada.",
-      });
-    }
-
-    if (
-      password.length !==
-        ADMIN_PASSWORD.length ||
-      !crypto.timingSafeEqual(
-        Buffer.from(
-          password
-        ),
-        Buffer.from(
-          ADMIN_PASSWORD
-        )
-      )
-    ) {
-      return res.status(401).json({
-        success: false,
-
-        error:
-          "Senha inválida.",
-      });
-    }
-
-    const token =
-      createAdminToken();
-
-    res.json({
-      success: true,
-
-      token,
-
-      expiresIn:
-        ADMIN_SESSION_HOURS *
-        3600,
-    });
-  }
-);
-
-app.post(
-  "/api/admin/logout",
-  requireAdmin,
-  (req, res) => {
-    adminSessions.delete(
-      req.adminToken
+    return {
+      path: outputPath,
+      method:
+        "yt-dlp",
+    };
+  } catch (error) {
+    await safeRemove(
+      outputPath
     );
 
-    res.json({
-      success: true,
-    });
+    throw new Error(
+      `Todos os métodos de download falharam. ${error.message}`
+    );
   }
-);
-
-app.get(
-  "/api/admin/dashboard",
-  requireAdmin,
-  (req, res) => {
-    const userList =
-      Array.from(
-        usuarios.values()
-      );
-
-    const vipUsers =
-      userList.filter(
-        (user) =>
-          isVip(user)
-      );
-
-    const pointsTotal =
-      userList.reduce(
-        (acc, user) =>
-          acc +
-          Number(
-            user.points || 0
-          ),
-        0
-      );
-
-    const approvedPayments =
-      Array.from(
-        pagamentos.values()
-      ).filter(
-        (payment) =>
-          payment.status ===
-          "approved"
-      );
-
-    res.json({
-      success: true,
-
-      metrics,
-
-      users: {
-        total:
-          userList.length,
-
-        vip:
-          vipUsers.length,
-
-        pointsTotal,
-      },
-
-      payments: {
-        total:
-          pagamentos.size,
-
-        approved:
-          approvedPayments.length,
-      },
-
-      config: {
-        geminiConfigured:
-          Boolean(
-            GEMINI_API_KEY
-          ),
-
-        geminiModel:
-          GEMINI_MODEL,
-
-        rapidApiConfigured:
-          Boolean(
-            RAPIDAPI_KEY
-          ),
-
-        ytdlpAvailable:
-          ytdlpExiste(),
-
-        externalDownloaderConfigured:
-          Boolean(
-            EXTERNAL_DOWNLOAD_URL
-          ),
-
-        externalDownloaderMethod:
-          EXTERNAL_DOWNLOAD_METHOD,
-      },
-    });
-  }
-);
+}
 
 /* ============================================================
    MERCADO PAGO
@@ -3855,9 +2749,7 @@ async function mpRequest(
   endpoint,
   options = {}
 ) {
-  if (
-    !MP_ACCESS_TOKEN
-  ) {
+  if (!MP_ACCESS_TOKEN) {
     throw new Error(
       "MP_ACCESS_TOKEN não configurado."
     );
@@ -3879,30 +2771,35 @@ async function mpRequest(
           ...(options.headers ||
             {}),
         },
+
+        signal:
+          AbortSignal.timeout(
+            60000
+          ),
       }
     );
 
   const text =
     await response.text();
 
-  let data;
+  let data = null;
 
   try {
     data =
-      JSON.parse(text);
+      text
+        ? JSON.parse(text)
+        : null;
   } catch {
     data = {
       raw: text,
     };
   }
 
-  if (
-    !response.ok
-  ) {
+  if (!response.ok) {
     throw new Error(
-      `Mercado Pago HTTP ${response.status}: ${safeErrorText(
-        data?.message ||
-          text
+      `Mercado Pago HTTP ${response.status}: ${text.slice(
+        0,
+        1000
       )}`
     );
   }
@@ -3910,199 +2807,995 @@ async function mpRequest(
   return data;
 }
 
-async function processarPagamentoAprovado(
-  payment
-) {
-  if (!payment) {
-    return null;
-  }
+/* ============================================================
+   CRIAÇÃO DE PIX
+   ============================================================ */
+
+async function createPixPayment({
+  user,
+  amount,
+  description,
+}) {
+  const transactionAmount =
+    Number(amount);
 
   if (
-    payment.status !==
-      "approved" &&
-    payment.status !==
-      "authorized"
+    !Number.isFinite(
+      transactionAmount
+    ) ||
+    transactionAmount <= 0
   ) {
-    return null;
+    throw new Error(
+      "Valor inválido."
+    );
   }
 
-  const reference =
-    String(
-      payment.external_reference ||
-        ""
+  const externalReference =
+    `clipforge-${user.id}-${randomId()}`;
+
+  const idempotencyKey =
+    randomId("mp_");
+
+  const body = {
+    transaction_amount:
+      Number(
+        transactionAmount.toFixed(
+          2
+        )
+      ),
+
+    description:
+      description ||
+      "ClipForge Pro VIP",
+
+    payment_method_id:
+      "pix",
+
+    external_reference:
+      externalReference,
+
+    payer: {
+      email:
+        `user-${user.id}@clipforge.local`,
+    },
+  };
+
+  const data =
+    await mpRequest(
+      "/v1/payments",
+      {
+        method: "POST",
+
+        headers: {
+          "X-Idempotency-Key":
+            idempotencyKey,
+        },
+
+        body:
+          JSON.stringify(
+            body
+          ),
+      }
     );
-
-  const match =
-    reference.match(
-      /^clipforge-(.+)-(\d+)$/
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  const userId =
-    match[1];
-
-  const user =
-    usuarios.get(
-      userId
-    );
-
-  if (!user) {
-    return null;
-  }
 
   const paymentId =
     String(
-      payment.id
+      data.id
     );
 
-  const existing =
-    pagamentos.get(
-      paymentId
-    );
+  const transactionData =
+    data.point_of_interaction &&
+    data.point_of_interaction
+      .transaction_data
+      ? data.point_of_interaction
+          .transaction_data
+      : {};
 
-  if (
-    existing?.processed
-  ) {
-    return user;
-  }
+  const payment = {
+    id:
+      paymentId,
 
-  user.vip = true;
+    userId:
+      user.id,
 
-  user.vipUntil =
-    Date.now() +
-    30 *
-      24 *
-      60 *
-      60 *
-      1000;
+    status:
+      data.status ||
+      "pending",
 
-  user.updatedAt =
-    Date.now();
+    amount:
+      transactionAmount,
 
-  pagamentos.set(
+    externalReference,
+
+    qrCode:
+      transactionData
+        .qr_code ||
+      "",
+
+    qrCodeBase64:
+      transactionData
+        .qr_code_base64 ||
+      "",
+
+    ticketUrl:
+      transactionData
+        .ticket_url ||
+      null,
+
+    createdAt:
+      new Date().toISOString(),
+
+    raw:
+      data,
+  };
+
+  payments.set(
     paymentId,
-    {
-      id:
-        paymentId,
-
-      status:
-        payment.status,
-
-      userId,
-
-      processed:
-        true,
-
-      amount:
-        payment.transaction_amount,
-
-      approvedAt:
-        Date.now(),
-    }
+    payment
   );
 
-  metrics.pixApproved++;
+  metrics.pixCreated++;
 
-  return user;
+  return payment;
 }
 
 /* ============================================================
-   PIX CREATE
+   ATUALIZAÇÃO DE PAGAMENTO
+   ============================================================ */
+
+async function refreshPayment(
+  paymentId
+) {
+  const data =
+    await mpRequest(
+      `/v1/payments/${encodeURIComponent(
+        paymentId
+      )}`,
+      {
+        method: "GET",
+      }
+    );
+
+  const existing =
+    payments.get(
+      String(paymentId)
+    );
+
+  const payment =
+    existing || {
+      id:
+        String(paymentId),
+      userId:
+        null,
+    };
+
+  const previousStatus =
+    payment.status;
+
+  payment.status =
+    data.status ||
+    payment.status ||
+    "pending";
+
+  payment.raw =
+    data;
+
+  payment.updatedAt =
+    new Date().toISOString();
+
+  payments.set(
+    String(paymentId),
+    payment
+  );
+
+  /*
+   * Só contabiliza aprovação
+   * na transição.
+   */
+  if (
+    previousStatus !==
+      "approved" &&
+    payment.status ===
+      "approved"
+  ) {
+    metrics.pixApproved++;
+
+    const user =
+      payment.userId
+        ? users.get(
+            payment.userId
+          )
+        : null;
+
+    if (user) {
+      user.vip = true;
+
+      user.points =
+        Math.max(
+          user.points,
+          100
+        );
+    }
+  }
+
+  return payment;
+}
+
+/* ============================================================
+   ROTAS
+   ============================================================ */
+
+app.get(
+  "/",
+  (req, res) => {
+    res.json({
+      ok: true,
+
+      name:
+        "ClipForge Pro API",
+
+      version:
+        APP_VERSION,
+
+      status:
+        "online",
+
+      timestamp:
+        new Date().toISOString(),
+    });
+  }
+);
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+app.get(
+  "/api/status",
+  (req, res) => {
+    res.json({
+      ok: true,
+
+      service:
+        "ClipForge Pro",
+
+      version:
+        APP_VERSION,
+
+      node:
+        process.version,
+
+      environment:
+        NODE_ENV,
+
+      uptime:
+        process.uptime(),
+
+      gemini: {
+        configured:
+          Boolean(
+            GEMINI_API_KEY
+          ),
+
+        model:
+          GEMINI_MODEL,
+
+        endpoint:
+          GEMINI_ENDPOINT,
+
+        api:
+          "Interactions API",
+      },
+
+      rapidApi: {
+        configured:
+          Boolean(
+            RAPIDAPI_KEY
+          ),
+
+        host:
+          RAPIDAPI_HOST,
+      },
+
+      downloader: {
+        external:
+          Boolean(
+            EXTERNAL_DOWNLOAD_URL
+          ),
+
+        rapidApi:
+          Boolean(
+            RAPIDAPI_KEY
+          ),
+
+        ytDlp:
+          Boolean(
+            YTDLP_PATH
+          ),
+
+        ffmpeg:
+          Boolean(
+            FFMPEG_PATH
+          ),
+
+        ffprobe:
+          Boolean(
+            FFPROBE_PATH
+          ),
+      },
+
+      mercadoPago: {
+        configured:
+          Boolean(
+            MP_ACCESS_TOKEN
+          ),
+      },
+
+      metrics: {
+        requests:
+          metrics.requests,
+
+        analyses:
+          metrics.analyses,
+
+        analysisSuccess:
+          metrics.analysisSuccess,
+
+        analysisFailures:
+          metrics.analysisFailures,
+
+        geminiRequests:
+          metrics.geminiRequests,
+
+        geminiSuccess:
+          metrics.geminiSuccess,
+
+        geminiFailures:
+          metrics.geminiFailures,
+
+        downloads:
+          metrics.downloads,
+
+        downloadSuccess:
+          metrics.downloadSuccess,
+
+        downloadFailures:
+          metrics.downloadFailures,
+      },
+    });
+  }
+);
+
+/* ============================================================
+   LOGIN / SESSÃO
    ============================================================ */
 
 app.post(
-  "/api/pix/create",
+  "/api/auth/login",
+  (req, res) => {
+    const body =
+      req.body || {};
+
+    const userId =
+      safeString(
+        body.userId ||
+          body.user_id ||
+          randomId("user_")
+      );
+
+    const user =
+      getOrCreateUser(
+        userId
+      );
+
+    const token =
+      createSession(
+        user.id
+      );
+
+    res.json({
+      ok: true,
+
+      token,
+
+      user: {
+        id:
+          user.id,
+
+        vip:
+          user.vip,
+
+        points:
+          user.points,
+
+        analyses:
+          user.analyses,
+
+        downloads:
+          user.downloads,
+      },
+    });
+  }
+);
+
+/* ============================================================
+   ME
+   ============================================================ */
+
+app.get(
+  "/api/auth/me",
   requireUser,
-  async (
-    req,
-    res
-  ) => {
-    if (
-      !MP_ACCESS_TOKEN
-    ) {
-      return res.status(503).json({
-        success: false,
+  (req, res) => {
+    const user =
+      req.user;
+
+    res.json({
+      ok: true,
+
+      user: {
+        id:
+          user.id,
+
+        vip:
+          user.vip,
+
+        points:
+          user.points,
+
+        analyses:
+          user.analyses,
+
+        downloads:
+          user.downloads,
+
+        createdAt:
+          user.createdAt,
+
+        lastAnalysisAt:
+          user.lastAnalysisAt,
+
+        lastDownloadAt:
+          user.lastDownloadAt,
+      },
+    });
+  }
+);
+
+/* ============================================================
+   ANÁLISE
+   ============================================================ */
+
+app.post(
+  "/api/analisar",
+  async (req, res) => {
+    metrics.analyses++;
+
+    let user =
+      resolveRequestUser(
+        req
+      );
+
+    /*
+     * Compatibilidade com frontend
+     * que ainda não faz login.
+     */
+    if (!user) {
+      user =
+        getOrCreateUser(
+          randomId("user_")
+        );
+    }
+
+    const body =
+      req.body || {};
+
+    const rawUrl =
+      body.url ||
+      body.youtubeUrl ||
+      body.youtube_url ||
+      body.videoUrl ||
+      body.video_url;
+
+    const normalized =
+      normalizeYouTubeUrl(
+        rawUrl
+      );
+
+    if (!normalized) {
+      metrics.analysisFailures++;
+
+      return res.status(400).json({
+        ok: false,
 
         error:
-          "PIX desativado no momento.",
+          "URL do YouTube inválida.",
+
+        code:
+          "INVALID_YOUTUBE_URL",
       });
     }
 
+    const maxClips =
+      clampNumber(
+        body.maxClips ||
+          body.max_clips,
+        1,
+        12,
+        8
+      );
+
+    const minDuration =
+      clampNumber(
+        body.minDuration ||
+          body.min_duration,
+        10,
+        120,
+        20
+      );
+
+    const maxDuration =
+      clampNumber(
+        body.maxDuration ||
+          body.max_duration,
+        20,
+        180,
+        90
+      );
+
+    if (
+      maxDuration <
+      minDuration
+    ) {
+      metrics.analysisFailures++;
+
+      return res.status(400).json({
+        ok: false,
+
+        error:
+          "maxDuration deve ser maior ou igual a minDuration.",
+      });
+    }
+
+    console.log(
+      "===================================================="
+    );
+
+    console.log(
+      `[Análise] CLIPFORGE ${APP_VERSION}`
+    );
+
+    console.log(
+      `[Análise] Usuário: ${user.id}`
+    );
+
+    console.log(
+      `[Análise] Vídeo: ${normalized.videoId}`
+    );
+
     try {
-      const externalReference =
-        `clipforge-${req.user.id}-${Date.now()}`;
-
-      const payment =
-        await mpRequest(
-          "/v1/payments",
+      const result =
+        await analisarComGemini(
           {
-            method:
-              "POST",
+            youtubeUrl:
+              normalized.url,
 
-            headers: {
-              "X-Idempotency-Key":
-                crypto.randomUUID(),
-            },
+            videoId:
+              normalized.videoId,
 
-            body:
-              JSON.stringify({
-                transaction_amount:
-                  VIP_PRICE,
+            maxClips,
 
-                description:
-                  "ClipForge Pro - VIP",
+            minDuration,
 
-                payment_method_id:
-                  "pix",
-
-                payer: {
-                  email:
-                    req.body?.email ||
-                    MP_PAYER_EMAIL,
-                },
-
-                external_reference:
-                  externalReference,
-              }),
+            maxDuration,
           }
         );
 
-      pagamentos.set(
-        String(
-          payment.id
-        ),
-        {
+      user.analyses++;
+      user.lastAnalysisAt =
+        new Date().toISOString();
+
+      /*
+       * Consome ponto somente
+       * quando a análise foi concluída.
+       */
+      if (!user.vip) {
+        user.points =
+          Math.max(
+            0,
+            user.points - 1
+          );
+      }
+
+      metrics.analysisSuccess++;
+
+      console.log(
+        `[Análise] Sucesso: ${result.clips.length} cortes`
+      );
+
+      return res.json({
+        ok: true,
+
+        version:
+          APP_VERSION,
+
+        video: {
           id:
-            String(
-              payment.id
-            ),
+            normalized.videoId,
 
-          status:
-            payment.status,
+          url:
+            normalized.url,
+        },
 
-          userId:
-            req.user.id,
+        title:
+          result.title,
 
-          processed:
-            false,
+        summary:
+          result.summary,
 
-          createdAt:
-            Date.now(),
+        clips:
+          result.clips,
+
+        count:
+          result.clips.length,
+
+        user: {
+          id:
+            user.id,
+
+          vip:
+            user.vip,
+
+          points:
+            user.points,
+
+          analyses:
+            user.analyses,
+        },
+      });
+    } catch (error) {
+      /*
+       * IMPORTANTE:
+       * não incrementar geminiFailures aqui,
+       * porque analisarComGemini já faz isso.
+       */
+      metrics.analysisFailures++;
+
+      console.error(
+        `[Análise] Erro: ${error.message}`
+      );
+
+      return res.status(500).json({
+        ok: false,
+
+        error:
+          error.message ||
+          "Não foi possível analisar o vídeo.",
+
+        code:
+          "ANALYSIS_FAILED",
+
+        version:
+          APP_VERSION,
+      });
+    }
+  }
+);
+
+/* ============================================================
+   DOWNLOAD / GERAR CORTE
+   ============================================================ */
+
+app.post(
+  "/api/download",
+  async (req, res) => {
+    metrics.downloads++;
+
+    let user =
+      resolveRequestUser(
+        req
+      );
+
+    if (!user) {
+      user =
+        getOrCreateUser(
+          randomId("user_")
+        );
+    }
+
+    const body =
+      req.body || {};
+
+    const rawUrl =
+      body.url ||
+      body.youtubeUrl ||
+      body.youtube_url ||
+      body.videoUrl ||
+      body.video_url;
+
+    const normalized =
+      normalizeYouTubeUrl(
+        rawUrl
+      );
+
+    if (!normalized) {
+      metrics.downloadFailures++;
+
+      return res.status(400).json({
+        ok: false,
+
+        error:
+          "URL do YouTube inválida.",
+
+        code:
+          "INVALID_YOUTUBE_URL",
+      });
+    }
+
+    const start =
+      clampNumber(
+        body.start ??
+          body.startTime ??
+          body.inicio,
+        0,
+        86400,
+        0
+      );
+
+    const end =
+      Number(
+        body.end ??
+          body.endTime ??
+          body.fim
+      );
+
+    let duration;
+
+    if (
+      Number.isFinite(end) &&
+      end > start
+    ) {
+      duration =
+        end - start;
+    } else {
+      duration =
+        clampNumber(
+          body.duration,
+          1,
+          180,
+          60
+        );
+    }
+
+    duration =
+      clampNumber(
+        duration,
+        1,
+        180,
+        60
+      );
+
+    console.log(
+      `[Download] Usuário: ${user.id}`
+    );
+
+    console.log(
+      `[Download] Vídeo: ${normalized.videoId}`
+    );
+
+    console.log(
+      `[Download] Início: ${start}s`
+    );
+
+    console.log(
+      `[Download] Duração: ${duration}s`
+    );
+
+    let original = null;
+
+    let clipPath = null;
+
+    try {
+      original =
+        await downloadOriginalVideo(
+          {
+            youtubeUrl:
+              normalized.url,
+
+            videoId:
+              normalized.videoId,
+          }
+        );
+
+      const probe =
+        await probeVideo(
+          original.path
+        );
+
+      /*
+       * Evita solicitar um trecho
+       * além do tamanho real.
+       */
+      let actualDuration =
+        duration;
+
+      if (
+        Number.isFinite(
+          probe.duration
+        )
+      ) {
+        if (
+          start >=
+          probe.duration
+        ) {
+          throw new Error(
+            "O tempo inicial está além da duração do vídeo."
+          );
+        }
+
+        actualDuration =
+          Math.min(
+            actualDuration,
+            probe.duration -
+              start
+          );
+      }
+
+      if (
+        actualDuration <=
+        0
+      ) {
+        throw new Error(
+          "Duração do corte inválida."
+        );
+      }
+
+      const filename =
+        `clip-${normalized.videoId}-${Date.now()}.mp4`;
+
+      clipPath =
+        path.join(
+          OUTPUT_DIR,
+          filename
+        );
+
+      await renderClip(
+        {
+          inputPath:
+            original.path,
+
+          outputPath:
+            clipPath,
+
+          start,
+
+          duration:
+            actualDuration,
         }
       );
 
-      metrics.pixCreated++;
+      user.downloads++;
+      user.lastDownloadAt =
+        new Date().toISOString();
 
-      const pixData =
-        payment
-          .point_of_interaction
-          ?.transaction_data;
+      metrics.downloadSuccess++;
 
-      res.json({
-        success: true,
+      /*
+       * Express envia arquivo e
+       * remove após terminar.
+       */
+      return res.download(
+        clipPath,
+        filename,
+        async (error) => {
+          await safeRemove(
+            clipPath
+          );
+
+          await safeRemove(
+            original.path
+          );
+
+          if (error) {
+            console.error(
+              "[Download] Erro no envio:",
+              error.message
+            );
+          }
+        }
+      );
+    } catch (error) {
+      metrics.downloadFailures++;
+
+      console.error(
+        `[Download] Erro: ${error.message}`
+      );
+
+      await safeRemove(
+        clipPath
+      );
+
+      if (original) {
+        await safeRemove(
+          original.path
+        );
+      }
+
+      return res.status(500).json({
+        ok: false,
+
+        error:
+          error.message ||
+          "Falha ao gerar o corte.",
+
+        code:
+          "DOWNLOAD_FAILED",
+
+        version:
+          APP_VERSION,
+      });
+    }
+  }
+);
+
+/* ============================================================
+   CRIAR PIX
+   ============================================================ */
+
+app.post(
+  "/api/pix/criar",
+  async (req, res) => {
+    const user =
+      resolveRequestUser(
+        req
+      ) ||
+      getOrCreateUser(
+        randomId("user_")
+      );
+
+    if (!MP_ACCESS_TOKEN) {
+      return res.status(503).json({
+        ok: false,
+
+        error:
+          "Mercado Pago não configurado no servidor.",
+      });
+    }
+
+    const body =
+      req.body || {};
+
+    const amount =
+      body.amount ??
+      body.valor ??
+      body.price ??
+      19.90;
+
+    const description =
+      body.description ||
+      body.descricao ||
+      "ClipForge Pro VIP";
+
+    try {
+      const payment =
+        await createPixPayment(
+          {
+            user,
+
+            amount,
+
+            description,
+          }
+        );
+
+      /*
+       * Compatibilidade com
+       * frontends que usam qr_code.
+       */
+      return res.json({
+        ok: true,
+
+        id:
+          payment.id,
 
         paymentId:
           payment.id,
@@ -4110,287 +3803,468 @@ app.post(
         status:
           payment.status,
 
+        amount:
+          payment.amount,
+
         qrCode:
-          pixData?.qr_code ||
-          null,
+          payment.qrCode,
+
+        qr_code:
+          payment.qrCode,
 
         qrCodeBase64:
-          pixData?.qr_code_base64 ||
-          null,
+          payment.qrCodeBase64,
+
+        qr_code_base64:
+          payment.qrCodeBase64,
 
         ticketUrl:
-          pixData?.ticket_url ||
-          null,
+          payment.ticketUrl,
 
-        amount:
-          VIP_PRICE,
+        ticket_url:
+          payment.ticketUrl,
+
+        externalReference:
+          payment.externalReference,
+
+        external_reference:
+          payment.externalReference,
       });
-    } catch (err) {
-      errorLog(
-        `[PIX] Erro de criação: ${safeErrorText(
-          err.message
-        )}`
+    } catch (error) {
+      metrics.pixRejected++;
+
+      console.error(
+        "[PIX] Erro:",
+        error.message
       );
 
-      res.status(502).json({
-        success: false,
+      return res.status(500).json({
+        ok: false,
 
         error:
-          safeErrorText(
-            err.message
-          ),
+          error.message ||
+          "Não foi possível criar o pagamento Pix.",
       });
     }
   }
 );
 
 /* ============================================================
-   PIX STATUS
+   STATUS PIX
    ============================================================ */
 
 app.get(
-  "/api/pix/status/:paymentId",
-  requireUser,
-  async (
-    req,
-    res
-  ) => {
+  "/api/pix/status/:id",
+  async (req, res) => {
     const paymentId =
-      String(
-        req.params.paymentId ||
-          ""
-      ).trim();
+      req.params.id;
 
     if (!paymentId) {
       return res.status(400).json({
-        success: false,
+        ok: false,
 
         error:
-          "ID de pagamento inválido.",
+          "ID do pagamento não informado.",
       });
     }
 
     try {
       const payment =
-        await mpRequest(
-          `/v1/payments/${encodeURIComponent(
-            paymentId
-          )}`,
-          {
-            method:
-              "GET",
-          }
-        );
-
-      const stored =
-        pagamentos.get(
+        await refreshPayment(
           paymentId
         );
 
-      if (
-        stored &&
-        stored.userId !==
-          req.user.id
-      ) {
-        return res.status(403).json({
-          success: false,
+      return res.json({
+        ok: true,
 
-          error:
-            "Acesso não autorizado.",
-        });
-      }
+        id:
+          payment.id,
 
-      const approvedUser =
-        await processarPagamentoAprovado(
-          payment
-        );
-
-      res.json({
-        success: true,
-
-        paymentId,
+        paymentId:
+          payment.id,
 
         status:
           payment.status,
-
-        statusDetail:
-          payment.status_detail ||
-          null,
 
         approved:
           payment.status ===
           "approved",
 
-        vip:
-          approvedUser
-            ? true
-            : isVip(
-                req.user
-              ),
+        amount:
+          payment.amount,
 
-        user:
-          userPublic(
-            req.user
-          ),
+        userId:
+          payment.userId,
       });
-    } catch (err) {
-      res.status(502).json({
-        success: false,
+    } catch (error) {
+      console.error(
+        "[PIX] Status:",
+        error.message
+      );
+
+      return res.status(500).json({
+        ok: false,
 
         error:
-          safeErrorText(
-            err.message
-          ),
+          error.message ||
+          "Não foi possível consultar o pagamento.",
       });
     }
   }
 );
 
 /* ============================================================
-   PIX WEBHOOK
+   WEBHOOK MERCADO PAGO
    ============================================================ */
 
 app.post(
   "/api/pix/webhook",
-  async (
-    req,
-    res
-  ) => {
+  async (req, res) => {
     /*
-     * Responde imediatamente ao Mercado Pago.
+     * O Mercado Pago pode enviar
+     * diferentes estruturas de
+     * notificação.
      */
-    res.status(200).json({
-      success: true,
-    });
+    const body =
+      req.body || {};
 
-    try {
-      const paymentId =
-        req.body?.data?.id ||
-        req.body?.id ||
-        req.query?.id;
+    console.log(
+      "[Mercado Pago] Webhook recebido:",
+      JSON.stringify(
+        body
+      ).slice(
+        0,
+        3000
+      )
+    );
 
-      if (!paymentId) {
-        return;
-      }
+    /*
+     * Não bloquear webhook apenas
+     * porque a aplicação não possui
+     * segredo configurado.
+     *
+     * O segredo pode ser validado
+     * posteriormente conforme a
+     * configuração da conta.
+     */
 
-      const payment =
-        await mpRequest(
-          `/v1/payments/${encodeURIComponent(
-            String(
-              paymentId
-            )
-          )}`,
-          {
-            method:
-              "GET",
-          }
+    const paymentId =
+      body.data &&
+      body.data.id
+        ? body.data.id
+        : body.id ||
+          body.payment_id ||
+          null;
+
+    if (
+      paymentId
+    ) {
+      try {
+        await refreshPayment(
+          String(
+            paymentId
+          )
         );
-
-      await processarPagamentoAprovado(
-        payment
-      );
-    } catch (err) {
-      errorLog(
-        `[PIX] Webhook erro: ${safeErrorText(
-          err.message
-        )}`
-      );
+      } catch (error) {
+        console.error(
+          "[Mercado Pago] Falha ao atualizar webhook:",
+          error.message
+        );
+      }
     }
+
+    return res.status(200).json({
+      ok: true,
+    });
   }
 );
 
 /* ============================================================
-   CLEANUP
+   ADMIN LOGIN
    ============================================================ */
 
-function cleanupTemp() {
-  try {
+app.post(
+  "/api/admin/login",
+  (req, res) => {
+    if (!ADMIN_PASSWORD) {
+      return res.status(503).json({
+        ok: false,
+
+        error:
+          "ADMIN_PASSWORD não configurada no Render.",
+      });
+    }
+
+    const body =
+      req.body || {};
+
+    const username =
+      safeString(
+        body.username ||
+          body.user ||
+          body.email
+      );
+
+    const password =
+      safeString(
+        body.password
+      );
+
     if (
-      !fs.existsSync(
-        TEMP_DIR
-      )
+      username !==
+        ADMIN_USER ||
+      password !==
+        ADMIN_PASSWORD
     ) {
-      return;
+      return res.status(401).json({
+        ok: false,
+
+        error:
+          "Usuário ou senha inválidos.",
+      });
     }
 
-    const now =
-      Date.now();
+    const token =
+      createAdminSession();
 
-    for (
-      const file of fs.readdirSync(
-        TEMP_DIR
-      )
-    ) {
-      const fullPath =
-        path.join(
-          TEMP_DIR,
-          file
-        );
+    return res.json({
+      ok: true,
 
-      try {
-        const stat =
-          fs.statSync(
-            fullPath
-          );
+      token,
 
-        if (
-          now -
-            stat.mtimeMs >
-          30 *
-            60 *
-            1000
-        ) {
-          fs.rmSync(
-            fullPath,
-            {
-              force: true,
-              recursive: true,
-            }
-          );
-        }
-      } catch {}
-    }
-  } catch (err) {
-    warn(
-      `[Cleanup] ${safeErrorText(
-        err.message
-      )}`
-    );
+      user:
+        ADMIN_USER,
+    });
   }
-}
+);
 
-setInterval(
-  cleanupTemp,
-  15 *
-    60 *
-    1000
-).unref();
+/* ============================================================
+   ADMIN DASHBOARD
+   ============================================================ */
 
-setInterval(
-  () => {
-    const now =
-      Date.now();
+app.get(
+  "/api/admin/dashboard",
+  requireAdmin,
+  (req, res) => {
+    const userList =
+      Array.from(
+        users.values()
+      );
 
-    for (
-      const [
-        token,
-        session,
-      ] of adminSessions
+    const paymentList =
+      Array.from(
+        payments.values()
+      );
+
+    return res.json({
+      ok: true,
+
+      version:
+        APP_VERSION,
+
+      server: {
+        uptime:
+          process.uptime(),
+
+        node:
+          process.version,
+
+        startedAt:
+          metrics.startedAt,
+      },
+
+      users: {
+        total:
+          userList.length,
+
+        vip:
+          userList.filter(
+            (user) =>
+              user.vip
+          ).length,
+
+        analyses:
+          userList.reduce(
+            (
+              total,
+              user
+            ) =>
+              total +
+              user.analyses,
+            0
+          ),
+
+        downloads:
+          userList.reduce(
+            (
+              total,
+              user
+            ) =>
+              total +
+              user.downloads,
+            0
+          ),
+      },
+
+      payments: {
+        total:
+          paymentList.length,
+
+        approved:
+          paymentList.filter(
+            (payment) =>
+              payment.status ===
+              "approved"
+          ).length,
+
+        pending:
+          paymentList.filter(
+            (payment) =>
+              payment.status ===
+              "pending"
+          ).length,
+      },
+
+      metrics,
+
+      configuration: {
+        geminiConfigured:
+          Boolean(
+            GEMINI_API_KEY
+          ),
+
+        geminiModel:
+          GEMINI_MODEL,
+
+        rapidApiConfigured:
+          Boolean(
+            RAPIDAPI_KEY
+          ),
+
+        externalDownloader:
+          Boolean(
+            EXTERNAL_DOWNLOAD_URL
+          ),
+
+        mercadoPagoConfigured:
+          Boolean(
+            MP_ACCESS_TOKEN
+          ),
+
+        ytdlp:
+          YTDLP_PATH,
+
+        ffmpeg:
+          FFMPEG_PATH,
+
+        ffprobe:
+          FFPROBE_PATH,
+      },
+    });
+  }
+);
+
+/* ============================================================
+   ADMIN USERS
+   ============================================================ */
+
+app.get(
+  "/api/admin/users",
+  requireAdmin,
+  (req, res) => {
+    const list =
+      Array.from(
+        users.values()
+      ).map(
+        (user) => ({
+          id:
+            user.id,
+
+          vip:
+            user.vip,
+
+          points:
+            user.points,
+
+          analyses:
+            user.analyses,
+
+          downloads:
+            user.downloads,
+
+          createdAt:
+            user.createdAt,
+
+          lastAnalysisAt:
+            user.lastAnalysisAt,
+
+          lastDownloadAt:
+            user.lastDownloadAt,
+        })
+      );
+
+    res.json({
+      ok: true,
+
+      total:
+        list.length,
+
+      users:
+        list,
+    });
+  }
+);
+
+/* ============================================================
+   ADMIN MÉTRICAS
+   ============================================================ */
+
+app.get(
+  "/api/admin/metrics",
+  requireAdmin,
+  (req, res) => {
+    res.json({
+      ok: true,
+
+      version:
+        APP_VERSION,
+
+      metrics,
+    });
+  }
+);
+
+/* ============================================================
+   LOGOUT
+   ============================================================ */
+
+app.post(
+  "/api/auth/logout",
+  (req, res) => {
+    const auth =
+      req.headers.authorization ||
+      "";
+
+    if (
+      auth.startsWith(
+        "Bearer "
+      )
     ) {
-      if (
-        now >
-        session.expiresAt
-      ) {
-        adminSessions.delete(
-          token
-        );
-      }
+      const token =
+        auth.slice(
+          7
+        ).trim();
+
+      sessions.delete(
+        token
+      );
     }
-  },
-  60 *
-    60 *
-    1000
-).unref();
+
+    res.json({
+      ok: true,
+    });
+  }
+);
 
 /* ============================================================
    404
@@ -4399,13 +4273,16 @@ setInterval(
 app.use(
   (req, res) => {
     res.status(404).json({
-      success: false,
+      ok: false,
 
       error:
         "Rota não encontrada.",
 
       path:
-        req.path,
+        req.originalUrl,
+
+      version:
+        APP_VERSION,
     });
   }
 );
@@ -4416,28 +4293,38 @@ app.use(
 
 app.use(
   (
-    err,
+    error,
     req,
     res,
     next
   ) => {
-    errorLog(
+    metrics.errors++;
+
+    console.error(
       "[Global Error]",
-      err?.stack ||
-        err
+      error
     );
 
     if (
       res.headersSent
     ) {
-      return next(err);
+      return next(
+        error
+      );
     }
 
-    res.status(500).json({
-      success: false,
+    res.status(
+      error.status ||
+        500
+    ).json({
+      ok: false,
 
       error:
+        error.message ||
         "Erro interno do servidor.",
+
+      version:
+        APP_VERSION,
     });
   }
 );
@@ -4446,87 +4333,190 @@ app.use(
    START
    ============================================================ */
 
-app.listen(
-  PORT,
+async function startServer() {
+  await ensureDirectories();
+
+  /*
+   * Limpeza inicial.
+   */
+  await cleanupOldFiles();
+
+  /*
+   * Limpeza periódica.
+   */
+  setInterval(
+    () => {
+      cleanupOldFiles()
+        .catch(
+          () => {}
+        );
+    },
+    30 * 60 * 1000
+  );
+
+  app.listen(
+    PORT,
+    HOST,
+    () => {
+      console.log("");
+      console.log(
+        "===================================================="
+      );
+      console.log(
+        `CLIPFORGE PRO ${APP_VERSION}`
+      );
+      console.log(
+        "===================================================="
+      );
+
+      console.log(
+        `Server: http://${HOST}:${PORT}`
+      );
+
+      console.log(
+        `Node: ${process.version}`
+      );
+
+      console.log(
+        `Environment: ${NODE_ENV}`
+      );
+
+      console.log(
+        `Gemini: ${
+          GEMINI_API_KEY
+            ? "CONFIGURADO"
+            : "NÃO CONFIGURADO"
+        }`
+      );
+
+      console.log(
+        `Gemini Model: ${GEMINI_MODEL}`
+      );
+
+      console.log(
+        `Gemini Endpoint: Interactions API`
+      );
+
+      console.log(
+        `RapidAPI: ${
+          RAPIDAPI_KEY
+            ? "CONFIGURADO"
+            : "NÃO CONFIGURADO"
+        }`
+      );
+
+      console.log(
+        `yt-dlp: ${YTDLP_PATH}`
+      );
+
+      console.log(
+        `FFmpeg: ${FFMPEG_PATH}`
+      );
+
+      console.log(
+        `FFprobe: ${FFPROBE_PATH}`
+      );
+
+      console.log(
+        `Downloader externo: ${
+          EXTERNAL_DOWNLOAD_URL
+            ? "CONFIGURADO"
+            : "NÃO CONFIGURADO"
+        }`
+      );
+
+      console.log(
+        `Mercado Pago: ${
+          MP_ACCESS_TOKEN
+            ? "CONFIGURADO"
+            : "NÃO CONFIGURADO"
+        }`
+      );
+
+      console.log(
+        `Frontend CORS: ${
+          ALLOWED_ORIGINS.join(
+            ", "
+          ) || "Netlify permitido"
+        }`
+      );
+
+      console.log(
+        "===================================================="
+      );
+
+      console.log(
+        "[Gemini] Análise direta de URLs públicas do YouTube ativa."
+      );
+
+      console.log(
+        "[Download] Externo + RapidAPI + FFmpeg + yt-dlp fallback ativo."
+      );
+
+      console.log(
+        "===================================================="
+      );
+      console.log("");
+    }
+  );
+}
+
+/* ============================================================
+   TRATAMENTO DE ENCERRAMENTO
+   ============================================================ */
+
+process.on(
+  "SIGTERM",
   () => {
-    log("");
-
-    log(
-      "===================================================="
+    console.log(
+      "[Server] SIGTERM recebido."
     );
 
-    log(
-      " CLIPFORGE PRO 13.0.4"
-    );
-
-    log(
-      "===================================================="
-    );
-
-    log(
-      ` Porta: ${PORT}`
-    );
-
-    log(
-      ` Node: ${process.version}`
-    );
-
-    log(
-      ` Gemini: ${
-        GEMINI_API_KEY
-          ? "CONFIGURADO"
-          : "NÃO CONFIGURADO"
-      }`
-    );
-
-    log(
-      ` Gemini Model: ${GEMINI_MODEL}`
-    );
-
-    log(
-      ` Gemini Endpoint: generateContent`
-    );
-
-    log(
-      ` RapidAPI: ${
-        RAPIDAPI_KEY
-          ? "CONFIGURADO"
-          : "NÃO CONFIGURADO"
-      }`
-    );
-
-    log(
-      ` yt-dlp: ${
-        ytdlpExiste()
-          ? YTDLP_PATH
-          : "NÃO ENCONTRADO"
-      }`
-    );
-
-    log(
-      ` FFmpeg: ${FFMPEG_PATH}`
-    );
-
-    log(
-      ` FFprobe: ${FFPROBE_PATH}`
-    );
-
-    log(
-      ` Downloader externo: ${
-        EXTERNAL_DOWNLOAD_URL
-          ? "CONFIGURADO"
-          : "NÃO CONFIGURADO"
-      }`
-    );
-
-    log(
-      ` External method: ${EXTERNAL_DOWNLOAD_METHOD}`
-    );
-
-    log(
-      "===================================================="
-    );
-
-    log("");
+    process.exit(0);
   }
 );
+
+process.on(
+  "SIGINT",
+  () => {
+    console.log(
+      "[Server] SIGINT recebido."
+    );
+
+    process.exit(0);
+  }
+);
+
+process.on(
+  "unhandledRejection",
+  (reason) => {
+    console.error(
+      "[Process] Unhandled Rejection:",
+      reason
+    );
+  }
+);
+
+process.on(
+  "uncaughtException",
+  (error) => {
+    console.error(
+      "[Process] Uncaught Exception:",
+      error
+    );
+  }
+);
+
+/* ============================================================
+   START
+   ============================================================ */
+
+startServer()
+  .catch((error) => {
+    console.error(
+      "[FATAL] Não foi possível iniciar o ClipForge:",
+      error
+    );
+
+    process.exit(1);
+  });
