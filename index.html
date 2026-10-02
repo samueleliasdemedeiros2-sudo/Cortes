@@ -15,10 +15,7 @@
 
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none">
 
-  <!-- ========================================================= -->
   <!-- TOAST -->
-  <!-- ========================================================= -->
-
   <div
     id="toast"
     class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl px-4 py-3 flex items-center gap-3 max-w-sm"
@@ -41,11 +38,7 @@
     </div>
   </div>
 
-
-  <!-- ========================================================= -->
   <!-- HEADER -->
-  <!-- ========================================================= -->
-
   <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur-md sticky top-0 z-40">
 
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -59,7 +52,6 @@
         </div>
 
         <div>
-
           <span
             class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-purple-500"
           >
@@ -71,11 +63,9 @@
           >
             v3.3
           </span>
-
         </div>
 
       </div>
-
 
       <div class="flex items-center gap-2">
 
@@ -89,7 +79,6 @@
             Plano Free
           </span>
         </div>
-
 
         <div
           class="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/30 px-3 py-1.5 rounded-xl shadow-inner"
@@ -110,7 +99,6 @@
           </span>
         </div>
 
-
         <button
           onclick="abrirPlanosModal()"
           class="text-xs bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl transition shadow-lg shadow-amber-500/20 active:scale-95 flex items-center gap-1.5"
@@ -118,7 +106,6 @@
           <i class="fa-solid fa-crown text-xs"></i>
           <span>Seja VIP</span>
         </button>
-
 
         <button
           onclick="abrirAdminModal()"
@@ -129,20 +116,13 @@
         </button>
 
       </div>
-
     </div>
-
   </header>
 
-
-  <!-- ========================================================= -->
   <!-- BONUS -->
-  <!-- ========================================================= -->
-
   <div
     class="bg-gradient-to-r from-purple-950/70 via-indigo-950/50 to-slate-900 border-b border-purple-900/40 py-2.5 px-4 text-center text-xs text-purple-200 flex items-center justify-center gap-3"
   >
-
     <span>
       ✨ Todo dia você ganha
       <b>+50 pontos grátis</b>
@@ -155,14 +135,9 @@
     >
       Resgatar Hoje
     </button>
-
   </div>
 
-
-  <!-- ========================================================= -->
   <!-- MAIN -->
-  <!-- ========================================================= -->
-
   <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
 
     <div class="text-center mb-8">
@@ -173,7 +148,6 @@
         <i class="fa-solid fa-bolt text-amber-400"></i>
         Inteligência Artificial Viral
       </div>
-
 
       <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
 
@@ -187,18 +161,13 @@
 
       </h1>
 
-
       <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
         Cole um vídeo do YouTube e deixe a IA encontrar os melhores momentos.
       </p>
 
     </div>
 
-
-    <!-- ======================================================= -->
     <!-- INPUT -->
-    <!-- ======================================================= -->
-
     <div
       class="bg-slate-900 border border-slate-800 p-2 sm:p-3 rounded-2xl shadow-xl shadow-purple-950/20 mb-8"
     >
@@ -221,28 +190,19 @@
 
         </div>
 
-
         <button
           id="btnGerar"
           onclick="gerarCortes()"
           class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium px-6 py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 active:scale-95"
         >
-
           <i class="fa-solid fa-wand-magic-sparkles"></i>
-
           <span>Gerar Cortes</span>
-
         </button>
 
       </div>
-
     </div>
 
-
-    <!-- ======================================================= -->
     <!-- LOADING -->
-    <!-- ======================================================= -->
-
     <div id="loading" class="hidden text-center py-12">
 
       <div
@@ -259,11 +219,7 @@
 
     </div>
 
-
-    <!-- ======================================================= -->
     <!-- CORTES -->
-    <!-- ======================================================= -->
-
     <div id="cortesArea" class="hidden">
 
       <div class="flex items-center justify-between mb-4 gap-3">
@@ -275,7 +231,6 @@
           Melhores Cortes Identificados
         </h2>
 
-
         <span
           class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap"
         >
@@ -283,7 +238,6 @@
         </span>
 
       </div>
-
 
       <div
         class="grid grid-cols-1 md:grid-cols-3 gap-4"
@@ -294,11 +248,7 @@
 
   </main>
 
-
-  <!-- ========================================================= -->
   <!-- MODAL PLANOS -->
-  <!-- ========================================================= -->
-
   <div
     id="modalPlanos"
     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
@@ -314,7 +264,6 @@
       >
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
-
 
       <div class="text-center mb-6">
 
@@ -334,7 +283,6 @@
 
       </div>
 
-
       <div class="space-y-3 mb-6">
 
         <div
@@ -342,7 +290,6 @@
         >
 
           <div>
-
             <span class="font-bold text-slate-300">
               Plano Básico
             </span>
@@ -350,7 +297,6 @@
             <p class="text-slate-500 text-[11px]">
               200 pontos + 50 pts/dia
             </p>
-
           </div>
 
           <span class="text-slate-400">
@@ -358,7 +304,6 @@
           </span>
 
         </div>
-
 
         <div
           class="p-4 rounded-2xl border-2 border-amber-500/60 bg-gradient-to-b from-amber-500/10 via-slate-900 to-slate-950 relative overflow-hidden"
@@ -381,7 +326,6 @@
 
             </div>
 
-
             <div class="text-right">
 
               <span class="text-lg font-black text-white">
@@ -395,7 +339,6 @@
             </div>
 
           </div>
-
 
           <ul class="text-slate-300 space-y-2 text-xs">
 
@@ -422,9 +365,7 @@
           </ul>
 
         </div>
-
       </div>
-
 
       <button
         onclick="assinarVipPix()"
@@ -440,14 +381,9 @@
       </button>
 
     </div>
-
   </div>
 
-
-  <!-- ========================================================= -->
   <!-- MODAL PIX -->
-  <!-- ========================================================= -->
-
   <div
     id="modalPix"
     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
@@ -464,23 +400,19 @@
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
 
-
       <div
         class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-emerald-500/20"
       >
         <i class="fa-brands fa-pix text-2xl"></i>
       </div>
 
-
       <h3 class="text-lg font-bold text-white mb-1">
         Pagamento Pix
       </h3>
 
-
       <p class="text-xs text-slate-400 mb-4">
         Pague <b>R$ 19,90</b> na sua aplicação bancária.
       </p>
-
 
       <div
         class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4 flex flex-col items-center"
@@ -495,11 +427,9 @@
           ></i>
         </div>
 
-
         <p class="text-[11px] text-slate-500 mb-2">
           Pix Copia e Cola:
         </p>
-
 
         <div class="flex w-full gap-1">
 
@@ -510,7 +440,6 @@
             class="w-full bg-slate-900 text-xs px-2.5 py-2 rounded-xl border border-slate-700 text-slate-300 font-mono"
           >
 
-
           <button
             onclick="copiarPix()"
             class="bg-purple-600 hover:bg-purple-500 px-3 rounded-xl text-xs font-semibold transition active:scale-95"
@@ -519,9 +448,7 @@
           </button>
 
         </div>
-
       </div>
-
 
       <div
         id="pixStatusText"
@@ -539,14 +466,9 @@
       </div>
 
     </div>
-
   </div>
 
-
-  <!-- ========================================================= -->
   <!-- MODAL ADMIN -->
-  <!-- ========================================================= -->
-
   <div
     id="modalAdmin"
     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
@@ -563,7 +485,6 @@
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
 
-
       <div id="adminLogin">
 
         <h3
@@ -573,11 +494,9 @@
           Painel de Administração
         </h3>
 
-
         <p class="text-xs text-slate-400 mb-4">
           Introduza a sua senha mestra:
         </p>
-
 
         <input
           id="adminPass"
@@ -585,7 +504,6 @@
           placeholder="Senha do Admin"
           class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm mb-3 text-white focus:outline-none focus:border-purple-500"
         >
-
 
         <button
           onclick="entrarAdmin()"
@@ -596,7 +514,6 @@
 
       </div>
 
-
       <div id="adminPainel" class="hidden">
 
         <h3
@@ -605,7 +522,6 @@
           <i class="fa-solid fa-chart-line text-emerald-400"></i>
           Métricas em Tempo Real
         </h3>
-
 
         <div class="grid grid-cols-2 gap-3 mb-4">
 
@@ -624,7 +540,6 @@
             </p>
           </div>
 
-
           <div
             class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
           >
@@ -640,7 +555,6 @@
             </p>
           </div>
 
-
           <div
             class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
           >
@@ -655,7 +569,6 @@
               0
             </p>
           </div>
-
 
           <div
             class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800"
@@ -673,28 +586,19 @@
           </div>
 
         </div>
-
       </div>
 
     </div>
-
   </div>
 
-
-  <!-- ========================================================= -->
   <!-- FOOTER -->
-  <!-- ========================================================= -->
-
   <footer
     class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500"
   >
-
     <p>
       ClipForge Pro • v3.3 Oficial • Plataforma de Clipes Inteligentes
     </p>
-
   </footer>
-
 
 <script>
 
@@ -705,13 +609,9 @@
   const BACKEND_URL =
     "https://clipforge-server-ikai.onrender.com";
 
-
   let videoAtualId = null;
-
   let pollingInterval = null;
-
   let adminTokenSalvo = null;
-
   let loadingInterval = null;
 
 
@@ -748,13 +648,11 @@
     const icon =
       document.getElementById('toastIcon');
 
-
     document.getElementById('toastTitulo').innerText =
       titulo;
 
     document.getElementById('toastMsg').innerText =
       mensagem;
-
 
     if (
       tipo === 'aviso' ||
@@ -776,11 +674,9 @@
         `<i class="fa-solid fa-coins"></i>`;
     }
 
-
     toast.classList.remove(
       'translate-y-[-150%]'
     );
-
 
     setTimeout(() => {
 
@@ -805,7 +701,6 @@
     const planoSpan =
       document.getElementById('planoNome');
 
-
     if (usuario.isVip) {
 
       saldoSpan.innerText = '∞';
@@ -821,7 +716,6 @@
       planoSpan.innerText =
         'Plano Free';
     }
-
 
     localStorage.setItem(
       'cf_pontos',
@@ -841,7 +735,6 @@
     const hoje =
       new Date().toDateString();
 
-
     if (
       usuario.ultimoBonus === hoje
     ) {
@@ -855,21 +748,17 @@
       return;
     }
 
-
     usuario.pontos += 50;
 
     usuario.ultimoBonus =
       hoje;
-
 
     localStorage.setItem(
       'cf_ultimo_bonus',
       hoje
     );
 
-
     atualizarInterfacePontos();
-
 
     mostrarToast(
       'Bônus Resgatado!',
@@ -880,34 +769,190 @@
 
 
   // ==========================================================
-  // AUXILIARES
+  // EXTRAIR ID DO YOUTUBE — ATUALIZADO
   // ==========================================================
 
-  function extrairVideoId(url) {
+  function extrairVideoId(valor) {
 
-    if (!url) return null;
+    if (!valor) {
+      return null;
+    }
 
-    const limpo =
-      url.trim();
+    let texto =
+      String(valor).trim();
 
+    // Remove aspas
+    texto =
+      texto.replace(
+        /^["']|["']$/g,
+        ''
+      );
 
-    const regExp =
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/;
+    // Decodifica caso a URL esteja codificada
+    try {
 
+      texto =
+        decodeURIComponent(texto);
 
-    const match =
-      limpo.match(regExp);
+    } catch (e) {}
 
+    // --------------------------------------------------------
+    // ID DIRETO
+    // --------------------------------------------------------
 
-    return (
-      match &&
-      match[1]
-    )
-      ? match[1]
-      : null;
+    if (
+      /^[a-zA-Z0-9_-]{11}$/.test(texto)
+    ) {
+
+      return texto;
+
+    }
+
+    // --------------------------------------------------------
+    // URL SEM HTTPS
+    // --------------------------------------------------------
+
+    if (
+      texto.startsWith('youtube.com/') ||
+      texto.startsWith('www.youtube.com/') ||
+      texto.startsWith('m.youtube.com/') ||
+      texto.startsWith('youtu.be/')
+    ) {
+
+      texto =
+        'https://' + texto;
+
+    }
+
+    // --------------------------------------------------------
+    // URL NORMAL
+    // --------------------------------------------------------
+
+    try {
+
+      const url =
+        new URL(texto);
+
+      const hostname =
+        url.hostname.toLowerCase();
+
+      // ------------------------------------------------------
+      // YOUTUBE.COM
+      // ------------------------------------------------------
+
+      if (
+        hostname === 'youtube.com' ||
+        hostname === 'www.youtube.com' ||
+        hostname === 'm.youtube.com'
+      ) {
+
+        // youtube.com/watch?v=ID
+
+        const v =
+          url.searchParams.get('v');
+
+        if (
+          v &&
+          /^[a-zA-Z0-9_-]{11}$/.test(v)
+        ) {
+
+          return v;
+
+        }
+
+        const partes =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        // /shorts/ID
+
+        if (
+          partes[0] === 'shorts' &&
+          partes[1] &&
+          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
+        ) {
+
+          return partes[1];
+
+        }
+
+        // /embed/ID
+
+        if (
+          partes[0] === 'embed' &&
+          partes[1] &&
+          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
+        ) {
+
+          return partes[1];
+
+        }
+
+        // /live/ID
+
+        if (
+          partes[0] === 'live' &&
+          partes[1] &&
+          /^[a-zA-Z0-9_-]{11}$/.test(partes[1])
+        ) {
+
+          return partes[1];
+
+        }
+
+      }
+
+      // ------------------------------------------------------
+      // YOUTU.BE
+      // ------------------------------------------------------
+
+      if (
+        hostname === 'youtu.be' ||
+        hostname === 'www.youtu.be'
+      ) {
+
+        const id =
+          url.pathname
+            .split('/')
+            .filter(Boolean)[0];
+
+        if (
+          id &&
+          /^[a-zA-Z0-9_-]{11}$/.test(id)
+        ) {
+
+          return id;
+
+        }
+
+      }
+
+    } catch (e) {}
+
+    // --------------------------------------------------------
+    // ÚLTIMO FALLBACK
+    // --------------------------------------------------------
+
+    const encontrado =
+      texto.match(
+        /(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([a-zA-Z0-9_-]{11})/
+      );
+
+    if (encontrado) {
+
+      return encontrado[1];
+
+    }
+
+    return null;
 
   }
 
+
+  // ==========================================================
+  // AUXILIARES
+  // ==========================================================
 
   function formatarTempo(segundos) {
 
@@ -919,16 +964,13 @@
         )
       );
 
-
     const minutos =
       Math.floor(
         total / 60
       );
 
-
     const seg =
       total % 60;
-
 
     return `${String(minutos).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
 
@@ -940,26 +982,11 @@
     return String(
       valor ?? ''
     )
-      .replace(
-        /&/g,
-        '&amp;'
-      )
-      .replace(
-        /</g,
-        '&lt;'
-      )
-      .replace(
-        />/g,
-        '&gt;'
-      )
-      .replace(
-        /"/g,
-        '&quot;'
-      )
-      .replace(
-        /'/g,
-        '&#039;'
-      );
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
   }
 
@@ -968,7 +995,6 @@
 
     const btn =
       document.getElementById('btnGerar');
-
 
     if (estado) {
 
@@ -993,13 +1019,14 @@
 
       btn.innerHTML =
         `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gerar Cortes</span>`;
+
     }
 
   }
 
 
   // ==========================================================
-  // TEXTO DE LOADING
+  // LOADING
   // ==========================================================
 
   function iniciarMensagensLoading() {
@@ -1007,40 +1034,31 @@
     const loadingText =
       document.getElementById('loadingText');
 
-
     const mensagens = [
 
       'Preparando o vídeo...',
-
       'Baixando o vídeo temporariamente...',
-
       'Enviando o vídeo para a IA...',
-
       'Gemini está assistindo ao vídeo...',
-
       'Procurando os melhores momentos...',
-
       'Analisando ganchos e retenção...',
-
       'Selecionando os cortes mais interessantes...',
-
       'Finalizando análise...'
 
     ];
-
 
     let indice = 0;
 
     loadingText.innerText =
       mensagens[0];
 
-
     if (loadingInterval) {
+
       clearInterval(
         loadingInterval
       );
-    }
 
+    }
 
     loadingInterval =
       setInterval(() => {
@@ -1079,18 +1097,25 @@
   async function gerarCortes() {
 
     const input =
-      document.getElementById(
-        'videoUrl'
-      );
-
+      document.getElementById('videoUrl');
 
     const url =
       input.value.trim();
 
+    // NOVO: mostra exatamente o que o frontend recebeu
+    console.log(
+      '[ClipForge] URL digitada:',
+      url
+    );
 
     const id =
       extrairVideoId(url);
 
+    // NOVO: mostra exatamente o ID encontrado
+    console.log(
+      '[ClipForge] ID extraído:',
+      id
+    );
 
     if (!id) {
 
@@ -1103,43 +1128,27 @@
       return;
     }
 
-
     videoAtualId =
       id;
-
 
     document
       .getElementById('cortesArea')
       .classList.add('hidden');
 
-
     document
       .getElementById('cardsContainer')
       .innerHTML = '';
-
 
     document
       .getElementById('loading')
       .classList.remove('hidden');
 
-
     setGerando(true);
 
     iniciarMensagensLoading();
 
-
-    /*
-      O backend precisa baixar o vídeo e depois
-      enviar para o Gemini.
-
-      Por isso 7 segundos era muito pouco.
-
-      Agora o frontend aguarda até 10 minutos.
-    */
-
     const controller =
       new AbortController();
-
 
     const timeoutId =
       setTimeout(() => {
@@ -1148,13 +1157,13 @@
 
       }, 600000);
 
-
     try {
 
       const resposta =
         await fetch(
           `${BACKEND_URL}/api/analisar`,
           {
+
             method: 'POST',
 
             headers: {
@@ -1163,21 +1172,30 @@
             },
 
             body: JSON.stringify({
-              youtubeUrl: url,
-              duration: 60,
-              quantity: 3
+
+              youtubeUrl:
+                url,
+
+              videoId:
+                id,
+
+              duration:
+                60,
+
+              quantity:
+                3
+
             }),
 
             signal:
               controller.signal
+
           }
         );
-
 
       clearTimeout(
         timeoutId
       );
-
 
       const data =
         await resposta
@@ -1185,7 +1203,6 @@
           .catch(
             () => ({})
           );
-
 
       if (!resposta.ok) {
 
@@ -1196,7 +1213,6 @@
         );
 
       }
-
 
       if (
         !Array.isArray(data.clips) ||
@@ -1210,11 +1226,9 @@
 
       }
 
-
       finalizarGeracao(
         data.clips
       );
-
 
     } catch (erro) {
 
@@ -1222,27 +1236,22 @@
         timeoutId
       );
 
-
       console.error(
         '[ClipForge] Erro na análise:',
         erro
       );
 
-
       document
         .getElementById('loading')
         .classList.add('hidden');
-
 
       pararMensagensLoading();
 
       setGerando(false);
 
-
       let mensagem =
         erro?.message ||
         'Não foi possível analisar o vídeo.';
-
 
       if (
         erro?.name === 'AbortError'
@@ -1252,7 +1261,6 @@
           'A análise demorou mais de 10 minutos. Verifique o servidor e tente novamente.';
 
       }
-
 
       mostrarToast(
         'Erro na análise',
@@ -1266,28 +1274,21 @@
 
 
   // ==========================================================
-  // FINALIZAR GERAÇÃO
+  // FINALIZAR
   // ==========================================================
 
-  function finalizarGeracao(
-    clips
-  ) {
+  function finalizarGeracao(clips) {
 
     document
       .getElementById('loading')
       .classList.add('hidden');
 
-
     pararMensagensLoading();
 
     setGerando(false);
 
-
     const normalizados =
-      normalizarClips(
-        clips
-      );
-
+      normalizarClips(clips);
 
     if (
       !normalizados.length
@@ -1302,16 +1303,13 @@
       return;
     }
 
-
     renderizarCards(
       normalizados
     );
 
-
     document
       .getElementById('cortesArea')
       .classList.remove('hidden');
-
 
     document
       .getElementById('cortesArea')
@@ -1319,7 +1317,6 @@
         behavior: 'smooth',
         block: 'start'
       });
-
 
     mostrarToast(
       'Cortes Prontos!',
@@ -1333,16 +1330,13 @@
   // NORMALIZAR CORTES
   // ==========================================================
 
-  function normalizarClips(
-    clips
-  ) {
+  function normalizarClips(clips) {
 
     if (
       !Array.isArray(clips)
     ) {
       return [];
     }
-
 
     return clips.map(
       (clip, index) => {
@@ -1354,14 +1348,12 @@
             0
           );
 
-
         const duration =
           Number(
             clip.duration ??
             clip.duracao ??
             55
           );
-
 
         const end =
           Number(
@@ -1373,7 +1365,6 @@
             )
           );
 
-
         return {
 
           id:
@@ -1381,14 +1372,10 @@
             index + 1,
 
           inicio:
-            formatarTempo(
-              start
-            ),
+            formatarTempo(start),
 
           fim:
-            formatarTempo(
-              end
-            ),
+            formatarTempo(end),
 
           startSeg:
             Math.max(
@@ -1399,9 +1386,7 @@
           duracao:
             Math.max(
               1,
-              Math.round(
-                duration
-              )
+              Math.round(duration)
             ),
 
           score:
@@ -1434,57 +1419,37 @@
   // RENDERIZAR CARDS
   // ==========================================================
 
-  function renderizarCards(
-    cortes
-  ) {
+  function renderizarCards(cortes) {
 
     const container =
       document.getElementById(
         'cardsContainer'
       );
 
-
     container.innerHTML = '';
-
 
     cortes.forEach(
       (corte) => {
 
         const card =
-          document.createElement(
-            'div'
-          );
-
+          document.createElement('div');
 
         const score =
           `${Math.round(
-            Number(
-              corte.score
-            )
+            Number(corte.score)
           )}%`;
 
-
         const titulo =
-          escaparHtml(
-            corte.title
-          );
-
+          escaparHtml(corte.title);
 
         const motivo =
-          escaparHtml(
-            corte.reason
-          );
-
+          escaparHtml(corte.reason);
 
         const thumb =
-          escaparHtml(
-            corte.thumbnail
-          );
-
+          escaparHtml(corte.thumbnail);
 
         card.className =
           "bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-500/40 transition";
-
 
         card.innerHTML = `
 
@@ -1506,7 +1471,6 @@
 
             </div>
 
-
             <div
               class="aspect-[9/16] bg-slate-950 rounded-xl overflow-hidden relative mb-4 border border-slate-800 flex items-center justify-center"
             >
@@ -1516,7 +1480,6 @@
                 class="w-full h-full object-cover opacity-60"
                 onerror="this.src='https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg'"
               >
-
 
               <div
                 class="absolute inset-0 flex items-center justify-center"
@@ -1530,7 +1493,6 @@
 
               </div>
 
-
               <span
                 class="absolute bottom-2 left-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
               >
@@ -1541,21 +1503,15 @@
                 }
               </span>
 
-
               <span
                 class="absolute bottom-2 right-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
               >
-                ${escaparHtml(
-                  corte.inicio
-                )}
+                ${escaparHtml(corte.inicio)}
                 →
-                ${escaparHtml(
-                  corte.fim
-                )}
+                ${escaparHtml(corte.fim)}
               </span>
 
             </div>
-
 
             ${
               motivo
@@ -1570,7 +1526,6 @@
             }
 
           </div>
-
 
           <button
             onclick="baixarCorte(${Number(corte.startSeg)}, ${Number(corte.duracao)}, this)"
@@ -1591,10 +1546,7 @@
 
         `;
 
-
-        container.appendChild(
-          card
-        );
+        container.appendChild(card);
 
       }
     );
@@ -1623,7 +1575,6 @@
       return;
     }
 
-
     if (!usuario.isVip) {
 
       if (
@@ -1643,37 +1594,29 @@
 
     }
 
-
     const textoOriginal =
       btn.innerHTML;
 
-
     btn.innerHTML =
       `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Preparando...</span>`;
-
 
     btn.classList.add(
       'pointer-events-none',
       'opacity-70'
     );
 
-
     mostrarToast(
       'Download Iniciado',
       'O servidor está preparando seu corte.'
     );
 
-
     const url =
       `${BACKEND_URL}/api/download?id=${encodeURIComponent(videoAtualId)}&start=${encodeURIComponent(start)}&duration=${encodeURIComponent(duration)}`;
 
-
-    /*
-      Não descontamos os pontos antes do usuário
-      conseguir iniciar o download.
-
-      O endpoint será aberto pelo navegador.
-    */
+    console.log(
+      '[ClipForge] URL de download:',
+      url
+    );
 
     if (!usuario.isVip) {
 
@@ -1683,17 +1626,14 @@
 
     }
 
-
     window.location.assign(
       url
     );
-
 
     setTimeout(() => {
 
       btn.innerHTML =
         `<i class="fa-solid fa-check text-emerald-400"></i><span>Download iniciado</span>`;
-
 
       setTimeout(() => {
 
@@ -1719,12 +1659,8 @@
   function abrirPlanosModal() {
 
     document
-      .getElementById(
-        'modalPlanos'
-      )
-      .classList.remove(
-        'hidden'
-      );
+      .getElementById('modalPlanos')
+      .classList.remove('hidden');
 
   }
 
@@ -1732,12 +1668,8 @@
   function fecharPlanosModal() {
 
     document
-      .getElementById(
-        'modalPlanos'
-      )
-      .classList.add(
-        'hidden'
-      );
+      .getElementById('modalPlanos')
+      .classList.add('hidden');
 
   }
 
@@ -1750,43 +1682,28 @@
 
     fecharPlanosModal();
 
+    document
+      .getElementById('modalPix')
+      .classList.remove('hidden');
 
     document
-      .getElementById(
-        'modalPix'
-      )
-      .classList.remove(
-        'hidden'
-      );
-
-
-    document
-      .getElementById(
-        'pixCopiaCola'
-      )
+      .getElementById('pixCopiaCola')
       .value = '';
 
-
     document
-      .getElementById(
-        'pixQrContainer'
-      )
+      .getElementById('pixQrContainer')
       .innerHTML =
         `
           <i class="fa-solid fa-circle-notch fa-spin text-slate-800 text-4xl"></i>
         `;
 
-
     document
-      .getElementById(
-        'pixStatusText'
-      )
+      .getElementById('pixStatusText')
       .innerHTML =
         `
           <div class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></div>
           <span>Gerando pagamento Pix...</span>
         `;
-
 
     try {
 
@@ -1794,6 +1711,7 @@
         await fetch(
           `${BACKEND_URL}/api/pix/criar`,
           {
+
             method: 'POST',
 
             headers: {
@@ -1802,6 +1720,7 @@
             },
 
             body: JSON.stringify({
+
               userId:
                 'user_123',
 
@@ -1810,10 +1729,11 @@
 
               plano:
                 'VIP'
+
             })
+
           }
         );
-
 
       const data =
         await res
@@ -1821,7 +1741,6 @@
           .catch(
             () => ({})
           );
-
 
       if (!res.ok) {
 
@@ -1832,7 +1751,6 @@
         );
 
       }
-
 
       if (
         !data.qr_code
@@ -1845,19 +1763,13 @@
 
       }
 
-
       document
-        .getElementById(
-          'pixCopiaCola'
-        )
+        .getElementById('pixCopiaCola')
         .value =
           data.qr_code;
 
-
       document
-        .getElementById(
-          'pixQrContainer'
-        )
+        .getElementById('pixQrContainer')
         .innerHTML =
           `
             <img
@@ -1867,22 +1779,17 @@
             >
           `;
 
-
       document
-        .getElementById(
-          'pixStatusText'
-        )
+        .getElementById('pixStatusText')
         .innerHTML =
           `
             <div class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
             <span>Aguardando confirmação do banco...</span>
           `;
 
-
       monitorarPagamentoVip(
         data.id
       );
-
 
     } catch (err) {
 
@@ -1891,28 +1798,21 @@
         err
       );
 
-
       document
-        .getElementById(
-          'pixQrContainer'
-        )
+        .getElementById('pixQrContainer')
         .innerHTML =
           `
             <i class="fa-solid fa-triangle-exclamation text-red-400 text-4xl"></i>
           `;
 
-
       document
-        .getElementById(
-          'pixStatusText'
-        )
+        .getElementById('pixStatusText')
         .innerHTML =
           `
             <span class="text-red-400">
               Não foi possível gerar o Pix.
             </span>
           `;
-
 
       mostrarToast(
         'Erro no Pix',
@@ -1930,20 +1830,15 @@
   // MONITORAR PAGAMENTO
   // ==========================================================
 
-  function monitorarPagamentoVip(
-    paymentId
-  ) {
+  function monitorarPagamentoVip(paymentId) {
 
-    if (
-      pollingInterval
-    ) {
+    if (pollingInterval) {
 
       clearInterval(
         pollingInterval
       );
 
     }
-
 
     pollingInterval =
       setInterval(
@@ -1956,7 +1851,6 @@
                 `${BACKEND_URL}/api/pix/status/${encodeURIComponent(paymentId)}`
               );
 
-
             const d =
               await res
                 .json()
@@ -1964,10 +1858,7 @@
                   () => ({})
                 );
 
-
-            if (
-              !res.ok
-            ) {
+            if (!res.ok) {
 
               console.warn(
                 '[Pix Status]',
@@ -1977,10 +1868,8 @@
               return;
             }
 
-
             if (
-              d.status ===
-              'approved'
+              d.status === 'approved'
             ) {
 
               clearInterval(
@@ -1989,7 +1878,6 @@
 
               pollingInterval =
                 null;
-
 
               ativarVip();
 
@@ -2020,18 +1908,14 @@
     usuario.isVip =
       true;
 
-
     atualizarInterfacePontos();
 
-
     fecharPixModal();
-
 
     mostrarToast(
       '👑 Bem-vindo ao VIP!',
       'Downloads infinitos ativados.'
     );
-
 
     document
       .querySelectorAll(
@@ -2045,7 +1929,6 @@
 
         }
       );
-
 
     document
       .querySelectorAll(
@@ -2087,14 +1970,9 @@
 
     }
 
-
     document
-      .getElementById(
-        'modalPix'
-      )
-      .classList.add(
-        'hidden'
-      );
+      .getElementById('modalPix')
+      .classList.add('hidden');
 
   }
 
@@ -2105,7 +1983,6 @@
       document.getElementById(
         'pixCopiaCola'
       );
-
 
     if (
       !input.value
@@ -2120,16 +1997,13 @@
       return;
     }
 
-
     if (
       navigator.clipboard &&
       navigator.clipboard.writeText
     ) {
 
       navigator.clipboard
-        .writeText(
-          input.value
-        )
+        .writeText(input.value)
         .then(() => {
 
           mostrarToast(
@@ -2178,12 +2052,8 @@
   function abrirAdminModal() {
 
     document
-      .getElementById(
-        'modalAdmin'
-      )
-      .classList.remove(
-        'hidden'
-      );
+      .getElementById('modalAdmin')
+      .classList.remove('hidden');
 
   }
 
@@ -2191,12 +2061,8 @@
   function fecharAdminModal() {
 
     document
-      .getElementById(
-        'modalAdmin'
-      )
-      .classList.add(
-        'hidden'
-      );
+      .getElementById('modalAdmin')
+      .classList.add('hidden');
 
   }
 
@@ -2205,12 +2071,9 @@
 
     const pass =
       document
-        .getElementById(
-          'adminPass'
-        )
+        .getElementById('adminPass')
         .value
         .trim();
-
 
     if (!pass) {
 
@@ -2223,13 +2086,13 @@
       return;
     }
 
-
     try {
 
       const res =
         await fetch(
           `${BACKEND_URL}/api/admin/login`,
           {
+
             method: 'POST',
 
             headers: {
@@ -2242,9 +2105,9 @@
                 password:
                   pass
               })
+
           }
         );
-
 
       const loginData =
         await res
@@ -2252,7 +2115,6 @@
           .catch(
             () => ({})
           );
-
 
       if (!res.ok) {
 
@@ -2263,28 +2125,16 @@
 
       }
 
-
       adminTokenSalvo =
         pass;
 
+      document
+        .getElementById('adminLogin')
+        .classList.add('hidden');
 
       document
-        .getElementById(
-          'adminLogin'
-        )
-        .classList.add(
-          'hidden'
-        );
-
-
-      document
-        .getElementById(
-          'adminPainel'
-        )
-        .classList.remove(
-          'hidden'
-        );
-
+        .getElementById('adminPainel')
+        .classList.remove('hidden');
 
       const dashboardRes =
         await fetch(
@@ -2297,14 +2147,12 @@
           }
         );
 
-
       const d =
         await dashboardRes
           .json()
           .catch(
             () => ({})
           );
-
 
       if (
         !dashboardRes.ok
@@ -2317,16 +2165,22 @@
 
       }
 
+      const metricas =
+        d.metricas ||
+        d.metrics ||
+        {};
+
+      const servidor =
+        d.servidor ||
+        d.system ||
+        {};
 
       const faturamento =
-        d.metricas?.valorArrecadado ??
+        metricas.valorArrecadado ??
         0;
 
-
       document
-        .getElementById(
-          'admFaturamento'
-        )
+        .getElementById('admFaturamento')
         .innerText =
           `R$ ${Number(
             faturamento
@@ -2335,32 +2189,24 @@
             ','
           )}`;
 
-
       document
-        .getElementById(
-          'admVendas'
-        )
+        .getElementById('admVendas')
         .innerText =
-          d.metricas?.totalVendas ??
+          metricas.totalVendas ??
+          metricas.vendas ??
           0;
 
-
       document
-        .getElementById(
-          'admDownloads'
-        )
+        .getElementById('admDownloads')
         .innerText =
-          d.metricas?.totalDownloads ??
+          metricas.totalDownloads ??
+          metricas.downloads ??
           0;
 
-
       document
-        .getElementById(
-          'admRam'
-        )
+        .getElementById('admRam')
         .innerText =
-          `${d.servidor?.memoriaMB ?? d.memoriaUsadaMb ?? 0} MB`;
-
+          `${servidor.memoriaMB ?? d.memoriaUsadaMb ?? 0} MB`;
 
     } catch (err) {
 
@@ -2368,7 +2214,6 @@
         '[Admin]',
         err
       );
-
 
       mostrarToast(
         'Erro',
@@ -2383,7 +2228,7 @@
 
 
   // ==========================================================
-  // FECHAR MODAIS CLICANDO FORA
+  // FECHAR MODAIS
   // ==========================================================
 
   document.addEventListener(
@@ -2405,30 +2250,24 @@
           'modalAdmin'
         );
 
-
       if (
-        event.target ===
-        planos
+        event.target === planos
       ) {
 
         fecharPlanosModal();
 
       }
 
-
       if (
-        event.target ===
-        pix
+        event.target === pix
       ) {
 
         fecharPixModal();
 
       }
 
-
       if (
-        event.target ===
-        admin
+        event.target === admin
       ) {
 
         fecharAdminModal();
@@ -2440,7 +2279,7 @@
 
 
   // ==========================================================
-  // ESC PARA FECHAR MODAIS
+  // ESC
   // ==========================================================
 
   document.addEventListener(
@@ -2448,17 +2287,13 @@
     function(event) {
 
       if (
-        event.key !==
-        'Escape'
+        event.key !== 'Escape'
       ) {
         return;
       }
 
-
       fecharPlanosModal();
-
       fecharPixModal();
-
       fecharAdminModal();
 
     }
