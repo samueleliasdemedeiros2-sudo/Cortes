@@ -2,6 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 let mercadopago = null;
 
@@ -23,11 +26,13 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ----------------------------------------------------
-// CONFIGURAÇÃO
-// ----------------------------------------------------
 
-const PORT = process.env.PORT || 3000;
+// ====================================================
+// CONFIGURAÇÃO
+// ====================================================
+
+const PORT =
+  process.env.PORT || 3000;
 
 const RAPIDAPI_KEY =
   process.env.RAPIDAPI_KEY || '';
@@ -43,9 +48,21 @@ const ADMIN_PASSWORD =
   process.env.ADMIN_PASSWORD || '';
 
 
-// ----------------------------------------------------
+// ====================================================
+// CAMINHO DO YT-DLP
+// ====================================================
+
+const YTDLP_PATH =
+  path.join(
+    __dirname,
+    'bin',
+    'yt-dlp'
+  );
+
+
+// ====================================================
 // MERCADO PAGO
-// ----------------------------------------------------
+// ====================================================
 
 let mpClient = null;
 
@@ -68,27 +85,32 @@ if (
 }
 
 
-// ----------------------------------------------------
+// ====================================================
 // MÉTRICAS
-// ----------------------------------------------------
+// ====================================================
 
 const metricas = {
   totalDownloads: 0,
   totalVendas: 0,
   totalAnalises: 0,
   valorArrecadado: 0.00,
-  inicioOperacao: new Date().toISOString()
+  inicioOperacao:
+    new Date().toISOString()
 };
 
 const pagamentos = new Map();
 
 
-// ----------------------------------------------------
+// ====================================================
 // EXTRAIR VIDEO ID
-// ----------------------------------------------------
+// ====================================================
 
 function extrairVideoId(url) {
-  if (!url || typeof url !== 'string') {
+
+  if (
+    !url ||
+    typeof url !== 'string'
+  ) {
     return null;
   }
 
@@ -104,361 +126,321 @@ function extrairVideoId(url) {
 }
 
 
-// ----------------------------------------------------
-// ROTAS BASE & ADMIN
-// ----------------------------------------------------
+// ====================================================
+// ROTA PRINCIPAL
+// ====================================================
 
 app.get('/', (req, res) => {
+
   res.json({
     status: 'online',
-    versao: '12.4.0-MUX'
+    versao: '12.5.0-YTDLP'
   });
+
 });
+
+
+// ====================================================
+// STATUS
+// ====================================================
 
 app.get('/api/status', (req, res) => {
+
   res.json({
+
     status: 'online',
-    uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-    versao: '12.4.0-MUX'
+
+    uptime:
+      Math.floor(
+        process.uptime()
+      ),
+
+    timestamp:
+      new Date().toISOString(),
+
+    versao:
+      '12.5.0-YTDLP',
+
+    ytDlp:
+      fs.existsSync(YTDLP_PATH)
+        ? 'disponível'
+        : 'não encontrado'
+
   });
+
 });
 
 
-// ----------------------------------------------------
+// ====================================================
 // LOGIN ADMIN
-// ----------------------------------------------------
+// ====================================================
 
-app.post('/api/admin/login', (req, res) => {
-  const { password } =
-    req.body || {};
-
-  if (
-    !ADMIN_PASSWORD ||
-    !password ||
-    password !== ADMIN_PASSWORD
-  ) {
-    return res.status(401).json({
-      error: 'Credencial inválida.'
-    });
-  }
-
-  return res.json({
-    success: true
-  });
-});
-
-
-// ----------------------------------------------------
-// DASHBOARD ADMIN
-// ----------------------------------------------------
-
-app.get('/api/admin/dashboard', (req, res) => {
-  if (
-    !ADMIN_PASSWORD ||
-    req.headers.authorization !== ADMIN_PASSWORD
-  ) {
-    return res.status(401).json({
-      error: 'Não autorizado.'
-    });
-  }
-
-  const memoria =
-    process.memoryUsage();
-
-  return res.json({
-    status: 'online',
-    metricas,
-    memoriaUsadaMb:
-      Math.round(
-        memoria.heapUsed /
-        1024 /
-        1024
-      )
-  });
-});
-
-
-// ----------------------------------------------------
-// ROTA /api/analisar
-// ----------------------------------------------------
-
-app.post('/api/analisar', async (req, res) => {
-  try {
+app.post(
+  '/api/admin/login',
+  (req, res) => {
 
     const {
-      youtubeUrl
+      password
     } = req.body || {};
 
-    if (!youtubeUrl) {
-      return res.status(400).json({
-        error:
-          'Informe a URL do vídeo do YouTube.'
-      });
-    }
-
-    const videoId =
-      extrairVideoId(youtubeUrl);
-
-    if (!videoId) {
-      return res.status(400).json({
-        error:
-          'URL do YouTube inválida.'
-      });
-    }
-
-    metricas.totalAnalises += 1;
-
-    const clips = [
-
-      {
-        id: 1,
-        title:
-          'Gancho Principal: Introdução Impactante',
-
-        reason:
-          'Pico de retenção e introdução perfeita para o feed do TikTok/Reels.',
-
-        start: 35,
-        end: 90,
-        duration: 55,
-        score: 98,
-
-        thumbnail:
-          `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      },
-
-      {
-        id: 2,
-        title:
-          'Clímax & Conversação Dinâmica',
-
-        reason:
-          'Trecho de fala contínua, sem pausas ou silêncio longo.',
-
-        start: 145,
-        end: 200,
-        duration: 55,
-        score: 95,
-
-        thumbnail:
-          `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      },
-
-      {
-        id: 3,
-        title:
-          'Revelação & Desfecho Viral',
-
-        reason:
-          'Excelente gancho para estimular curtidas e comentários.',
-
-        start: 290,
-        end: 345,
-        duration: 55,
-        score: 92,
-
-        thumbnail:
-          `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-      }
-
-    ];
-
-    return res.json({
-      success: true,
-      videoId,
-      clips
-    });
-
-  } catch (error) {
-
-    console.error(
-      '[Analisar Error]:',
-      error.message
-    );
-
-    return res.status(500).json({
-      error:
-        'Erro ao analisar vídeo.'
-    });
-  }
-});
-
-
-// ----------------------------------------------------
-// PAGAMENTOS PIX
-// ----------------------------------------------------
-
-app.post('/api/pix/criar', async (req, res) => {
-
-  const {
-    userId = 'anonimo',
-    valor = 19.90
-  } = req.body || {};
-
-  const valorFormatado =
-    Number(
-      parseFloat(valor).toFixed(2)
-    );
-
-  if (!mpClient) {
-
-    const mockId =
-      `mock_${Date.now()}`;
-
-    pagamentos.set(
-      mockId,
-      {
-        status: 'approved',
-        userId,
-        valor: valorFormatado
-      }
-    );
-
-    return res.json({
-      id: mockId,
-
-      qr_code:
-        '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
-
-      simulado: true
-    });
-  }
-
-  try {
-
-    const payment =
-      new mercadopago.Payment(
-        mpClient
-      );
-
-    const resultado =
-      await payment.create({
-        body: {
-
-          transaction_amount:
-            valorFormatado,
-
-          description:
-            'ClipForge VIP Pro - Assinatura Mensal',
-
-          payment_method_id:
-            'pix',
-
-          payer: {
-
-            email:
-              `user_${Date.now()}@clipforge.com`,
-
-            first_name:
-              'Cliente',
-
-            last_name:
-              'VIP'
-          }
-        }
-      });
-
-    const pixData =
-      resultado
-        ?.point_of_interaction
-        ?.transaction_data;
-
-    if (!pixData?.qr_code) {
-      throw new Error(
-        'Pix sem código'
-      );
-    }
-
-    pagamentos.set(
-      String(resultado.id),
-      {
-        status: 'pending',
-        userId,
-        valor: valorFormatado
-      }
-    );
-
-    return res.json({
-      id: resultado.id,
-
-      qr_code:
-        pixData.qr_code,
-
-      qr_code_base64:
-        pixData.qr_code_base64
-    });
-
-  } catch (error) {
-
-    console.error(
-      '[MercadoPago]',
-      error.message
-    );
-
-    const mockId =
-      `ctg_${Date.now()}`;
-
-    pagamentos.set(
-      mockId,
-      {
-        status: 'approved',
-        userId,
-        valor: valorFormatado
-      }
-    );
-
-    return res.json({
-      id: mockId,
-
-      qr_code:
-        '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
-
-      simulado: true
-    });
-  }
-});
-
-
-// ----------------------------------------------------
-// STATUS PIX
-// ----------------------------------------------------
-
-app.get('/api/pix/status/:id', async (req, res) => {
-
-  const paymentId =
-    String(req.params.id);
-
-  const registro =
-    pagamentos.get(paymentId);
-
-  if (
-    paymentId.startsWith('mock_') ||
-    paymentId.startsWith('ctg_')
-  ) {
-
     if (
-      registro &&
-      registro.status !== 'processado'
+      !ADMIN_PASSWORD ||
+      !password ||
+      password !== ADMIN_PASSWORD
     ) {
 
-      metricas.totalVendas += 1;
+      return res.status(401).json({
+        error:
+          'Credencial inválida.'
+      });
 
-      metricas.valorArrecadado +=
-        Number(
-          registro.valor || 19.90
-        );
-
-      registro.status =
-        'processado';
     }
 
     return res.json({
-      status: 'approved'
+      success: true
     });
-  }
 
-  if (mpClient) {
+  }
+);
+
+
+// ====================================================
+// DASHBOARD ADMIN
+// ====================================================
+
+app.get(
+  '/api/admin/dashboard',
+  (req, res) => {
+
+    if (
+      !ADMIN_PASSWORD ||
+      req.headers.authorization !==
+        ADMIN_PASSWORD
+    ) {
+
+      return res.status(401).json({
+        error:
+          'Não autorizado.'
+      });
+
+    }
+
+    const memoria =
+      process.memoryUsage();
+
+    return res.json({
+
+      status:
+        'online',
+
+      metricas,
+
+      memoriaUsadaMb:
+        Math.round(
+          memoria.heapUsed /
+          1024 /
+          1024
+        )
+
+    });
+
+  }
+);
+
+
+// ====================================================
+// ANALISAR VÍDEO
+// ====================================================
+
+app.post(
+  '/api/analisar',
+  async (req, res) => {
+
+    try {
+
+      const {
+        youtubeUrl
+      } = req.body || {};
+
+      if (!youtubeUrl) {
+
+        return res.status(400).json({
+          error:
+            'Informe a URL do vídeo do YouTube.'
+        });
+
+      }
+
+      const videoId =
+        extrairVideoId(
+          youtubeUrl
+        );
+
+      if (!videoId) {
+
+        return res.status(400).json({
+          error:
+            'URL do YouTube inválida.'
+        });
+
+      }
+
+      metricas.totalAnalises += 1;
+
+
+      const clips = [
+
+        {
+          id: 1,
+
+          title:
+            'Gancho Principal: Introdução Impactante',
+
+          reason:
+            'Pico de retenção e introdução perfeita para o feed do TikTok/Reels.',
+
+          start: 35,
+
+          end: 90,
+
+          duration: 55,
+
+          score: 98,
+
+          thumbnail:
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        },
+
+
+        {
+          id: 2,
+
+          title:
+            'Clímax & Conversação Dinâmica',
+
+          reason:
+            'Trecho de fala contínua, sem pausas ou silêncio longo.',
+
+          start: 145,
+
+          end: 200,
+
+          duration: 55,
+
+          score: 95,
+
+          thumbnail:
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        },
+
+
+        {
+          id: 3,
+
+          title:
+            'Revelação & Desfecho Viral',
+
+          reason:
+            'Excelente gancho para estimular curtidas e comentários.',
+
+          start: 290,
+
+          end: 345,
+
+          duration: 55,
+
+          score: 92,
+
+          thumbnail:
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        }
+
+      ];
+
+
+      return res.json({
+
+        success: true,
+
+        videoId,
+
+        clips
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        '[Analisar Error]:',
+        error.message
+      );
+
+      return res.status(500).json({
+        error:
+          'Erro ao analisar vídeo.'
+      });
+
+    }
+
+  }
+);
+
+
+// ====================================================
+// CRIAR PIX
+// ====================================================
+
+app.post(
+  '/api/pix/criar',
+  async (req, res) => {
+
+    const {
+      userId = 'anonimo',
+      valor = 19.90
+    } = req.body || {};
+
+    const valorFormatado =
+      Number(
+        parseFloat(valor)
+          .toFixed(2)
+      );
+
+
+    // ------------------------------------------------
+    // CONTINGÊNCIA
+    // ------------------------------------------------
+
+    if (!mpClient) {
+
+      const mockId =
+        `mock_${Date.now()}`;
+
+      pagamentos.set(
+        mockId,
+        {
+          status: 'approved',
+          userId,
+          valor: valorFormatado
+        }
+      );
+
+      return res.json({
+
+        id: mockId,
+
+        qr_code:
+          '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
+
+        simulado: true
+
+      });
+
+    }
+
+
+    // ------------------------------------------------
+    // MERCADO PAGO
+    // ------------------------------------------------
 
     try {
 
@@ -467,265 +449,507 @@ app.get('/api/pix/status/:id', async (req, res) => {
           mpClient
         );
 
-      const dados =
-        await payment.get({
-          id: paymentId
+
+      const resultado =
+        await payment.create({
+
+          body: {
+
+            transaction_amount:
+              valorFormatado,
+
+            description:
+              'ClipForge VIP Pro - Assinatura Mensal',
+
+            payment_method_id:
+              'pix',
+
+            payer: {
+
+              email:
+                `user_${Date.now()}@clipforge.com`,
+
+              first_name:
+                'Cliente',
+
+              last_name:
+                'VIP'
+
+            }
+
+          }
+
         });
 
+
+      const pixData =
+        resultado
+          ?.point_of_interaction
+          ?.transaction_data;
+
+
       if (
-        dados.status === 'approved' &&
+        !pixData?.qr_code
+      ) {
+
+        throw new Error(
+          'Pix sem código'
+        );
+
+      }
+
+
+      pagamentos.set(
+        String(resultado.id),
+        {
+
+          status:
+            'pending',
+
+          userId,
+
+          valor:
+            valorFormatado
+
+        }
+      );
+
+
+      return res.json({
+
+        id:
+          resultado.id,
+
+        qr_code:
+          pixData.qr_code,
+
+        qr_code_base64:
+          pixData.qr_code_base64
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        '[MercadoPago]',
+        error.message
+      );
+
+
+      const mockId =
+        `ctg_${Date.now()}`;
+
+
+      pagamentos.set(
+        mockId,
+        {
+
+          status:
+            'approved',
+
+          userId,
+
+          valor:
+            valorFormatado
+
+        }
+      );
+
+
+      return res.json({
+
+        id:
+          mockId,
+
+        qr_code:
+          '00020126580014br.gov.bcb.pix0136pix-clipforge-vip520400005303986540419.905802BR',
+
+        simulado:
+          true
+
+      });
+
+    }
+
+  }
+);
+
+
+// ====================================================
+// STATUS DO PIX
+// ====================================================
+
+app.get(
+  '/api/pix/status/:id',
+  async (req, res) => {
+
+    const paymentId =
+      String(
+        req.params.id
+      );
+
+
+    const registro =
+      pagamentos.get(
+        paymentId
+      );
+
+
+    // ------------------------------------------------
+    // PAGAMENTO SIMULADO
+    // ------------------------------------------------
+
+    if (
+      paymentId.startsWith('mock_') ||
+      paymentId.startsWith('ctg_')
+    ) {
+
+      if (
         registro &&
-        registro.status !== 'approved'
+        registro.status !==
+          'processado'
       ) {
 
         metricas.totalVendas += 1;
 
         metricas.valorArrecadado +=
           Number(
-            registro.valor || 19.90
+            registro.valor ||
+            19.90
           );
 
         registro.status =
-          'approved';
+          'processado';
+
       }
+
 
       return res.json({
-        status: dados.status
+        status:
+          'approved'
       });
 
-    } catch (error) {
-
-      console.error(
-        '[MercadoPago Status]',
-        error.message
-      );
     }
-  }
-
-  return res.json({
-    status:
-      registro?.status ||
-      'pending'
-  });
-});
 
 
-// ----------------------------------------------------
-// RAPIDAPI / MUX
-// VÍDEO + ÁUDIO
-// ----------------------------------------------------
+    // ------------------------------------------------
+    // MERCADO PAGO
+    // ------------------------------------------------
 
-async function extrairStreamOficial(
-  videoId,
-  inicio,
-  duracao
-) {
+    if (mpClient) {
 
-  if (!RAPIDAPI_KEY) {
+      try {
 
-    console.error(
-      '[RapidAPI] RAPIDAPI_KEY não configurada.'
-    );
+        const payment =
+          new mercadopago.Payment(
+            mpClient
+          );
 
-    return null;
-  }
 
-  try {
+        const dados =
+          await payment.get({
+            id:
+              paymentId
+          });
 
-    console.log(
-      `[RapidAPI MUX] Solicitando vídeo ${videoId} em 720p H264...`
-    );
 
-    const response =
-      await axios.get(
-        `https://${RAPIDAPI_HOST}/mux`,
-        {
+        if (
+          dados.status ===
+            'approved' &&
+          registro &&
+          registro.status !==
+            'approved'
+        ) {
 
-          params: {
+          metricas.totalVendas += 1;
 
-            id: videoId,
+          metricas.valorArrecadado +=
+            Number(
+              registro.valor ||
+              19.90
+            );
 
-            quality: '720',
+          registro.status =
+            'approved';
 
-            codec: 'h264',
-
-            audioOnly: false,
-
-            videoOnly: false
-
-          },
-
-          headers: {
-
-            'x-rapidapi-key':
-              RAPIDAPI_KEY,
-
-            'x-rapidapi-host':
-              RAPIDAPI_HOST,
-
-            'User-Agent':
-              'Mozilla/5.0'
-          },
-
-          timeout: 90000
         }
-      );
 
-    const data =
-      response.data;
 
-    console.log(
-      '[RapidAPI MUX DEBUG]',
-      {
-        campos:
-          data &&
-          typeof data === 'object'
-            ? Object.keys(data)
-            : [],
+        return res.json({
+          status:
+            dados.status
+        });
 
-        status:
-          data?.status || null,
 
-        filename:
-          data?.filename || null,
+      } catch (error) {
 
-        temUrl:
-          typeof data?.url === 'string',
+        console.error(
+          '[MercadoPago Status]',
+          error.message
+        );
 
-        temResultUrl:
-          typeof data?.result?.url === 'string'
       }
-    );
 
-
-    // ----------------------------------------------
-    // URL PRINCIPAL
-    // ----------------------------------------------
-
-    if (
-      typeof data?.url === 'string' &&
-      data.url.length > 20
-    ) {
-
-      console.log(
-        '[RapidAPI MUX] URL muxada encontrada.'
-      );
-
-      return data.url;
     }
 
 
-    // ----------------------------------------------
-    // RESULT.URL
-    // ----------------------------------------------
+    return res.json({
 
-    if (
-      typeof data?.result?.url === 'string' &&
-      data.result.url.length > 20
-    ) {
+      status:
+        registro?.status ||
+        'pending'
 
-      console.log(
-        '[RapidAPI MUX] URL encontrada em result.url.'
-      );
+    });
 
-      return data.result.url;
-    }
+  }
+);
 
 
-    // ----------------------------------------------
-    // DOWNLOAD_URL
-    // ----------------------------------------------
+// ====================================================
+// VERIFICAR YT-DLP
+// ====================================================
 
-    if (
-      typeof data?.download_url === 'string' &&
-      data.download_url.length > 20
-    ) {
+function verificarYtDlp() {
 
-      console.log(
-        '[RapidAPI MUX] Download URL encontrada.'
-      );
+  if (
+    !fs.existsSync(
+      YTDLP_PATH
+    )
+  ) {
 
-      return data.download_url;
-    }
-
-
-    // ----------------------------------------------
-    // RESULT.DOWNLOAD_URL
-    // ----------------------------------------------
-
-    if (
-      typeof data?.result?.download_url === 'string' &&
-      data.result.download_url.length > 20
-    ) {
-
-      console.log(
-        '[RapidAPI MUX] result.download_url encontrada.'
-      );
-
-      return data.result.download_url;
-    }
-
-
-    console.error(
-      '[RapidAPI MUX] Nenhuma URL de vídeo foi retornada.'
+    throw new Error(
+      'yt-dlp não encontrado em ' +
+      YTDLP_PATH
     );
 
-    console.error(
-      '[RapidAPI MUX] Resposta:',
-      JSON.stringify(data)
-    );
-
-  } catch (error) {
-
-    console.error(
-      '[RapidAPI MUX Error]:',
-      error.response?.data ||
-      error.message
-    );
   }
 
-  return null;
 }
 
 
-// ----------------------------------------------------
-// MOTOR DE DOWNLOAD FFMPEG
-// VÍDEO + ÁUDIO
-// ----------------------------------------------------
+// ====================================================
+// BAIXAR COM YT-DLP
+// ====================================================
+//
+// Aqui está a mudança principal.
+//
+// O yt-dlp:
+// 1. encontra o vídeo;
+// 2. seleciona vídeo até 720p;
+// 3. seleciona áudio;
+// 4. baixa os dois;
+// 5. usa FFmpeg para unir;
+// 6. baixa somente o trecho solicitado.
+//
+// ====================================================
 
-function executarDownloadComFfmpeg(
-  streamUrl,
+function baixarTrechoComYtDlp(
+  videoId,
   inicio,
+  duracao,
+  arquivoSaida
+) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      try {
+
+        verificarYtDlp();
+
+      } catch (error) {
+
+        reject(error);
+
+        return;
+
+      }
+
+
+      const fim =
+        inicio + duracao;
+
+
+      const youtubeUrl =
+        `https://www.youtube.com/watch?v=${videoId}`;
+
+
+      const argumentos = [
+
+        '--no-playlist',
+
+        '--no-warnings',
+
+        '--newline',
+
+        '--no-part',
+
+        '--restrict-filenames',
+
+        '--format',
+        'bv*[height<=720]+ba/b[height<=720]/b',
+
+        '--merge-output-format',
+        'mp4',
+
+        '--download-sections',
+        `*${inicio}-${fim}`,
+
+        '--output',
+        arquivoSaida,
+
+        youtubeUrl
+
+      ];
+
+
+      console.log(
+        `[yt-dlp] Baixando ${videoId} — ${inicio}s até ${fim}s`
+      );
+
+
+      console.log(
+        `[yt-dlp] Arquivo temporário: ${arquivoSaida}`
+      );
+
+
+      const processo =
+        spawn(
+          YTDLP_PATH,
+          argumentos,
+          {
+            stdio: [
+              'ignore',
+              'pipe',
+              'pipe'
+            ]
+          }
+        );
+
+
+      let stdout =
+        '';
+
+      let stderr =
+        '';
+
+
+      processo.stdout.on(
+        'data',
+        dados => {
+
+          const texto =
+            dados.toString();
+
+          stdout += texto;
+
+          console.log(
+            '[yt-dlp]',
+            texto.trim()
+          );
+
+        }
+      );
+
+
+      processo.stderr.on(
+        'data',
+        dados => {
+
+          const texto =
+            dados.toString();
+
+          stderr += texto;
+
+          console.log(
+            '[yt-dlp stderr]',
+            texto.trim()
+          );
+
+        }
+      );
+
+
+      processo.on(
+        'error',
+        error => {
+
+          console.error(
+            '[yt-dlp process error]:',
+            error.message
+          );
+
+          reject(error);
+
+        }
+      );
+
+
+      processo.on(
+        'close',
+        codigo => {
+
+          if (
+            codigo === 0
+          ) {
+
+            console.log(
+              '[yt-dlp] Download concluído.'
+            );
+
+            resolve();
+
+            return;
+
+          }
+
+
+          const mensagem =
+            stderr.trim() ||
+            stdout.trim() ||
+            `yt-dlp encerrou com código ${codigo}`;
+
+
+          console.error(
+            '[yt-dlp] Erro:',
+            mensagem
+          );
+
+
+          reject(
+            new Error(
+              mensagem
+            )
+          );
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+// ====================================================
+// PROCESSAR MP4 COM FFMPEG
+// ====================================================
+//
+// O arquivo já vem com vídeo + áudio.
+// Aqui apenas reduzimos para 360p e
+// entregamos pelo HTTP.
+//
+// ====================================================
+
+function executarProcessamentoFfmpeg(
+  arquivoEntrada,
   duracao,
   res
 ) {
 
   return new Promise(
     (resolve, reject) => {
-
-      const headers = [
-        'Referer: https://www.youtube.com/',
-        'Origin: https://www.youtube.com',
-        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      ].join('\r\n') + '\r\n';
-
-
-      let finalizado =
-        false;
-
-
-      function finalizarErro(error) {
-
-        if (finalizado) {
-          return;
-        }
-
-        finalizado =
-          true;
-
-        reject(error);
-      }
-
 
       const argumentos = [
 
@@ -734,19 +958,9 @@ function executarDownloadComFfmpeg(
         '-loglevel',
         'error',
 
-        // Headers
-        '-headers',
-        headers,
-
-        // Busca pelo ponto inicial
-        '-ss',
-        String(inicio),
-
-        // Entrada
         '-i',
-        streamUrl,
+        arquivoEntrada,
 
-        // Duração
         '-t',
         String(duracao),
 
@@ -807,7 +1021,7 @@ function executarDownloadComFfmpeg(
 
 
         // ------------------------------------------
-        // MP4 STREAMING
+        // MP4
         // ------------------------------------------
 
         '-movflags',
@@ -817,11 +1031,12 @@ function executarDownloadComFfmpeg(
         'mp4',
 
         'pipe:1'
+
       ];
 
 
       console.log(
-        `[FFmpeg] Gerando corte ${inicio}s + ${duracao}s com vídeo + áudio...`
+        '[FFmpeg] Processando vídeo + áudio para 360p...'
       );
 
 
@@ -839,7 +1054,8 @@ function executarDownloadComFfmpeg(
         );
 
 
-      let erro = '';
+      let erro =
+        '';
 
 
       processo.stderr.on(
@@ -848,6 +1064,7 @@ function executarDownloadComFfmpeg(
 
           erro +=
             dados.toString();
+
         }
       );
 
@@ -857,14 +1074,17 @@ function executarDownloadComFfmpeg(
         error => {
 
           if (
-            error.code !== 'EPIPE'
+            error.code !==
+              'EPIPE'
           ) {
 
             console.error(
               '[FFmpeg stdout error]:',
               error.message
             );
+
           }
+
         }
       );
 
@@ -883,9 +1103,8 @@ function executarDownloadComFfmpeg(
             error.message
           );
 
-          finalizarErro(
-            error
-          );
+          reject(error);
+
         }
       );
 
@@ -898,9 +1117,6 @@ function executarDownloadComFfmpeg(
             codigo === 0
           ) {
 
-            finalizado =
-              true;
-
             console.log(
               '[FFmpeg] Corte finalizado com vídeo + áudio.'
             );
@@ -908,21 +1124,22 @@ function executarDownloadComFfmpeg(
             resolve();
 
             return;
+
           }
 
 
-          // Cliente encerrou
-          // a conexão.
+          // ------------------------------------------------
+          // Cliente fechou a conexão.
+          // ------------------------------------------------
+
           if (
             codigo === null
           ) {
 
-            finalizado =
-              true;
-
             resolve();
 
             return;
+
           }
 
 
@@ -932,12 +1149,13 @@ function executarDownloadComFfmpeg(
           );
 
 
-          finalizarErro(
+          reject(
             new Error(
               erro ||
               `FFmpeg encerrou com código ${codigo}`
             )
           );
+
         }
       );
 
@@ -958,18 +1176,60 @@ function executarDownloadComFfmpeg(
               );
 
             } catch (e) {}
+
           }
+
         }
       );
 
     }
   );
+
 }
 
 
-// ----------------------------------------------------
+// ====================================================
+// LIMPAR ARQUIVO TEMPORÁRIO
+// ====================================================
+
+function apagarArquivo(
+  arquivo
+) {
+
+  try {
+
+    if (
+      fs.existsSync(
+        arquivo
+      )
+    ) {
+
+      fs.unlinkSync(
+        arquivo
+      );
+
+      console.log(
+        '[Temp] Arquivo removido:',
+        arquivo
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      '[Temp] Não foi possível remover:',
+      error.message
+    );
+
+  }
+
+}
+
+
+// ====================================================
 // ROTA DE DOWNLOAD
-// ----------------------------------------------------
+// ====================================================
 
 app.get(
   '/api/download',
@@ -995,17 +1255,28 @@ app.get(
       );
 
 
+    // ------------------------------------------------
+    // VALIDAR ID
+    // ------------------------------------------------
+
     if (
       !videoId ||
       videoId.length < 5
     ) {
 
       return res.status(400).json({
+
         error:
           'ID do vídeo inválido.'
+
       });
+
     }
 
+
+    // ------------------------------------------------
+    // VALIDAR START
+    // ------------------------------------------------
 
     if (
       !Number.isFinite(start) ||
@@ -1013,8 +1284,13 @@ app.get(
     ) {
 
       start = 0;
+
     }
 
+
+    // ------------------------------------------------
+    // VALIDAR DURAÇÃO
+    // ------------------------------------------------
 
     if (
       !Number.isFinite(duration) ||
@@ -1022,9 +1298,11 @@ app.get(
     ) {
 
       duration = 55;
+
     }
 
 
+    // Máximo de 120 segundos
     duration =
       Math.min(
         duration,
@@ -1032,32 +1310,90 @@ app.get(
       );
 
 
+    const arquivoTemporario =
+      path.join(
+        os.tmpdir(),
+        `clipforge_${videoId}_${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`
+      );
+
+
     try {
 
-      // --------------------------------------------
-      // PEGA VÍDEO MUXADO
-      // --------------------------------------------
+      console.log(
+        '=========================================='
+      );
 
-      const streamUrl =
-        await extrairStreamOficial(
-          videoId,
-          start,
-          duration
+      console.log(
+        `[Download] Iniciando ${videoId}`
+      );
+
+      console.log(
+        `[Download] Início: ${start}s`
+      );
+
+      console.log(
+        `[Download] Duração: ${duration}s`
+      );
+
+      console.log(
+        '=========================================='
+      );
+
+
+      // ------------------------------------------------
+      // 1. YT-DLP
+      // ------------------------------------------------
+
+      await baixarTrechoComYtDlp(
+        videoId,
+        start,
+        duration,
+        arquivoTemporario
+      );
+
+
+      // ------------------------------------------------
+      // VERIFICAR ARQUIVO
+      // ------------------------------------------------
+
+      if (
+        !fs.existsSync(
+          arquivoTemporario
+        )
+      ) {
+
+        throw new Error(
+          'yt-dlp terminou sem gerar o arquivo.'
         );
 
-
-      if (!streamUrl) {
-
-        return res.status(503).json({
-          error:
-            'Não foi possível obter o vídeo para download.'
-        });
       }
 
 
-      // --------------------------------------------
+      const tamanho =
+        fs.statSync(
+          arquivoTemporario
+        ).size;
+
+
+      console.log(
+        `[Download] Arquivo gerado: ${Math.round(tamanho / 1024 / 1024 * 100) / 100} MB`
+      );
+
+
+      if (
+        tamanho < 1000
+      ) {
+
+        throw new Error(
+          'Arquivo gerado está vazio ou inválido.'
+        );
+
+      }
+
+
+      // ------------------------------------------------
       // NOME DO ARQUIVO
-      // --------------------------------------------
+      // ------------------------------------------------
 
       const safeId =
         videoId.replace(
@@ -1084,13 +1420,12 @@ app.get(
       );
 
 
-      // --------------------------------------------
-      // FFMPEG
-      // --------------------------------------------
+      // ------------------------------------------------
+      // 2. FFMPEG
+      // ------------------------------------------------
 
-      await executarDownloadComFfmpeg(
-        streamUrl,
-        start,
+      await executarProcessamentoFfmpeg(
+        arquivoTemporario,
         duration,
         res
       );
@@ -1100,7 +1435,7 @@ app.get(
 
 
       console.log(
-        `[Download] Download concluído: ${safeId} / ${start}s / ${duration}s`
+        `[Download] Finalizado com sucesso: ${safeId}`
       );
 
 
@@ -1117,18 +1452,34 @@ app.get(
       ) {
 
         return res.status(500).json({
+
           error:
-            'Erro temporário no download.'
+            'Não foi possível gerar o corte. ' +
+            error.message
+
         });
+
       }
+
+    } finally {
+
+      // ------------------------------------------------
+      // LIMPAR TEMP
+      // ------------------------------------------------
+
+      apagarArquivo(
+        arquivoTemporario
+      );
+
     }
+
   }
 );
 
 
-// ----------------------------------------------------
+// ====================================================
 // INICIALIZAÇÃO
-// ----------------------------------------------------
+// ====================================================
 
 app.listen(
   PORT,
@@ -1136,10 +1487,9 @@ app.listen(
   () => {
 
     console.log(
-      '[ClipForge Core] Servidor operacional na porta ' +
-      PORT +
-      ' [v12.4.0-MUX]'
+      `[ClipForge Core] Servidor operacional na porta ${PORT} [v12.5.0-YTDLP]`
     );
+
 
     console.log(
       `[RapidAPI] ${
@@ -1149,6 +1499,7 @@ app.listen(
       }`
     );
 
+
     console.log(
       `[Mercado Pago] ${
         mpClient
@@ -1157,8 +1508,19 @@ app.listen(
       }`
     );
 
+
     console.log(
-      '[Download] Sistema MUX + FFmpeg ativo.'
+      `[yt-dlp] ${
+        fs.existsSync(YTDLP_PATH)
+          ? 'Disponível'
+          : 'NÃO ENCONTRADO'
+      }`
     );
+
+
+    console.log(
+      '[Download] Sistema yt-dlp + FFmpeg ativo.'
+    );
+
   }
 );
