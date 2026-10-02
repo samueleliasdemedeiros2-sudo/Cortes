@@ -829,7 +829,7 @@ function executarDownloadComFfmpeg(
         // ------------------------------------------
 
         '-map',
-        '0:a:0',
+        '0:a:0?',
 
         '-c:a',
         'aac',
