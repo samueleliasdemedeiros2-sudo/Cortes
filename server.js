@@ -1,19 +1,16 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.2.4 COMPLETO
+ * CLIPFORGE PRO — BACKEND 13.2.4 COMPLETO & ESTÁVEL
  * Node.js + Express
  *
- * PRINCIPAIS RECURSOS
+ * PRINCIPAIS CORREÇÕES APLICADAS:
  * ------------------------------------------------------------
- * - Gemini REST nativo para Upload e Inferência
- * - Gemini Files API para MP4 (v1beta/files)
- * - Gemini Interactions API para YouTube
- * - URLs Gemini limpas e tratadas
- * - Fallback automático de modelos com tratamento 404/429/503/504
- * - Upload MP4 direto até 150 MB (independente de YouTube)
- * - FFmpeg e FFprobe com resolução real por teste de execução
- * - yt-dlp com suporte a cookies
- * - Mercado Pago PIX e Dashboard Administrativo
+ * - commandExists ajustado: FFmpeg/FFprobe usam -version (1 traço)
+ *   e yt-dlp usa --version (2 traços), acabando com o erro de parser
+ * - Todas as URLs do Gemini puras em formato string literal
+ * - Gemini REST nativo completo (Upload resumable + generateContent)
+ * - YTDLP_COOKIES_FILE declarado e funcional
+ * - Resolução de binários com fallback detalhado
  * ============================================================
  */
 
@@ -423,9 +420,17 @@ function spawnCapture(command, args, options = {}) {
   });
 }
 
+/**
+ * Validação precisa:
+ * - FFmpeg e FFprobe exigem "-version" (1 traço)
+ * - yt-dlp aceita "--version" (2 traços)
+ */
 async function commandExists(command) {
   try {
-    const result = await spawnCapture(command, ["--version"], {
+    const isYtDlp = String(command).toLowerCase().includes("yt-dlp");
+    const testArgs = isYtDlp ? ["--version"] : ["-version"];
+
+    const result = await spawnCapture(command, testArgs, {
       timeout: 15000,
     });
 
