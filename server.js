@@ -1,24 +1,26 @@
 /**
  * ============================================================
  * CLIPFORGE PRO
- * Backend 13.0.6
+ * Backend 13.0.7
  * ============================================================
  *
  * Node.js + Express
  *
  * PRINCIPAIS RECURSOS:
- * - Gemini Interactions API oficial
+ * - Gemini Interactions API
  * - Gemini 3.8 Flash
- * - Análise multimodal direta de URLs públicas do YouTube
- * - Saída estruturada JSON via response_format + schema
- * - Pipeline de download:
- *      Downloader Externo -> RapidAPI -> yt-dlp
- * - FFmpeg H.264 + AAC + yuv420p + faststart
+ * - Análise direta de URLs públicas do YouTube
+ * - Structured Output JSON
+ * - Downloader Externo
+ * - RapidAPI
+ * - yt-dlp fallback
+ * - FFmpeg H.264 + AAC
+ * - CORS para Netlify/Vercel
  * - Autenticação por sessão
  * - Sistema de pontos
- * - Integração Mercado Pago Pix
+ * - Mercado Pago PIX
  * - Dashboard administrativo
- * - Limpeza automática de arquivos temporários
+ * - Limpeza automática
  *
  * ============================================================
  */
@@ -37,16 +39,22 @@ const { pipeline } = require("stream/promises");
 const { Readable } = require("stream");
 
 /* ============================================================
-   CONFIGURAÇÃO GERAL
+   CONFIGURAÇÃO
    ============================================================ */
 
-const APP_VERSION = "13.0.6";
+const APP_VERSION = "13.0.7";
 
 const app = express();
 
-const PORT = Number(process.env.PORT || 10000);
-const HOST = process.env.HOST || "0.0.0.0";
-const NODE_ENV = process.env.NODE_ENV || "production";
+const PORT = Number(
+  process.env.PORT || 10000
+);
+
+const HOST =
+  process.env.HOST || "0.0.0.0";
+
+const NODE_ENV =
+  process.env.NODE_ENV || "production";
 
 /* ============================================================
    GEMINI
@@ -65,7 +73,7 @@ const GEMINI_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 /* ============================================================
-   DOWNLOAD
+   DOWNLOADERS
    ============================================================ */
 
 const RAPIDAPI_KEY =
@@ -87,7 +95,11 @@ const EXTERNAL_DOWNLOAD_TOKEN =
 
 const YTDLP_PATH =
   process.env.YTDLP_PATH ||
-  path.join(process.cwd(), "bin", "yt-dlp");
+  path.join(
+    process.cwd(),
+    "bin",
+    "yt-dlp"
+  );
 
 const FFMPEG_PATH =
   process.env.FFMPEG_PATH ||
@@ -141,6 +153,7 @@ const ALLOWED_ORIGINS = [
     [
       ...DEFAULT_ALLOWED_ORIGINS,
       FRONTEND_URL,
+
       ...(process.env.ALLOWED_ORIGINS || "")
         .split(",")
         .map((x) => x.trim())
@@ -154,13 +167,22 @@ const ALLOWED_ORIGINS = [
    ============================================================ */
 
 const TEMP_ROOT =
-  path.join(os.tmpdir(), "clipforge-pro");
+  path.join(
+    os.tmpdir(),
+    "clipforge-pro"
+  );
 
 const DOWNLOAD_DIR =
-  path.join(TEMP_ROOT, "downloads");
+  path.join(
+    TEMP_ROOT,
+    "downloads"
+  );
 
 const OUTPUT_DIR =
-  path.join(TEMP_ROOT, "outputs");
+  path.join(
+    TEMP_ROOT,
+    "outputs"
+  );
 
 /* ============================================================
    MEMÓRIA
@@ -176,7 +198,8 @@ const payments = new Map();
    ============================================================ */
 
 const metrics = {
-  startedAt: new Date().toISOString(),
+  startedAt:
+    new Date().toISOString(),
 
   requests: 0,
 
@@ -193,8 +216,14 @@ const metrics = {
   downloadFailures: 0,
 
   externalDownloadAttempts: 0,
+
   rapidApiAttempts: 0,
+  rapidApiRateLimited: 0,
+  rapidApiFailures: 0,
+
   ytdlpAttempts: 0,
+  ytdlpFailures: 0,
+  ytdlpAntiBot: 0,
 
   pixCreated: 0,
   pixApproved: 0,
@@ -212,21 +241,40 @@ function now() {
 }
 
 function randomId(prefix = "") {
-  return prefix + crypto.randomBytes(12).toString("hex");
+  return (
+    prefix +
+    crypto
+      .randomBytes(12)
+      .toString("hex")
+  );
 }
 
-function safeString(value, fallback = "") {
-  if (value === undefined || value === null) {
+function safeString(
+  value,
+  fallback = ""
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
     return fallback;
   }
 
   return String(value);
 }
 
-function clampNumber(value, min, max, fallback) {
-  const number = Number(value);
+function clampNumber(
+  value,
+  min,
+  max,
+  fallback
+) {
+  const number =
+    Number(value);
 
-  if (!Number.isFinite(number)) {
+  if (
+    !Number.isFinite(number)
+  ) {
     return fallback;
   }
 
@@ -240,32 +288,46 @@ function clampNumber(value, min, max, fallback) {
    YOUTUBE
    ============================================================ */
 
-function extractYouTubeVideoId(input) {
+function extractYouTubeVideoId(
+  input
+) {
   if (!input) {
     return null;
   }
 
-  const value = String(input).trim();
+  const value =
+    String(input).trim();
 
-  if (/^[a-zA-Z0-9_-]{11}$/.test(value)) {
+  if (
+    /^[a-zA-Z0-9_-]{11}$/.test(
+      value
+    )
+  ) {
     return value;
   }
 
   try {
-    const url = new URL(value);
+    const url =
+      new URL(value);
 
     const host =
       url.hostname.toLowerCase();
 
     if (
-      host.includes("youtube.com")
+      host.includes(
+        "youtube.com"
+      )
     ) {
       const queryId =
-        url.searchParams.get("v");
+        url.searchParams.get(
+          "v"
+        );
 
       if (
         queryId &&
-        /^[a-zA-Z0-9_-]{11}$/.test(queryId)
+        /^[a-zA-Z0-9_-]{11}$/.test(
+          queryId
+        )
       ) {
         return queryId;
       }
@@ -290,7 +352,9 @@ function extractYouTubeVideoId(input) {
           .split("/")[0];
 
       if (
-        /^[a-zA-Z0-9_-]{11}$/.test(id)
+        /^[a-zA-Z0-9_-]{11}$/.test(
+          id
+        )
       ) {
         return id;
       }
@@ -302,9 +366,13 @@ function extractYouTubeVideoId(input) {
   return null;
 }
 
-function normalizeYouTubeUrl(input) {
+function normalizeYouTubeUrl(
+  input
+) {
   const videoId =
-    extractYouTubeVideoId(input);
+    extractYouTubeVideoId(
+      input
+    );
 
   if (!videoId) {
     return null;
@@ -312,6 +380,7 @@ function normalizeYouTubeUrl(input) {
 
   return {
     videoId,
+
     url:
       `https://www.youtube.com/watch?v=${videoId}`,
   };
@@ -324,16 +393,22 @@ function normalizeYouTubeUrl(input) {
 async function ensureDirectories() {
   await fsp.mkdir(
     DOWNLOAD_DIR,
-    { recursive: true }
+    {
+      recursive: true,
+    }
   );
 
   await fsp.mkdir(
     OUTPUT_DIR,
-    { recursive: true }
+    {
+      recursive: true,
+    }
   );
 }
 
-async function safeRemove(file) {
+async function safeRemove(
+  file
+) {
   if (!file) {
     return;
   }
@@ -357,9 +432,13 @@ async function cleanupOldFiles() {
 
   const cutoff =
     Date.now() -
-    60 * 60 * 1000;
+    60 *
+      60 *
+      1000;
 
-  for (const dir of directories) {
+  for (
+    const dir of directories
+  ) {
     try {
       const entries =
         await fsp.readdir(
@@ -369,7 +448,9 @@ async function cleanupOldFiles() {
           }
         );
 
-      for (const entry of entries) {
+      for (
+        const entry of entries
+      ) {
         const fullPath =
           path.join(
             dir,
@@ -378,10 +459,13 @@ async function cleanupOldFiles() {
 
         try {
           const stat =
-            await fsp.stat(fullPath);
+            await fsp.stat(
+              fullPath
+            );
 
           if (
-            stat.mtimeMs < cutoff
+            stat.mtimeMs <
+            cutoff
           ) {
             await safeRemove(
               fullPath
@@ -397,7 +481,9 @@ async function cleanupOldFiles() {
    USUÁRIOS
    ============================================================ */
 
-function getOrCreateUser(userId) {
+function getOrCreateUser(
+  userId
+) {
   const id =
     userId ||
     randomId("user_");
@@ -419,8 +505,11 @@ function getOrCreateUser(userId) {
 
       vip: false,
 
-      lastAnalysisAt: null,
-      lastDownloadAt: null,
+      lastAnalysisAt:
+        null,
+
+      lastDownloadAt:
+        null,
     };
 
     users.set(
@@ -436,7 +525,9 @@ function getOrCreateUser(userId) {
    SESSÕES
    ============================================================ */
 
-function createSession(userId) {
+function createSession(
+  userId
+) {
   const token =
     randomId("sess_");
 
@@ -461,7 +552,9 @@ function createSession(userId) {
   return token;
 }
 
-function getSessionUser(req) {
+function getSessionUser(
+  req
+) {
   const authorization =
     req.headers.authorization ||
     "";
@@ -503,7 +596,9 @@ function getSessionUser(req) {
   );
 }
 
-function resolveRequestUser(req) {
+function resolveRequestUser(
+  req
+) {
   const sessionUser =
     getSessionUser(req);
 
@@ -541,8 +636,10 @@ function requireUser(
   if (!user) {
     return res.status(401).json({
       ok: false,
+
       error:
         "Sessão inválida ou expirada.",
+
       code:
         "UNAUTHORIZED",
     });
@@ -595,6 +692,7 @@ function requireAdmin(
   ) {
     return res.status(401).json({
       ok: false,
+
       error:
         "Acesso administrativo não autorizado.",
     });
@@ -613,11 +711,14 @@ function requireAdmin(
     session.expiresAt < now()
   ) {
     if (session) {
-      adminSessions.delete(token);
+      adminSessions.delete(
+        token
+      );
     }
 
     return res.status(401).json({
       ok: false,
+
       error:
         "Sessão administrativa expirada ou inválida.",
     });
@@ -629,11 +730,14 @@ function requireAdmin(
 }
 
 /* ============================================================
-   CORS / MIDDLEWARE
+   CORS
    ============================================================ */
 
 const corsOptions = {
-  origin(origin, callback) {
+  origin(
+    origin,
+    callback
+  ) {
     if (!origin) {
       return callback(
         null,
@@ -642,7 +746,8 @@ const corsOptions = {
     }
 
     if (
-      NODE_ENV !== "production" &&
+      NODE_ENV !==
+        "production" &&
       (
         origin.startsWith(
           "http://localhost:"
@@ -676,8 +781,7 @@ const corsOptions = {
     }
 
     /*
-     * Mantido permissivo durante
-     * a fase de testes do ClipForge.
+     * Permissivo durante testes.
      */
     return callback(
       null,
@@ -733,7 +837,11 @@ app.use(
 );
 
 app.use(
-  (req, res, next) => {
+  (
+    req,
+    res,
+    next
+  ) => {
     metrics.requests++;
 
     res.setHeader(
@@ -813,7 +921,7 @@ const geminiSchema = {
 };
 
 /* ============================================================
-   PROMPT
+   PROMPT GEMINI
    ============================================================ */
 
 function buildGeminiPrompt({
@@ -827,8 +935,9 @@ Você é o motor de cortes com IA do ClipForge Pro.
 
 Analise o vídeo do YouTube fornecido integralmente.
 
-Seu objetivo é encontrar os melhores momentos para cortes
-verticais para YouTube Shorts, TikTok e Instagram Reels.
+Objetivo:
+encontrar os melhores momentos para cortes verticais
+para YouTube Shorts, TikTok e Instagram Reels.
 
 ID DO VÍDEO:
 ${videoId}
@@ -847,71 +956,48 @@ CRITÉRIOS:
 4. Procure histórias completas.
 5. Procure humor.
 6. Procure revelações.
-7. Procure opiniões fortes ou interessantes.
+7. Procure opiniões interessantes.
 8. Procure momentos emocionais.
 9. Evite trechos sem contexto.
 10. Evite pausas longas.
-11. Evite cortes que começam ou terminam no meio de uma frase.
-12. Sempre que possível, preserve o contexto necessário para entender o momento.
+11. Evite começar ou terminar no meio de uma frase.
+12. Preserve o contexto necessário.
 13. Os timestamps devem corresponder ao vídeo real.
 14. O score deve variar de 0 a 100.
 15. Não invente timestamps.
 
-IMPORTANTE:
-
 Retorne somente os dados solicitados pelo schema.
 
 Não escreva explicações fora do JSON.
-
-Cada objeto de clip deve conter:
-- start
-- end
-- title
-- description
-- score
-- reason
 `.trim();
 }
 
 /* ============================================================
-   EXTRAÇÃO DA RESPOSTA GEMINI
+   GEMINI OUTPUT
    ============================================================ */
 
-function extractGeminiOutputText(data) {
+function extractGeminiOutputText(
+  data
+) {
   if (!data) {
     return "";
   }
 
   if (
-    typeof data.output_text === "string" &&
+    typeof data.output_text ===
+      "string" &&
     data.output_text.trim()
   ) {
     return data.output_text.trim();
   }
 
   if (
-    typeof data.outputText === "string" &&
+    typeof data.outputText ===
+      "string" &&
     data.outputText.trim()
   ) {
     return data.outputText.trim();
   }
-
-  /*
-   * Interactions API atual:
-   *
-   * steps:
-   * [
-   *   {
-   *     type: "model_output",
-   *     content: [
-   *       {
-   *         type: "text",
-   *         text: "..."
-   *       }
-   *     ]
-   *   }
-   * ]
-   */
 
   if (
     Array.isArray(data.steps)
@@ -922,7 +1008,8 @@ function extractGeminiOutputText(data) {
       if (!step) continue;
 
       if (
-        typeof step.text === "string" &&
+        typeof step.text ===
+          "string" &&
         step.text.trim()
       ) {
         return step.text.trim();
@@ -934,8 +1021,8 @@ function extractGeminiOutputText(data) {
         )
       ) {
         for (
-          const content
-            of step.content
+          const content of
+            step.content
         ) {
           if (
             typeof content?.text ===
@@ -950,16 +1037,19 @@ function extractGeminiOutputText(data) {
   }
 
   if (
-    Array.isArray(data.outputs)
+    Array.isArray(
+      data.outputs
+    )
   ) {
     for (
-      const output
-        of data.outputs
+      const output of
+        data.outputs
     ) {
       if (!output) continue;
 
       if (
-        typeof output.text === "string" &&
+        typeof output.text ===
+          "string" &&
         output.text.trim()
       ) {
         return output.text.trim();
@@ -971,8 +1061,8 @@ function extractGeminiOutputText(data) {
         )
       ) {
         for (
-          const content
-            of output.content
+          const content of
+            output.content
         ) {
           if (
             typeof content?.text ===
@@ -985,11 +1075,6 @@ function extractGeminiOutputText(data) {
       }
     }
   }
-
-  /*
-   * Compatibilidade com respostas
-   * antigas/alternativas.
-   */
 
   if (
     Array.isArray(
@@ -1019,7 +1104,9 @@ function extractGeminiOutputText(data) {
    JSON
    ============================================================ */
 
-function extractJsonFromText(text) {
+function extractJsonFromText(
+  text
+) {
   if (!text) {
     return null;
   }
@@ -1088,12 +1175,14 @@ function normalizarClips(
 
   const requestedMin =
     Number(
-      options.minDuration || 20
+      options.minDuration ||
+        20
     );
 
   const requestedMax =
     Number(
-      options.maxDuration || 60
+      options.maxDuration ||
+        60
     );
 
   const minDuration =
@@ -1110,7 +1199,8 @@ function normalizarClips(
 
   const maxClips =
     Number(
-      options.maxClips || 5
+      options.maxClips ||
+        5
     );
 
   const normalized = [];
@@ -1125,15 +1215,15 @@ function normalizarClips(
     let start =
       Number(
         clip.start ??
-        clip.inicio ??
-        0
+          clip.inicio ??
+          0
       );
 
     let end =
       Number(
         clip.end ??
-        clip.fim ??
-        (start + 50)
+          clip.fim ??
+          start + 50
       );
 
     if (
@@ -1159,7 +1249,8 @@ function normalizarClips(
       end - start;
 
     if (
-      duration < minDuration
+      duration <
+      minDuration
     ) {
       end =
         start +
@@ -1170,7 +1261,8 @@ function normalizarClips(
     }
 
     if (
-      duration > maxDuration
+      duration >
+      maxDuration
     ) {
       end =
         start +
@@ -1199,7 +1291,7 @@ function normalizarClips(
       title:
         safeString(
           clip.title ||
-          "Corte selecionado"
+            "Corte selecionado"
         ).slice(
           0,
           140
@@ -1208,7 +1300,7 @@ function normalizarClips(
       description:
         safeString(
           clip.description ||
-          ""
+            ""
         ).slice(
           0,
           500
@@ -1225,7 +1317,7 @@ function normalizarClips(
       reason:
         safeString(
           clip.reason ||
-          "Destaque selecionado por IA"
+            "Destaque selecionado por IA"
         ).slice(
           0,
           500
@@ -1314,25 +1406,6 @@ async function analisarComGemini({
       maxDuration,
     });
 
-  /*
-   * A documentação atual do Gemini confirma:
-   *
-   * model:
-   * gemini-3.8-flash
-   *
-   * input:
-   * [
-   *   { type: "text", text: "..." },
-   *   {
-   *     type: "video",
-   *     uri: "https://www.youtube.com/watch?v=..."
-   *   }
-   * ]
-   *
-   * A URL pública do YouTube é suportada
-   * diretamente pela Interactions API.
-   */
-
   const body = {
     model:
       GEMINI_MODEL,
@@ -1348,13 +1421,6 @@ async function analisarComGemini({
         uri: youtubeUrl,
       },
     ],
-
-    /*
-     * Structured Output.
-     *
-     * O Gemini retorna o JSON como texto,
-     * mas obedecendo ao schema.
-     */
 
     response_format: {
       type: "text",
@@ -1372,10 +1438,6 @@ async function analisarComGemini({
   );
 
   console.log(
-    `[Gemini] Endpoint: ${GEMINI_ENDPOINT}`
-  );
-
-  console.log(
     `[Gemini] Enviando URL pública do YouTube para análise...`
   );
 
@@ -1390,6 +1452,9 @@ async function analisarComGemini({
 
           headers: {
             "Content-Type":
+              "application/json",
+
+            Accept:
               "application/json",
 
             "x-goog-api-key":
@@ -1421,7 +1486,9 @@ async function analisarComGemini({
   try {
     data =
       rawText
-        ? JSON.parse(rawText)
+        ? JSON.parse(
+            rawText
+          )
         : null;
   } catch {}
 
@@ -1432,21 +1499,26 @@ async function analisarComGemini({
       rawText || "";
 
     if (GEMINI_API_KEY) {
-      safeError =
-        safeError.replace(
-          new RegExp(
-            GEMINI_API_KEY.replace(
-              /[.*+?^${}()|[\]\\]/g,
-              "\\$&"
+      try {
+        safeError =
+          safeError.replace(
+            new RegExp(
+              GEMINI_API_KEY.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+              ),
+              "g"
             ),
-            "g"
-          ),
-          "[REDACTED]"
-        );
+            "[REDACTED]"
+          );
+      } catch {}
     }
 
     throw new Error(
-      `Gemini HTTP ${response.status}: ${safeError.slice(0, 1000)}`
+      `Gemini HTTP ${response.status}: ${safeError.slice(
+        0,
+        1000
+      )}`
     );
   }
 
@@ -1492,13 +1564,13 @@ async function analisarComGemini({
     title:
       safeString(
         parsed.title ||
-        "Vídeo analisado"
+          "Vídeo analisado"
       ),
 
     summary:
       safeString(
         parsed.summary ||
-        ""
+          ""
       ),
 
     clips,
@@ -1506,7 +1578,7 @@ async function analisarComGemini({
 }
 
 /* ============================================================
-   EXECUÇÃO DE PROCESSOS
+   PROCESSOS
    ============================================================ */
 
 function runCommand(
@@ -1527,7 +1599,8 @@ function runCommand(
 
             env: {
               ...process.env,
-              ...(options.env || {}),
+              ...(options.env ||
+                {}),
             },
 
             windowsHide: true,
@@ -1553,9 +1626,18 @@ function runCommand(
         }
       );
 
+      let finished =
+        false;
+
       const timeout =
         setTimeout(
           () => {
+            if (finished) {
+              return;
+            }
+
+            finished = true;
+
             try {
               child.kill(
                 "SIGKILL"
@@ -1575,6 +1657,12 @@ function runCommand(
       child.on(
         "error",
         (error) => {
+          if (finished) {
+            return;
+          }
+
+          finished = true;
+
           clearTimeout(
             timeout
           );
@@ -1586,6 +1674,12 @@ function runCommand(
       child.on(
         "close",
         (code) => {
+          if (finished) {
+            return;
+          }
+
+          finished = true;
+
           clearTimeout(
             timeout
           );
@@ -1732,7 +1826,9 @@ async function renderClip({
     result.code !== 0
   ) {
     throw new Error(
-      `FFmpeg falhou: ${result.stderr.slice(-1500)}`
+      `FFmpeg falhou: ${result.stderr.slice(
+        -1500
+      )}`
     );
   }
 
@@ -1753,7 +1849,7 @@ async function renderClip({
 }
 
 /* ============================================================
-   DOWNLOAD EXTERNO
+   DOWNLOADER EXTERNO
    ============================================================ */
 
 async function downloadWithExternalService({
@@ -1915,125 +2011,340 @@ async function downloadWithRapidApi({
   metrics.rapidApiAttempts++;
 
   const endpoint =
-    `https://${RAPIDAPI_HOST}/dl?id=${encodeURIComponent(videoId)}&cgeo=BR`;
+    `https://${RAPIDAPI_HOST}/dl?id=${encodeURIComponent(
+      videoId
+    )}&cgeo=BR`;
 
-  const response =
-    await fetch(
-      endpoint,
-      {
-        method: "GET",
+  console.log(
+    `[RapidAPI] Solicitando vídeo ${videoId}...`
+  );
 
-        headers: {
-          "x-rapidapi-key":
-            RAPIDAPI_KEY,
+  let response;
 
-          "x-rapidapi-host":
-            RAPIDAPI_HOST,
-        },
+  try {
+    response =
+      await fetch(
+        endpoint,
+        {
+          method: "GET",
 
-        signal:
-          AbortSignal.timeout(
-            60000
-          ),
-      }
+          headers: {
+            "x-rapidapi-key":
+              RAPIDAPI_KEY,
+
+            "x-rapidapi-host":
+              RAPIDAPI_HOST,
+
+            Accept:
+              "application/json",
+          },
+
+          signal:
+            AbortSignal.timeout(
+              60000
+            ),
+        }
+      );
+  } catch (error) {
+    metrics.rapidApiFailures++;
+
+    throw new Error(
+      `RapidAPI conexão: ${error.message}`
     );
+  }
+
+  /*
+   * ==========================================================
+   * 429 É RATE LIMIT.
+   *
+   * NÃO tentar novamente imediatamente.
+   * O pipeline principal vai para yt-dlp.
+   * ==========================================================
+   */
+
+  if (
+    response.status === 429
+  ) {
+    metrics.rapidApiRateLimited++;
+
+    const retryAfter =
+      response.headers.get(
+        "retry-after"
+      );
+
+    throw new Error(
+      `RapidAPI_RATE_LIMITED${
+        retryAfter
+          ? ` (Retry-After: ${retryAfter})`
+          : ""
+      }`
+    );
+  }
 
   if (
     !response.ok
   ) {
+    metrics.rapidApiFailures++;
+
     throw new Error(
       `RapidAPI HTTP ${response.status}`
     );
   }
 
-  const data =
-    await response.json();
+  let data;
 
-  let targetUrl = null;
+  try {
+    data =
+      await response.json();
+  } catch (error) {
+    metrics.rapidApiFailures++;
 
-  const findUrl =
-    (object) => {
+    throw new Error(
+      `RapidAPI retornou resposta inválida: ${error.message}`
+    );
+  }
+
+  /*
+   * ==========================================================
+   * Encontrar URLs de mídia.
+   *
+   * Em vez de pegar somente a primeira URL,
+   * coletamos todas as candidatas.
+   * ==========================================================
+   */
+
+  const candidates = [];
+
+  function collectUrls(
+    value,
+    parentKey = ""
+  ) {
+    if (!value) {
+      return;
+    }
+
+    if (
+      typeof value ===
+      "string"
+    ) {
       if (
-        !object ||
-        typeof object !==
-          "object" ||
-        targetUrl
-      ) {
-        return;
-      }
-
-      if (
-        typeof object.url ===
-          "string" &&
-        object.url.startsWith(
+        value.startsWith(
           "http"
         ) &&
-        object.hasAudio !==
-          false
+        (
+          parentKey
+            .toLowerCase()
+            .includes("url") ||
+          parentKey
+            .toLowerCase()
+            .includes("download") ||
+          parentKey
+            .toLowerCase()
+            .includes("stream")
+        )
       ) {
-        targetUrl =
-          object.url;
-
-        return;
+        candidates.push(
+          {
+            url: value,
+            source:
+              parentKey,
+          }
+        );
       }
 
-      for (
-        const key of
-          Object.keys(object)
-      ) {
-        findUrl(
-          object[key]
-        );
+      return;
+    }
 
-        if (targetUrl) {
-          return;
+    if (
+      Array.isArray(value)
+    ) {
+      for (
+        const item of value
+      ) {
+        collectUrls(
+          item,
+          parentKey
+        );
+      }
+
+      return;
+    }
+
+    if (
+      typeof value ===
+      "object"
+    ) {
+      for (
+        const [
+          key,
+          item,
+        ] of Object.entries(
+          value
+        )
+      ) {
+        if (
+          typeof item ===
+            "string" &&
+          item.startsWith(
+            "http"
+          )
+        ) {
+          candidates.push({
+            url: item,
+            source: key,
+          });
+        } else {
+          collectUrls(
+            item,
+            key
+          );
         }
       }
-    };
-
-  findUrl(data);
-
-  if (!targetUrl) {
-    throw new Error(
-      "RapidAPI não forneceu uma URL de mídia acessível."
-    );
+    }
   }
 
-  const streamResponse =
-    await fetch(
-      targetUrl,
-      {
-        signal:
-          AbortSignal.timeout(
-            120000
-          ),
-      }
-    );
+  collectUrls(data);
 
-  if (
-    !streamResponse.ok
-  ) {
-    throw new Error(
-      `Stream RapidAPI HTTP ${streamResponse.status}`
-    );
-  }
+  const uniqueCandidates =
+    [
+      ...new Map(
+        candidates.map(
+          (item) => [
+            item.url,
+            item,
+          ]
+        )
+      ).values(),
+    ];
 
-  if (!streamResponse.body) {
-    throw new Error(
-      "Stream RapidAPI sem corpo."
-    );
-  }
-
-  await pipeline(
-    Readable.fromWeb(
-      streamResponse.body
-    ),
-    fs.createWriteStream(
-      outputPath
-    )
+  console.log(
+    `[RapidAPI] URLs encontradas: ${uniqueCandidates.length}`
   );
 
-  return outputPath;
+  if (
+    !uniqueCandidates.length
+  ) {
+    metrics.rapidApiFailures++;
+
+    throw new Error(
+      "RapidAPI não forneceu URLs de mídia."
+    );
+  }
+
+  /*
+   * ==========================================================
+   * Testar as candidatas.
+   *
+   * Se uma retornar 403, 404 ou outro erro,
+   * tenta a próxima.
+   * ==========================================================
+   */
+
+  let lastError =
+    "Nenhuma stream acessível.";
+
+  for (
+    const candidate of
+      uniqueCandidates
+  ) {
+    try {
+      console.log(
+        `[RapidAPI] Testando stream: ${candidate.source || "url"}`
+      );
+
+      const streamResponse =
+        await fetch(
+          candidate.url,
+          {
+            method: "GET",
+
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+
+              Accept:
+                "*/*",
+            },
+
+            redirect:
+              "follow",
+
+            signal:
+              AbortSignal.timeout(
+                120000
+              ),
+          }
+        );
+
+      console.log(
+        `[RapidAPI] Stream HTTP ${streamResponse.status}`
+      );
+
+      if (
+        !streamResponse.ok
+      ) {
+        lastError =
+          `Stream HTTP ${streamResponse.status}`;
+
+        continue;
+      }
+
+      if (
+        !streamResponse.body
+      ) {
+        lastError =
+          "Stream sem corpo.";
+
+        continue;
+      }
+
+      await pipeline(
+        Readable.fromWeb(
+          streamResponse.body
+        ),
+        fs.createWriteStream(
+          outputPath
+        )
+      );
+
+      const stat =
+        await fsp.stat(
+          outputPath
+        );
+
+      if (
+        stat.size < 10000
+      ) {
+        await safeRemove(
+          outputPath
+        );
+
+        lastError =
+          "Stream retornou arquivo vazio.";
+
+        continue;
+      }
+
+      console.log(
+        `[RapidAPI] Download concluído: ${stat.size} bytes`
+      );
+
+      return outputPath;
+    } catch (error) {
+      lastError =
+        error.message;
+
+      await safeRemove(
+        outputPath
+      );
+    }
+  }
+
+  metrics.rapidApiFailures++;
+
+  throw new Error(
+    `RapidAPI não conseguiu baixar o vídeo: ${lastError}`
+  );
 }
 
 /* ============================================================
@@ -2051,6 +2362,8 @@ async function downloadWithYtDlp({
       YTDLP_PATH
     )
   ) {
+    metrics.ytdlpFailures++;
+
     throw new Error(
       `yt-dlp não encontrado em ${YTDLP_PATH}`
     );
@@ -2058,9 +2371,14 @@ async function downloadWithYtDlp({
 
   const args = [
     "--no-playlist",
+
     "--no-warnings",
+
     "--newline",
+
     "--restrict-filenames",
+
+    "--no-check-certificates",
 
     "-f",
     "bv*+ba/b",
@@ -2070,8 +2388,6 @@ async function downloadWithYtDlp({
 
     "-o",
     outputPath,
-
-    youtubeUrl,
   ];
 
   if (
@@ -2080,13 +2396,23 @@ async function downloadWithYtDlp({
       YTDLP_COOKIES_FILE
     )
   ) {
-    args.splice(
-      1,
-      0,
+    args.push(
       "--cookies",
       YTDLP_COOKIES_FILE
     );
   }
+
+  args.push(
+    youtubeUrl
+  );
+
+  console.log(
+    `[YT-DLP] Executável: ${YTDLP_PATH}`
+  );
+
+  console.log(
+    `[YT-DLP] Iniciando fallback...`
+  );
 
   const result =
     await runCommand(
@@ -2100,19 +2426,26 @@ async function downloadWithYtDlp({
   if (
     result.code !== 0
   ) {
+    metrics.ytdlpFailures++;
+
+    const combined =
+      `${result.stdout}\n${result.stderr}`;
+
     if (
-      /sign in to confirm|not a bot|login_required/i.test(
-        result.stderr
+      /sign in to confirm|not a bot|login_required|cookies-from-browser|cookies for the authentication/i.test(
+        combined
       )
     ) {
+      metrics.ytdlpAntiBot++;
+
       throw new Error(
-        "Bloqueio anti-bot do YouTube detectado no servidor."
+        "O YouTube bloqueou o yt-dlp com proteção anti-bot. O servidor precisa de uma fonte de download alternativa ou cookies válidos do YouTube."
       );
     }
 
     if (
       /\b403\b/.test(
-        result.stderr
+        combined
       )
     ) {
       throw new Error(
@@ -2121,7 +2454,9 @@ async function downloadWithYtDlp({
     }
 
     throw new Error(
-      `yt-dlp código ${result.code}: ${result.stderr.slice(-1000)}`
+      `yt-dlp código ${result.code}: ${result.stderr.slice(
+        -1200
+      )}`
     );
   }
 
@@ -2130,6 +2465,8 @@ async function downloadWithYtDlp({
       outputPath
     )
   ) {
+    metrics.ytdlpFailures++;
+
     throw new Error(
       "yt-dlp terminou sem gerar o arquivo MP4."
     );
@@ -2143,16 +2480,22 @@ async function downloadWithYtDlp({
   if (
     stat.size < 10000
   ) {
+    metrics.ytdlpFailures++;
+
     throw new Error(
       "yt-dlp gerou arquivo vazio ou inválido."
     );
   }
 
+  console.log(
+    `[YT-DLP] Download concluído: ${stat.size} bytes`
+  );
+
   return outputPath;
 }
 
 /* ============================================================
-   PIPELINE COMPLETO DE DOWNLOAD
+   PIPELINE DE DOWNLOAD
    ============================================================ */
 
 async function downloadOriginalVideo({
@@ -2165,27 +2508,49 @@ async function downloadOriginalVideo({
       `${videoId}-${Date.now()}.mp4`
     );
 
+  const failures = [];
+
   /*
-   * 1. Downloader externo
+   * ==========================================================
+   * 1. DOWNLOADER EXTERNO
+   * ==========================================================
    */
 
   if (
     EXTERNAL_DOWNLOAD_URL
   ) {
     try {
+      console.log(
+        "[Download] Tentando downloader externo..."
+      );
+
       await downloadWithExternalService({
         youtubeUrl,
         videoId,
         outputPath,
       });
 
+      console.log(
+        "[Download] Downloader externo funcionou."
+      );
+
       return {
-        path: outputPath,
-        method: "external",
+        path:
+          outputPath,
+
+        method:
+          "external",
       };
     } catch (error) {
+      const message =
+        error.message;
+
+      failures.push(
+        `Externo: ${message}`
+      );
+
       console.log(
-        `[Download] Downloader externo falhou: ${error.message}`
+        `[Download] Externo falhou: ${message}`
       );
 
       await safeRemove(
@@ -2195,24 +2560,61 @@ async function downloadOriginalVideo({
   }
 
   /*
-   * 2. RapidAPI
+   * ==========================================================
+   * 2. RAPIDAPI
+   * ==========================================================
    */
 
-  if (RAPIDAPI_KEY) {
+  if (
+    RAPIDAPI_KEY
+  ) {
     try {
+      console.log(
+        "[Download] Tentando RapidAPI..."
+      );
+
       await downloadWithRapidApi({
         videoId,
         outputPath,
       });
 
+      console.log(
+        "[Download] RapidAPI funcionou."
+      );
+
       return {
-        path: outputPath,
-        method: "rapidapi",
+        path:
+          outputPath,
+
+        method:
+          "rapidapi",
       };
     } catch (error) {
-      console.log(
-        `[Download] RapidAPI falhou: ${error.message}`
+      const message =
+        error.message;
+
+      failures.push(
+        `RapidAPI: ${message}`
       );
+
+      /*
+       * IMPORTANTE:
+       * 429 NÃO interrompe o pipeline.
+       */
+
+      if (
+        message.startsWith(
+          "RapidAPI_RATE_LIMITED"
+        )
+      ) {
+        console.log(
+          "[Download] RapidAPI está limitada (429). Pulando para yt-dlp..."
+        );
+      } else {
+        console.log(
+          `[Download] RapidAPI falhou: ${message}`
+        );
+      }
 
       await safeRemove(
         outputPath
@@ -2221,32 +2623,85 @@ async function downloadOriginalVideo({
   }
 
   /*
-   * 3. yt-dlp
+   * ==========================================================
+   * 3. YT-DLP
+   * ==========================================================
    */
 
   try {
+    console.log(
+      "[Download] Ativando fallback yt-dlp..."
+    );
+
     await downloadWithYtDlp({
       youtubeUrl,
       outputPath,
     });
 
+    console.log(
+      "[Download] yt-dlp funcionou."
+    );
+
     return {
-      path: outputPath,
-      method: "yt-dlp",
+      path:
+        outputPath,
+
+      method:
+        "yt-dlp",
     };
   } catch (error) {
+    const message =
+      error.message;
+
+    failures.push(
+      `yt-dlp: ${message}`
+    );
+
     await safeRemove(
       outputPath
     );
 
+    /*
+     * ========================================================
+     * ERRO FINAL
+     * ========================================================
+     */
+
+    const hasRateLimit =
+      failures.some(
+        (item) =>
+          item.includes(
+            "RapidAPI_RATE_LIMITED"
+          )
+      );
+
+    const hasAntiBot =
+      failures.some(
+        (item) =>
+          item.includes(
+            "proteção anti-bot"
+          )
+      );
+
+    if (
+      hasRateLimit &&
+      hasAntiBot
+    ) {
+      throw new Error(
+        "Não foi possível baixar o vídeo. A RapidAPI atingiu o limite de requisições (429) e o YouTube bloqueou o yt-dlp por proteção anti-bot. Configure um downloader externo em EXTERNAL_DOWNLOAD_URL ou forneça cookies válidos do YouTube em YTDLP_COOKIES_FILE."
+      );
+    }
+
     throw new Error(
-      `Todos os métodos de download falharam. ${error.message}`
+      `Todos os métodos de download falharam. ${failures.join(
+        " | "
+      )}`
     );
   }
 }
 
 /* ============================================================
-   ROTA PRINCIPAL
+   HOME
    ============================================================ */
 
 app.get(
@@ -2305,6 +2760,20 @@ app.get(
           "Interactions API",
       },
 
+      frontend: {
+        configured:
+          Boolean(
+            FRONTEND_URL
+          ),
+
+        url:
+          FRONTEND_URL ||
+          null,
+
+        allowedOrigins:
+          ALLOWED_ORIGINS,
+      },
+
       downloaders: {
         external:
           Boolean(
@@ -2319,6 +2788,14 @@ app.get(
         ytdlp:
           fs.existsSync(
             YTDLP_PATH
+          ),
+
+        cookies:
+          Boolean(
+            YTDLP_COOKIES_FILE &&
+            fs.existsSync(
+              YTDLP_COOKIES_FILE
+            )
           ),
       },
 
@@ -2337,7 +2814,7 @@ app.post(
     const userId =
       safeString(
         req.body?.userId ||
-        randomId("user_")
+          randomId("user_")
       );
 
     const user =
@@ -2385,6 +2862,7 @@ app.get(
   (req, res) => {
     res.json({
       ok: true,
+
       user:
         req.user,
     });
@@ -2469,6 +2947,10 @@ app.post(
     }
 
     console.log(
+      "=========================================="
+    );
+
+    console.log(
       `[Análise] CLIPFORGE ${APP_VERSION}`
     );
 
@@ -2478,6 +2960,10 @@ app.post(
 
     console.log(
       `[Análise] Vídeo: ${normalized.videoId}`
+    );
+
+    console.log(
+      `[Gemini] Modelo: ${GEMINI_MODEL}`
     );
 
     try {
@@ -2597,13 +3083,16 @@ app.post(
 
         error:
           "URL do YouTube inválida.",
+
+        code:
+          "INVALID_YOUTUBE_URL",
       });
     }
 
     const start =
       clampNumber(
         req.body?.start ??
-        req.body?.inicio,
+          req.body?.inicio,
 
         0,
         86400,
@@ -2613,7 +3102,7 @@ app.post(
     const duration =
       clampNumber(
         req.body?.duration ??
-        req.body?.duracao,
+          req.body?.duracao,
 
         1,
         180,
@@ -2627,6 +3116,26 @@ app.post(
       null;
 
     try {
+      console.log(
+        "=========================================="
+      );
+
+      console.log(
+        `[Download] CLIPFORGE ${APP_VERSION}`
+      );
+
+      console.log(
+        `[Download] Vídeo: ${normalized.videoId}`
+      );
+
+      console.log(
+        `[Download] Início: ${start}s`
+      );
+
+      console.log(
+        `[Download] Duração: ${duration}s`
+      );
+
       original =
         await downloadOriginalVideo({
           youtubeUrl:
@@ -2637,7 +3146,7 @@ app.post(
         });
 
       console.log(
-        `[Download] Método: ${original.method}`
+        `[Download] Método escolhido: ${original.method}`
       );
 
       const probe =
@@ -2653,6 +3162,12 @@ app.post(
           probe.duration
         )
       ) {
+        console.log(
+          `[Download] Duração original: ${probe.duration.toFixed(
+            2
+          )}s`
+        );
+
         if (
           start >=
           probe.duration
@@ -2679,6 +3194,10 @@ app.post(
           filename
         );
 
+      console.log(
+        `[FFmpeg] Renderizando ${filename}...`
+      );
+
       await renderClip({
         inputPath:
           original.path,
@@ -2698,6 +3217,10 @@ app.post(
         new Date().toISOString();
 
       metrics.downloadSuccess++;
+
+      console.log(
+        `[Download] Corte pronto: ${filename}`
+      );
 
       return res.download(
         clipPath,
@@ -2756,7 +3279,7 @@ app.post(
 );
 
 /* ============================================================
-   MERCADO PAGO - CRIAR PIX
+   MERCADO PAGO - PIX
    ============================================================ */
 
 app.post(
@@ -2780,14 +3303,12 @@ app.post(
     const amount =
       Number(
         req.body?.amount ??
-        req.body?.valor ??
-        19.90
+          req.body?.valor ??
+          19.9
       );
 
     if (
-      !Number.isFinite(
-        amount
-      ) ||
+      !Number.isFinite(amount) ||
       amount <= 0
     ) {
       return res.status(400).json({
@@ -2801,11 +3322,6 @@ app.post(
     try {
       const externalReference =
         `clipforge-${user.id}-${randomId()}`;
-
-      /*
-       * CORRIGIDO:
-       * URL original estava quebrada.
-       */
 
       const mpRes =
         await fetch(
@@ -2853,10 +3369,12 @@ app.post(
       const data =
         await mpRes.json();
 
-      if (!mpRes.ok) {
+      if (
+        !mpRes.ok
+      ) {
         throw new Error(
           data.message ||
-          "Erro Mercado Pago."
+            "Erro Mercado Pago."
         );
       }
 
@@ -2958,11 +3476,6 @@ app.get(
       );
 
     try {
-      /*
-       * CORRIGIDO:
-       * URL original estava quebrada.
-       */
-
       const response =
         await fetch(
           `https://api.mercadopago.com/v1/payments/${paymentId}`,
@@ -2977,10 +3490,12 @@ app.get(
       const data =
         await response.json();
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         throw new Error(
           data.message ||
-          `Mercado Pago HTTP ${response.status}`
+            `Mercado Pago HTTP ${response.status}`
         );
       }
 
@@ -3198,7 +3713,9 @@ async function startServer() {
           () => {}
         );
     },
-    30 * 60 * 1000
+    30 *
+      60 *
+      1000
   );
 
   app.listen(
@@ -3291,6 +3808,29 @@ async function startServer() {
             ? "CONFIGURADO"
             : "NÃO CONFIGURADO"
         }`
+      );
+
+      console.log(
+        `Frontend URL: ${
+          FRONTEND_URL ||
+          "não definida"
+        }`
+      );
+
+      console.log(
+        "===================================================="
+      );
+
+      console.log(
+        "[Gemini] Análise direta de URLs públicas do YouTube ativa."
+      );
+
+      console.log(
+        "[Download] Externo -> RapidAPI -> yt-dlp fallback ativo."
+      );
+
+      console.log(
+        "[Download] RapidAPI 429 será tratado como rate limit e não como erro final."
       );
 
       console.log(
