@@ -3,20 +3,13 @@
  * CLIPFORGE PRO — BACKEND 13.2.2 COMPLETO
  * Node.js + Express
  *
- * Compatível com index.html V13.0.7
- *
- * PRINCIPAIS RECURSOS
- * ------------------------------------------------------------
- * - Upload direto de MP4 (independente de YouTube/RapidAPI)
- * - Análise de arquivos locais via Gemini Files API + Interactions API
- * - getGeminiErrorStatus(): detecção robusta de status HTTP e regex
- * - Modelo principal: gemini-3.8-flash (thinking_level: "low")
- * - Fallbacks oficiais: gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
- * - Resolução de binários: ffmpeg-static + @ffmpeg-installer + @ffprobe-installer
- * - YouTube mantido como modo secundário com fallback para yt-dlp e RapidAPI
- * - Renderização via FFmpeg com validação prévia de FFprobe
- * - Proteção de streaming com limpeza em res.on("finish")
- * - Sem dependência de dotenv
+ * Configurado para o package.json exato:
+ * - @ffmpeg-installer/ffmpeg
+ * - @ffprobe-installer/ffprobe
+ * - ffmpeg-static
+ * - @google/genai
+ * - multer (v2.x compatível)
+ * - cors, express
  * ============================================================
  */
 
@@ -120,7 +113,7 @@ function getGeminiErrorStatus(err) {
 }
 
 /* ============================================================
-   DOWNLOADERS (YOUTUBE)
+   RAPIDAPI / DOWNLOADERS
 ============================================================ */
 
 const RAPIDAPI_KEY =
@@ -156,7 +149,7 @@ const OUTPUT_DIR = path.join(TEMP_ROOT, "outputs");
 const UPLOAD_DIR = path.join(TEMP_ROOT, "uploads");
 
 /* ============================================================
-   BINÁRIOS
+   BINÁRIOS (ROBUSTEZ COM PRIORIDADE FFMPEG-STATIC)
 ============================================================ */
 
 function findExecutable(candidates = []) {
@@ -287,7 +280,7 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
-   MULTER (UPLOAD DE MP4)
+   MULTER (COMPATÍVEL COM V2.X)
 ============================================================ */
 
 const uploadStorage = multer.diskStorage({
@@ -635,7 +628,7 @@ const uploadCleanupTimer = setInterval(() => {
 uploadCleanupTimer.unref?.();
 
 /* ============================================================
-   SCHEMA & PROMPT GEMINI
+   SCHEMA & PROMPTS GEMINI
 ============================================================ */
 
 const CLIPS_SCHEMA = {
@@ -811,7 +804,7 @@ async function uploadVideoToGemini(filePath) {
   }
 
   metrics.geminiFileUploads++;
-  console.log(`[Gemini Files] Upload registrado: ${uploaded.name}`);
+  console.log(`[Gemini Files] Arquivo registrado: ${uploaded.name}`);
 
   let current = uploaded;
   const startedAt = now();
@@ -851,7 +844,6 @@ async function requestGeminiUploadedModel(model, geminiFile, prompt) {
       },
       { type: "text", text: prompt },
     ],
-    generation_config: { thinking_level: "low" },
     response_format: {
       type: "text",
       mime_type: "application/json",
@@ -868,7 +860,7 @@ async function requestGeminiUploadedModel(model, geminiFile, prompt) {
 }
 
 /* ============================================================
-   FALLBACKS DE ANÁLISE (USANDO getGeminiErrorStatus)
+   FALLBACKS DE ANÁLISE
 ============================================================ */
 
 async function analyzeYoutubeWithGemini(url) {
@@ -1382,6 +1374,7 @@ app.post("/api/download", requireUser, async (req, res) => {
   if (!Number.isFinite(start) || start < 0) return jsonError(res, 400, "Tempo inicial inválido.");
   if (!Number.isFinite(duration) || duration < 1 || duration > 90) return jsonError(res, 400, "Duração inválida (1-90s).");
 
+  // Proteção do servidor: valida saldo real do usuário
   if (!req.user.vip && req.user.points < DOWNLOAD_COST) {
     return jsonError(res, 402, `Pontos insuficientes (${DOWNLOAD_COST} necessários).`);
   }
@@ -1428,6 +1421,7 @@ app.post("/api/download", requireUser, async (req, res) => {
     const stat = await fsp.stat(outputFile);
     if (!stat.size || stat.size < 10000) throw new Error("Arquivo MP4 final inválido.");
 
+    // Cobrança atômica realizada somente após a renderização ter sucesso
     if (!req.user.vip) {
       req.user.points -= DOWNLOAD_COST;
       charged = true;
