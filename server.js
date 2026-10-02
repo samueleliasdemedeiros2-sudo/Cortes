@@ -1,7 +1,7 @@
 /**
  * ============================================================
  * CLIPFORGE PRO
- * Backend 13.0.7
+ * Backend 13.0.8
  * ============================================================
  *
  * Node.js + Express
@@ -9,18 +9,38 @@
  * PRINCIPAIS RECURSOS:
  * - Gemini Interactions API
  * - Gemini 3.8 Flash
- * - Análise direta de URLs públicas do YouTube
+ * - Análise multimodal direta de URLs públicas do YouTube
  * - Structured Output JSON
  * - Downloader Externo
  * - RapidAPI
  * - yt-dlp fallback
+ * - Validação real de vídeo com FFprobe
  * - FFmpeg H.264 + AAC
+ * - MP4 compatível com navegador/mobile
  * - CORS para Netlify/Vercel
  * - Autenticação por sessão
  * - Sistema de pontos
  * - Mercado Pago PIX
  * - Dashboard administrativo
  * - Limpeza automática
+ *
+ * PIPELINE DE DOWNLOAD:
+ *
+ * Downloader externo
+ *        ↓
+ * validação FFprobe
+ *        ↓ falhou
+ * RapidAPI
+ *        ↓
+ * validação FFprobe
+ *        ↓ falhou
+ * yt-dlp
+ *        ↓
+ * validação FFprobe
+ *        ↓
+ * FFmpeg
+ *        ↓
+ * MP4 H.264 + AAC
  *
  * ============================================================
  */
@@ -42,7 +62,7 @@ const { Readable } = require("stream");
    CONFIGURAÇÃO
    ============================================================ */
 
-const APP_VERSION = "13.0.7";
+const APP_VERSION = "13.0.8";
 
 const app = express();
 
@@ -216,6 +236,7 @@ const metrics = {
   downloadFailures: 0,
 
   externalDownloadAttempts: 0,
+  externalDownloadFailures: 0,
 
   rapidApiAttempts: 0,
   rapidApiRateLimited: 0,
@@ -224,6 +245,13 @@ const metrics = {
   ytdlpAttempts: 0,
   ytdlpFailures: 0,
   ytdlpAntiBot: 0,
+
+  videoValidationAttempts: 0,
+  videoValidationSuccess: 0,
+  videoValidationFailures: 0,
+
+  ffmpegAttempts: 0,
+  ffmpegFailures: 0,
 
   pixCreated: 0,
   pixApproved: 0,
@@ -284,6 +312,55 @@ function clampNumber(
   );
 }
 
+function sanitizeFilename(
+  value
+) {
+  return safeString(
+    value,
+    "file"
+  )
+    .replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    )
+    .slice(0, 150);
+}
+
+function redactSecrets(
+  text
+) {
+  let value =
+    safeString(text);
+
+  const secrets = [
+    GEMINI_API_KEY,
+    RAPIDAPI_KEY,
+    EXTERNAL_DOWNLOAD_TOKEN,
+    MP_ACCESS_TOKEN,
+    ADMIN_PASSWORD,
+  ].filter(Boolean);
+
+  for (
+    const secret of secrets
+  ) {
+    try {
+      value =
+        value.replace(
+          new RegExp(
+            secret.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            ),
+            "g"
+          ),
+          "[REDACTED]"
+        );
+    } catch {}
+  }
+
+  return value;
+}
+
 /* ============================================================
    YOUTUBE
    ============================================================ */
@@ -314,9 +391,9 @@ function extractYouTubeVideoId(
       url.hostname.toLowerCase();
 
     if (
-      host.includes(
-        "youtube.com"
-      )
+      host === "youtube.com" ||
+      host === "www.youtube.com" ||
+      host.endsWith(".youtube.com")
     ) {
       const queryId =
         url.searchParams.get(
@@ -475,6 +552,349 @@ async function cleanupOldFiles() {
       }
     } catch {}
   }
+}
+
+/* ============================================================
+   VALIDAÇÃO DE ARQUIVO
+   ============================================================ */
+
+/**
+ * Validação básica por assinatura.
+ *
+ * Um MP4 normalmente possui a assinatura "ftyp"
+ * dentro dos primeiros 32 bytes.
+ *
+ * Não usamos isso sozinha:
+ * FFprobe também precisa reconhecer o arquivo.
+ */
+
+async function looksLikeMp4(
+  filePath
+) {
+  try {
+    const handle =
+      await fsp.open(
+        filePath,
+        "r"
+      );
+
+    const buffer =
+      Buffer.alloc(64);
+
+    const result =
+      await handle.read(
+        buffer,
+        0,
+        buffer.length,
+        0
+      );
+
+    await handle.close();
+
+    const text =
+      result.buffer
+        .slice(
+          0,
+          result.bytesRead
+        )
+        .toString(
+          "latin1"
+        );
+
+    return text.includes(
+      "ftyp"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verifica se a resposta parece HTML/JSON de erro.
+ */
+
+async function looksLikeTextError(
+  filePath
+) {
+  try {
+    const handle =
+      await fsp.open(
+        filePath,
+        "r"
+      );
+
+    const buffer =
+      Buffer.alloc(512);
+
+    const result =
+      await handle.read(
+        buffer,
+        0,
+        buffer.length,
+        0
+      );
+
+    await handle.close();
+
+    const text =
+      result.buffer
+        .slice(
+          0,
+          result.bytesRead
+        )
+        .toString(
+          "utf8"
+        )
+        .trim()
+        .toLowerCase();
+
+    if (
+      text.startsWith(
+        "<!doctype"
+      ) ||
+      text.startsWith(
+        "<html"
+      ) ||
+      text.startsWith(
+        "{"
+      ) ||
+      text.startsWith(
+        "["
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validação REAL usando FFprobe.
+ *
+ * Essa função é chamada antes de considerar
+ * qualquer downloader como bem-sucedido.
+ */
+
+async function validateVideoFile(
+  filePath,
+  options = {}
+) {
+  metrics.videoValidationAttempts++;
+
+  if (
+    !filePath ||
+    !fs.existsSync(
+      filePath
+    )
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "Arquivo de vídeo não foi criado."
+    );
+  }
+
+  const stat =
+    await fsp.stat(
+      filePath
+    );
+
+  if (
+    stat.size < 10000
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      `Arquivo baixado muito pequeno: ${stat.size} bytes.`
+    );
+  }
+
+  if (
+    await looksLikeTextError(
+      filePath
+    )
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "O downloader retornou HTML/JSON em vez de um arquivo de vídeo."
+    );
+  }
+
+  const probe =
+    await runCommand(
+      FFPROBE_PATH,
+      [
+        "-v",
+        "error",
+
+        "-show_entries",
+        "format=format_name,duration,size",
+
+        "-show_streams",
+
+        "-of",
+        "json",
+
+        filePath,
+      ],
+      {
+        timeout: 60000,
+      }
+    );
+
+  if (
+    probe.code !== 0
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      `FFprobe rejeitou o arquivo baixado: ${redactSecrets(
+        probe.stderr
+      ).slice(-1200)}`
+    );
+  }
+
+  let data;
+
+  try {
+    data =
+      JSON.parse(
+        probe.stdout
+      );
+  } catch {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "FFprobe retornou dados inválidos."
+    );
+  }
+
+  const streams =
+    Array.isArray(
+      data.streams
+    )
+      ? data.streams
+      : [];
+
+  const videoStream =
+    streams.find(
+      (stream) =>
+        stream &&
+        stream.codec_type ===
+          "video"
+    );
+
+  const audioStream =
+    streams.find(
+      (stream) =>
+        stream &&
+        stream.codec_type ===
+          "audio"
+    );
+
+  const duration =
+    Number(
+      data?.format?.duration
+    );
+
+  if (
+    !videoStream
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "Arquivo baixado não possui stream de vídeo válida."
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      duration
+    ) ||
+    duration <= 0
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "Vídeo baixado não possui duração válida."
+    );
+  }
+
+  const formatName =
+    safeString(
+      data?.format?.format_name
+    );
+
+  const result = {
+    valid: true,
+
+    size:
+      stat.size,
+
+    duration,
+
+    format:
+      formatName,
+
+    videoCodec:
+      safeString(
+        videoStream.codec_name
+      ),
+
+    audioCodec:
+      audioStream
+        ? safeString(
+            audioStream.codec_name
+          )
+        : null,
+
+    width:
+      Number(
+        videoStream.width
+      ) || null,
+
+    height:
+      Number(
+        videoStream.height
+      ) || null,
+
+    hasAudio:
+      Boolean(
+        audioStream
+      ),
+
+    isMp4:
+      formatName
+        .toLowerCase()
+        .split(",")
+        .includes("mov") ||
+      formatName
+        .toLowerCase()
+        .split(",")
+        .includes("mp4") ||
+      (await looksLikeMp4(
+        filePath
+      )),
+  };
+
+  if (
+    options.requireAudio &&
+    !audioStream
+  ) {
+    metrics.videoValidationFailures++;
+
+    throw new Error(
+      "Vídeo válido, porém sem faixa de áudio."
+    );
+  }
+
+  metrics.videoValidationSuccess++;
+
+  return result;
 }
 
 /* ============================================================
@@ -781,7 +1201,8 @@ const corsOptions = {
     }
 
     /*
-     * Permissivo durante testes.
+     * Mantido permissivo para não quebrar
+     * o frontend atual durante testes.
      */
     return callback(
       null,
@@ -933,7 +1354,7 @@ function buildGeminiPrompt({
   return `
 Você é o motor de cortes com IA do ClipForge Pro.
 
-Analise o vídeo do YouTube fornecido integralmente.
+Analise cuidadosamente o vídeo do YouTube fornecido.
 
 Objetivo:
 encontrar os melhores momentos para cortes verticais
@@ -960,11 +1381,27 @@ CRITÉRIOS:
 8. Procure momentos emocionais.
 9. Evite trechos sem contexto.
 10. Evite pausas longas.
-11. Evite começar ou terminar no meio de uma frase.
-12. Preserve o contexto necessário.
-13. Os timestamps devem corresponder ao vídeo real.
-14. O score deve variar de 0 a 100.
-15. Não invente timestamps.
+11. Evite começar no meio de uma frase.
+12. Evite terminar no meio de uma frase.
+13. Preserve o contexto necessário.
+14. Os timestamps devem corresponder ao vídeo real.
+15. Nunca invente timestamps.
+16. O score deve variar de 0 a 100.
+17. Priorize momentos que façam sentido isoladamente como Short/Reel/TikTok.
+18. Não escolha vários trechos praticamente iguais.
+19. Evite períodos de silêncio ou introduções longas.
+20. Se houver uma frase forte seguida de uma conclusão, prefira manter o contexto completo.
+
+IMPORTANTE:
+
+Os campos start e end devem ser números em segundos.
+
+Exemplo:
+
+{
+  "start": 125.5,
+  "end": 174.2
+}
 
 Retorne somente os dados solicitados pelo schema.
 
@@ -997,43 +1434,6 @@ function extractGeminiOutputText(
     data.outputText.trim()
   ) {
     return data.outputText.trim();
-  }
-
-  if (
-    Array.isArray(data.steps)
-  ) {
-    for (
-      const step of data.steps
-    ) {
-      if (!step) continue;
-
-      if (
-        typeof step.text ===
-          "string" &&
-        step.text.trim()
-      ) {
-        return step.text.trim();
-      }
-
-      if (
-        Array.isArray(
-          step.content
-        )
-      ) {
-        for (
-          const content of
-            step.content
-        ) {
-          if (
-            typeof content?.text ===
-              "string" &&
-            content.text.trim()
-          ) {
-            return content.text.trim();
-          }
-        }
-      }
-    }
   }
 
   if (
@@ -1071,6 +1471,71 @@ function extractGeminiOutputText(
           ) {
             return content.text.trim();
           }
+        }
+      }
+    }
+  }
+
+  if (
+    Array.isArray(data.steps)
+  ) {
+    for (
+      const step of data.steps
+    ) {
+      if (!step) continue;
+
+      if (
+        typeof step.text ===
+          "string" &&
+        step.text.trim()
+      ) {
+        return step.text.trim();
+      }
+
+      if (
+        Array.isArray(
+          step.content
+        )
+      ) {
+        for (
+          const content of
+            step.content
+        ) {
+          if (
+            typeof content?.text ===
+              "string" &&
+            content.text.trim()
+          ) {
+            return content.text.trim();
+          }
+        }
+      }
+
+      if (
+        step.type ===
+          "model_output" &&
+        Array.isArray(
+          step.content
+        )
+      ) {
+        const text =
+          step.content
+            .filter(
+              (content) =>
+                content?.type ===
+                  "text" &&
+                typeof content.text ===
+                  "string"
+            )
+            .map(
+              (content) =>
+                content.text
+            )
+            .join("")
+            .trim();
+
+        if (text) {
+          return text;
         }
       }
     }
@@ -1406,6 +1871,15 @@ async function analisarComGemini({
       maxDuration,
     });
 
+  /**
+   * Interactions API:
+   *
+   * input pode conter texto + vídeo.
+   *
+   * O response_format abaixo solicita JSON
+   * estruturado de acordo com o schema.
+   */
+
   const body = {
     model:
       GEMINI_MODEL,
@@ -1419,6 +1893,7 @@ async function analisarComGemini({
       {
         type: "video",
         uri: youtubeUrl,
+        mime_type: "video/mp4",
       },
     ],
 
@@ -1438,7 +1913,7 @@ async function analisarComGemini({
   );
 
   console.log(
-    `[Gemini] Enviando URL pública do YouTube para análise...`
+    "[Gemini] Enviando URL pública do YouTube para análise..."
   );
 
   let response;
@@ -1495,29 +1970,12 @@ async function analisarComGemini({
   if (!response.ok) {
     metrics.geminiFailures++;
 
-    let safeError =
-      rawText || "";
-
-    if (GEMINI_API_KEY) {
-      try {
-        safeError =
-          safeError.replace(
-            new RegExp(
-              GEMINI_API_KEY.replace(
-                /[.*+?^${}()|[\]\\]/g,
-                "\\$&"
-              ),
-              "g"
-            ),
-            "[REDACTED]"
-          );
-      } catch {}
-    }
-
     throw new Error(
-      `Gemini HTTP ${response.status}: ${safeError.slice(
+      `Gemini HTTP ${response.status}: ${redactSecrets(
+        rawText
+      ).slice(
         0,
-        1000
+        1200
       )}`
     );
   }
@@ -1615,6 +2073,16 @@ function runCommand(
         (chunk) => {
           stdout +=
             chunk.toString();
+
+          if (
+            stdout.length >
+            2_000_000
+          ) {
+            stdout =
+              stdout.slice(
+                -2_000_000
+              );
+          }
         }
       );
 
@@ -1623,6 +2091,16 @@ function runCommand(
         (chunk) => {
           stderr +=
             chunk.toString();
+
+          if (
+            stderr.length >
+            2_000_000
+          ) {
+            stderr =
+              stderr.slice(
+                -2_000_000
+              );
+          }
         }
       );
 
@@ -1710,10 +2188,10 @@ async function probeVideo(
         "error",
 
         "-show_entries",
-        "format=duration",
+        "format=duration,format_name",
 
         "-of",
-        "default=noprint_wrappers=1:nokey=1",
+        "json",
 
         inputPath,
       ],
@@ -1727,22 +2205,40 @@ async function probeVideo(
   ) {
     return {
       duration: null,
+      format: null,
     };
   }
 
-  const duration =
-    Number(
-      result.stdout.trim()
-    );
+  try {
+    const data =
+      JSON.parse(
+        result.stdout
+      );
 
-  return {
-    duration:
-      Number.isFinite(
-        duration
-      )
-        ? duration
-        : null,
-  };
+    const duration =
+      Number(
+        data?.format?.duration
+      );
+
+    return {
+      duration:
+        Number.isFinite(
+          duration
+        )
+          ? duration
+          : null,
+
+      format:
+        data?.format
+          ?.format_name ||
+        null,
+    };
+  } catch {
+    return {
+      duration: null,
+      format: null,
+    };
+  }
 }
 
 /* ============================================================
@@ -1755,6 +2251,8 @@ async function renderClip({
   start,
   duration,
 }) {
+  metrics.ffmpegAttempts++;
+
   const safeStart =
     Math.max(
       0,
@@ -1767,12 +2265,28 @@ async function renderClip({
       Number(duration) || 1
     );
 
+  console.log(
+    `[FFmpeg] Início=${safeStart.toFixed(
+      2
+    )}s duração=${safeDuration.toFixed(
+      2
+    )}s`
+  );
+
   const result =
     await runCommand(
       FFMPEG_PATH,
       [
         "-y",
 
+        "-hide_banner",
+
+        "-loglevel",
+        "error",
+
+        /*
+         * Busca rápida para cortes.
+         */
         "-ss",
         safeStart.toFixed(3),
 
@@ -1782,12 +2296,19 @@ async function renderClip({
         "-t",
         safeDuration.toFixed(3),
 
+        /*
+         * Mapeia vídeo obrigatório.
+         * Áudio opcional.
+         */
         "-map",
         "0:v:0",
 
         "-map",
         "0:a:0?",
 
+        /*
+         * H.264 amplamente compatível.
+         */
         "-c:v",
         "libx264",
 
@@ -1800,6 +2321,9 @@ async function renderClip({
         "-pix_fmt",
         "yuv420p",
 
+        /*
+         * Áudio AAC.
+         */
         "-c:a",
         "aac",
 
@@ -1809,6 +2333,9 @@ async function renderClip({
         "-ar",
         "44100",
 
+        /*
+         * Compatibilidade com navegadores.
+         */
         "-movflags",
         "+faststart",
 
@@ -1825,10 +2352,24 @@ async function renderClip({
   if (
     result.code !== 0
   ) {
+    metrics.ffmpegFailures++;
+
     throw new Error(
-      `FFmpeg falhou: ${result.stderr.slice(
-        -1500
-      )}`
+      `FFmpeg falhou: ${redactSecrets(
+        result.stderr
+      ).slice(-1800)}`
+    );
+  }
+
+  if (
+    !fs.existsSync(
+      outputPath
+    )
+  ) {
+    metrics.ffmpegFailures++;
+
+    throw new Error(
+      "FFmpeg terminou sem criar o arquivo MP4."
     );
   }
 
@@ -1840,12 +2381,78 @@ async function renderClip({
   if (
     stat.size < 10000
   ) {
+    metrics.ffmpegFailures++;
+
     throw new Error(
       "FFmpeg finalizou, mas gerou um arquivo corrompido ou vazio."
     );
   }
 
+  /*
+   * Validação final do MP4.
+   */
+  try {
+    const validation =
+      await validateVideoFile(
+        outputPath
+      );
+
+    console.log(
+      `[FFmpeg] MP4 validado: ${validation.size} bytes | ${validation.duration.toFixed(
+        2
+      )}s | ${validation.videoCodec} | áudio=${
+        validation.hasAudio
+          ? "sim"
+          : "não"
+      }`
+    );
+  } catch (error) {
+    metrics.ffmpegFailures++;
+
+    throw new Error(
+      `MP4 final inválido após FFmpeg: ${error.message}`
+    );
+  }
+
+  console.log(
+    `[FFmpeg] Corte criado com sucesso: ${stat.size} bytes`
+  );
+
   return outputPath;
+}
+
+/* ============================================================
+   STREAM DOWNLOAD HELPER
+   ============================================================ */
+
+async function saveResponseToFile(
+  response,
+  outputPath
+) {
+  if (!response.body) {
+    throw new Error(
+      "Resposta não possui corpo de download."
+    );
+  }
+
+  await pipeline(
+    Readable.fromWeb(
+      response.body
+    ),
+    fs.createWriteStream(
+      outputPath
+    )
+  );
+
+  if (
+    !fs.existsSync(
+      outputPath
+    )
+  ) {
+    throw new Error(
+      "Arquivo não foi criado após o download."
+    );
+  }
 }
 
 /* ============================================================
@@ -1867,46 +2474,67 @@ async function downloadWithExternalService({
 
   metrics.externalDownloadAttempts++;
 
-  const response =
-    await fetch(
-      EXTERNAL_DOWNLOAD_URL,
-      {
-        method: "POST",
+  let response;
 
-        headers: {
-          "Content-Type":
-            "application/json",
+  try {
+    response =
+      await fetch(
+        EXTERNAL_DOWNLOAD_URL,
+        {
+          method: "POST",
 
-          Accept:
-            "application/json, video/mp4, video/*",
+          headers: {
+            "Content-Type":
+              "application/json",
 
-          ...(EXTERNAL_DOWNLOAD_TOKEN
-            ? {
-                Authorization:
-                  `Bearer ${EXTERNAL_DOWNLOAD_TOKEN}`,
-              }
-            : {}),
-        },
+            Accept:
+              "application/json, video/mp4, video/*, application/octet-stream",
 
-        body:
-          JSON.stringify({
-            url: youtubeUrl,
-            videoId,
-            output: "mp4",
-          }),
+            ...(EXTERNAL_DOWNLOAD_TOKEN
+              ? {
+                  Authorization:
+                    `Bearer ${EXTERNAL_DOWNLOAD_TOKEN}`,
+                }
+              : {}),
+          },
 
-        signal:
-          AbortSignal.timeout(
-            180000
-          ),
-      }
+          body:
+            JSON.stringify({
+              url: youtubeUrl,
+              videoId,
+              output: "mp4",
+            }),
+
+          signal:
+            AbortSignal.timeout(
+              180000
+            ),
+        }
+      );
+  } catch (error) {
+    metrics.externalDownloadFailures++;
+
+    throw new Error(
+      `Downloader externo conexão: ${error.message}`
     );
+  }
 
   if (
     !response.ok
   ) {
+    metrics.externalDownloadFailures++;
+
+    const errorText =
+      await response
+        .text()
+        .catch(
+          () => ""
+        );
+
     throw new Error(
-      `Downloader externo HTTP ${response.status}`
+      `Downloader externo HTTP ${response.status}: ${redactSecrets(
+        errorText
+      ).slice(0, 800)}`
     );
   }
 
@@ -1917,6 +2545,10 @@ async function downloadWithExternalService({
       ) || ""
     ).toLowerCase();
 
+  /*
+   * CASO 1:
+   * O serviço devolveu diretamente o vídeo.
+   */
   if (
     contentType.includes(
       "video/"
@@ -1925,73 +2557,143 @@ async function downloadWithExternalService({
       "application/octet-stream"
     )
   ) {
-    if (!response.body) {
-      throw new Error(
-        "Downloader externo retornou resposta sem corpo."
-      );
-    }
-
-    await pipeline(
-      Readable.fromWeb(
-        response.body
-      ),
-      fs.createWriteStream(
-        outputPath
-      )
+    await saveResponseToFile(
+      response,
+      outputPath
     );
 
-    return outputPath;
+    try {
+      const validation =
+        await validateVideoFile(
+          outputPath
+        );
+
+      console.log(
+        `[External] Vídeo validado: ${validation.size} bytes`
+      );
+
+      return outputPath;
+    } catch (error) {
+      metrics.externalDownloadFailures++;
+
+      await safeRemove(
+        outputPath
+      );
+
+      throw new Error(
+        `Downloader externo retornou arquivo inválido: ${error.message}`
+      );
+    }
   }
 
-  const data =
-    await response.json();
+  /*
+   * CASO 2:
+   * O serviço devolveu JSON com URL.
+   */
+
+  let data;
+
+  try {
+    data =
+      await response.json();
+  } catch (error) {
+    metrics.externalDownloadFailures++;
+
+    throw new Error(
+      `Downloader externo não retornou JSON válido: ${error.message}`
+    );
+  }
 
   const downloadUrl =
-    data.url ||
-    data.downloadUrl ||
-    data.result?.url;
+    data?.url ||
+    data?.downloadUrl ||
+    data?.download_url ||
+    data?.result?.url ||
+    data?.result?.downloadUrl ||
+    data?.data?.url ||
+    data?.data?.downloadUrl ||
+    data?.video?.url ||
+    data?.video?.downloadUrl;
 
   if (!downloadUrl) {
+    metrics.externalDownloadFailures++;
+
     throw new Error(
       "Downloader externo não retornou URL de download."
     );
   }
 
-  const downloadResponse =
-    await fetch(
-      downloadUrl,
-      {
-        signal:
-          AbortSignal.timeout(
-            180000
-          ),
-      }
+  let downloadResponse;
+
+  try {
+    downloadResponse =
+      await fetch(
+        downloadUrl,
+        {
+          method: "GET",
+
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+
+            Accept:
+              "video/mp4,video/*,application/octet-stream,*/*",
+          },
+
+          redirect:
+            "follow",
+
+          signal:
+            AbortSignal.timeout(
+              180000
+            ),
+        }
+      );
+  } catch (error) {
+    metrics.externalDownloadFailures++;
+
+    throw new Error(
+      `Stream externo conexão: ${error.message}`
     );
+  }
 
   if (
     !downloadResponse.ok
   ) {
+    metrics.externalDownloadFailures++;
+
     throw new Error(
       `Stream externo HTTP ${downloadResponse.status}`
     );
   }
 
-  if (!downloadResponse.body) {
-    throw new Error(
-      "Stream externo retornou resposta sem corpo."
-    );
-  }
-
-  await pipeline(
-    Readable.fromWeb(
-      downloadResponse.body
-    ),
-    fs.createWriteStream(
-      outputPath
-    )
+  await saveResponseToFile(
+    downloadResponse,
+    outputPath
   );
 
-  return outputPath;
+  try {
+    const validation =
+      await validateVideoFile(
+        outputPath
+      );
+
+    console.log(
+      `[External] Stream validado: ${validation.size} bytes`
+    );
+
+    return outputPath;
+  } catch (error) {
+    metrics.externalDownloadFailures++;
+
+    await safeRemove(
+      outputPath
+    );
+
+    throw new Error(
+      `Stream externo retornou arquivo inválido: ${error.message}`
+    );
+  }
 }
 
 /* ============================================================
@@ -2054,14 +2756,8 @@ async function downloadWithRapidApi({
   }
 
   /*
-   * ==========================================================
-   * 429 É RATE LIMIT.
-   *
-   * NÃO tentar novamente imediatamente.
-   * O pipeline principal vai para yt-dlp.
-   * ==========================================================
+   * 429 = rate limit.
    */
-
   if (
     response.status === 429
   ) {
@@ -2086,8 +2782,17 @@ async function downloadWithRapidApi({
   ) {
     metrics.rapidApiFailures++;
 
+    const errorText =
+      await response
+        .text()
+        .catch(
+          () => ""
+        );
+
     throw new Error(
-      `RapidAPI HTTP ${response.status}`
+      `RapidAPI HTTP ${response.status}: ${redactSecrets(
+        errorText
+      ).slice(0, 800)}`
     );
   }
 
@@ -2107,9 +2812,6 @@ async function downloadWithRapidApi({
   /*
    * ==========================================================
    * Encontrar URLs de mídia.
-   *
-   * Em vez de pegar somente a primeira URL,
-   * coletamos todas as candidatas.
    * ==========================================================
    */
 
@@ -2128,28 +2830,15 @@ async function downloadWithRapidApi({
       "string"
     ) {
       if (
-        value.startsWith(
-          "http"
-        ) &&
-        (
-          parentKey
-            .toLowerCase()
-            .includes("url") ||
-          parentKey
-            .toLowerCase()
-            .includes("download") ||
-          parentKey
-            .toLowerCase()
-            .includes("stream")
+        /^https?:\/\//i.test(
+          value
         )
       ) {
-        candidates.push(
-          {
-            url: value,
-            source:
-              parentKey,
-          }
-        );
+        candidates.push({
+          url: value,
+          source:
+            parentKey,
+        });
       }
 
       return;
@@ -2185,8 +2874,8 @@ async function downloadWithRapidApi({
         if (
           typeof item ===
             "string" &&
-          item.startsWith(
-            "http"
+          /^https?:\/\//i.test(
+            item
           )
         ) {
           candidates.push({
@@ -2205,6 +2894,9 @@ async function downloadWithRapidApi({
 
   collectUrls(data);
 
+  /*
+   * Remove URLs duplicadas.
+   */
   const uniqueCandidates =
     [
       ...new Map(
@@ -2216,6 +2908,71 @@ async function downloadWithRapidApi({
         )
       ).values(),
     ];
+
+  /*
+   * Ordena candidatas com palavras mais relacionadas
+   * a vídeo/download primeiro.
+   */
+  uniqueCandidates.sort(
+    (a, b) => {
+      const score =
+        (item) => {
+          const source =
+            safeString(
+              item.source
+            ).toLowerCase();
+
+          let value = 0;
+
+          if (
+            source.includes(
+              "download"
+            )
+          ) {
+            value += 5;
+          }
+
+          if (
+            source.includes(
+              "video"
+            )
+          ) {
+            value += 4;
+          }
+
+          if (
+            source.includes(
+              "mp4"
+            )
+          ) {
+            value += 4;
+          }
+
+          if (
+            source.includes(
+              "stream"
+            )
+          ) {
+            value += 3;
+          }
+
+          if (
+            source.includes(
+              "url"
+            )
+          ) {
+            value += 1;
+          }
+
+          return value;
+        };
+
+      return (
+        score(b) -
+        score(a)
+      );
+    }
+  );
 
   console.log(
     `[RapidAPI] URLs encontradas: ${uniqueCandidates.length}`
@@ -2231,25 +2988,29 @@ async function downloadWithRapidApi({
     );
   }
 
-  /*
-   * ==========================================================
-   * Testar as candidatas.
-   *
-   * Se uma retornar 403, 404 ou outro erro,
-   * tenta a próxima.
-   * ==========================================================
-   */
-
   let lastError =
     "Nenhuma stream acessível.";
 
+  /*
+   * Limita o número de candidatas para evitar
+   * ficar testando URLs irrelevantes.
+   */
+  const candidatesToTest =
+    uniqueCandidates.slice(
+      0,
+      20
+    );
+
   for (
     const candidate of
-      uniqueCandidates
+      candidatesToTest
   ) {
     try {
       console.log(
-        `[RapidAPI] Testando stream: ${candidate.source || "url"}`
+        `[RapidAPI] Testando stream: ${
+          candidate.source ||
+          "url"
+        }`
       );
 
       const streamResponse =
@@ -2263,7 +3024,7 @@ async function downloadWithRapidApi({
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
 
               Accept:
-                "*/*",
+                "video/mp4,video/*,application/octet-stream,*/*",
             },
 
             redirect:
@@ -2298,38 +3059,34 @@ async function downloadWithRapidApi({
         continue;
       }
 
-      await pipeline(
-        Readable.fromWeb(
-          streamResponse.body
-        ),
-        fs.createWriteStream(
-          outputPath
-        )
+      await saveResponseToFile(
+        streamResponse,
+        outputPath
       );
 
-      const stat =
-        await fsp.stat(
-          outputPath
+      try {
+        const validation =
+          await validateVideoFile(
+            outputPath
+          );
+
+        console.log(
+          `[RapidAPI] Download validado: ${validation.size} bytes | ${validation.duration.toFixed(
+            2
+          )}s`
         );
 
-      if (
-        stat.size < 10000
-      ) {
+        return outputPath;
+      } catch (validationError) {
+        lastError =
+          `Arquivo inválido: ${validationError.message}`;
+
         await safeRemove(
           outputPath
         );
 
-        lastError =
-          "Stream retornou arquivo vazio.";
-
         continue;
       }
-
-      console.log(
-        `[RapidAPI] Download concluído: ${stat.size} bytes`
-      );
-
-      return outputPath;
     } catch (error) {
       lastError =
         error.message;
@@ -2343,7 +3100,7 @@ async function downloadWithRapidApi({
   metrics.rapidApiFailures++;
 
   throw new Error(
-    `RapidAPI não conseguiu baixar o vídeo: ${lastError}`
+    `RapidAPI não conseguiu baixar um vídeo válido: ${lastError}`
   );
 }
 
@@ -2380,8 +3137,13 @@ async function downloadWithYtDlp({
 
     "--no-check-certificates",
 
+    /*
+     * Prioriza MP4 + M4A.
+     * Depois tenta um MP4 único.
+     * Por último aceita melhor formato disponível.
+     */
     "-f",
-    "bv*+ba/b",
+    "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
 
     "--merge-output-format",
     "mp4",
@@ -2400,6 +3162,10 @@ async function downloadWithYtDlp({
       "--cookies",
       YTDLP_COOKIES_FILE
     );
+
+    console.log(
+      "[YT-DLP] Cookies configurados."
+    );
   }
 
   args.push(
@@ -2411,7 +3177,7 @@ async function downloadWithYtDlp({
   );
 
   console.log(
-    `[YT-DLP] Iniciando fallback...`
+    "[YT-DLP] Iniciando fallback..."
   );
 
   const result =
@@ -2423,16 +3189,16 @@ async function downloadWithYtDlp({
       }
     );
 
+  const combined =
+    `${result.stdout}\n${result.stderr}`;
+
   if (
     result.code !== 0
   ) {
     metrics.ytdlpFailures++;
 
-    const combined =
-      `${result.stdout}\n${result.stderr}`;
-
     if (
-      /sign in to confirm|not a bot|login_required|cookies-from-browser|cookies for the authentication/i.test(
+      /sign in to confirm|not a bot|login_required|cookies-from-browser|cookies for the authentication|confirm you're not a bot/i.test(
         combined
       )
     ) {
@@ -2454,9 +3220,9 @@ async function downloadWithYtDlp({
     }
 
     throw new Error(
-      `yt-dlp código ${result.code}: ${result.stderr.slice(
-        -1200
-      )}`
+      `yt-dlp código ${result.code}: ${redactSecrets(
+        result.stderr
+      ).slice(-1600)}`
     );
   }
 
@@ -2472,26 +3238,30 @@ async function downloadWithYtDlp({
     );
   }
 
-  const stat =
-    await fsp.stat(
+  try {
+    const validation =
+      await validateVideoFile(
+        outputPath
+      );
+
+    console.log(
+      `[YT-DLP] Vídeo validado: ${validation.size} bytes | ${validation.duration.toFixed(
+        2
+      )}s | ${validation.videoCodec}`
+    );
+
+    return outputPath;
+  } catch (error) {
+    metrics.ytdlpFailures++;
+
+    await safeRemove(
       outputPath
     );
 
-  if (
-    stat.size < 10000
-  ) {
-    metrics.ytdlpFailures++;
-
     throw new Error(
-      "yt-dlp gerou arquivo vazio ou inválido."
+      `yt-dlp gerou arquivo inválido: ${error.message}`
     );
   }
-
-  console.log(
-    `[YT-DLP] Download concluído: ${stat.size} bytes`
-  );
-
-  return outputPath;
 }
 
 /* ============================================================
@@ -2505,7 +3275,9 @@ async function downloadOriginalVideo({
   const outputPath =
     path.join(
       DOWNLOAD_DIR,
-      `${videoId}-${Date.now()}.mp4`
+      `${sanitizeFilename(
+        videoId
+      )}-${Date.now()}.mp4`
     );
 
   const failures = [];
@@ -2521,7 +3293,7 @@ async function downloadOriginalVideo({
   ) {
     try {
       console.log(
-        "[Download] Tentando downloader externo..."
+        "[Download] 1/3 Tentando downloader externo..."
       );
 
       await downloadWithExternalService({
@@ -2531,7 +3303,7 @@ async function downloadOriginalVideo({
       });
 
       console.log(
-        "[Download] Downloader externo funcionou."
+        "[Download] Downloader externo funcionou e o vídeo foi validado."
       );
 
       return {
@@ -2570,7 +3342,7 @@ async function downloadOriginalVideo({
   ) {
     try {
       console.log(
-        "[Download] Tentando RapidAPI..."
+        "[Download] 2/3 Tentando RapidAPI..."
       );
 
       await downloadWithRapidApi({
@@ -2579,7 +3351,7 @@ async function downloadOriginalVideo({
       });
 
       console.log(
-        "[Download] RapidAPI funcionou."
+        "[Download] RapidAPI funcionou e o vídeo foi validado."
       );
 
       return {
@@ -2597,18 +3369,13 @@ async function downloadOriginalVideo({
         `RapidAPI: ${message}`
       );
 
-      /*
-       * IMPORTANTE:
-       * 429 NÃO interrompe o pipeline.
-       */
-
       if (
         message.startsWith(
           "RapidAPI_RATE_LIMITED"
         )
       ) {
         console.log(
-          "[Download] RapidAPI está limitada (429). Pulando para yt-dlp..."
+          "[Download] RapidAPI está limitada (429). Pulando imediatamente para yt-dlp..."
         );
       } else {
         console.log(
@@ -2630,7 +3397,7 @@ async function downloadOriginalVideo({
 
   try {
     console.log(
-      "[Download] Ativando fallback yt-dlp..."
+      "[Download] 3/3 Ativando fallback yt-dlp..."
     );
 
     await downloadWithYtDlp({
@@ -2639,7 +3406,7 @@ async function downloadOriginalVideo({
     });
 
     console.log(
-      "[Download] yt-dlp funcionou."
+      "[Download] yt-dlp funcionou e o vídeo foi validado."
     );
 
     return {
@@ -2688,7 +3455,7 @@ async function downloadOriginalVideo({
       hasAntiBot
     ) {
       throw new Error(
-        "Não foi possível baixar o vídeo. A RapidAPI atingiu o limite de requisições (429) e o YouTube bloqueou o yt-dlp por proteção anti-bot. Configure um downloader externo em EXTERNAL_DOWNLOAD_URL ou forneça cookies válidos do YouTube em YTDLP_COOKIES_FILE."
+        "Não foi possível baixar o vídeo. A RapidAPI atingiu o limite de requisições (429) e o YouTube bloqueou o yt-dlp por proteção anti-bot. Configure EXTERNAL_DOWNLOAD_URL ou forneça cookies válidos do YouTube em YTDLP_COOKIES_FILE."
       );
     }
 
@@ -2701,7 +3468,7 @@ async function downloadOriginalVideo({
 }
 
 /* ============================================================
-   HOME
+   HEALTH
    ============================================================ */
 
 app.get(
@@ -2743,6 +3510,9 @@ app.get(
 
       node:
         process.version,
+
+      environment:
+        NODE_ENV,
 
       gemini: {
         configured:
@@ -2797,6 +3567,12 @@ app.get(
               YTDLP_COOKIES_FILE
             )
           ),
+
+        ffmpeg:
+          FFMPEG_PATH,
+
+        ffprobe:
+          FFPROBE_PATH,
       },
 
       metrics,
@@ -2963,6 +3739,14 @@ app.post(
     );
 
     console.log(
+      `[Análise] Clips: ${maxClips}`
+    );
+
+    console.log(
+      `[Análise] Duração: ${minDuration}-${maxDuration}s`
+    );
+
+    console.log(
       `[Gemini] Modelo: ${GEMINI_MODEL}`
     );
 
@@ -3030,14 +3814,18 @@ app.post(
       metrics.analysisFailures++;
 
       console.error(
-        `[Análise] Erro: ${error.message}`
+        `[Análise] Erro: ${redactSecrets(
+          error.message
+        )}`
       );
 
       return res.status(500).json({
         ok: false,
 
         error:
-          error.message ||
+          redactSecrets(
+            error.message
+          ) ||
           "Não foi possível analisar o vídeo.",
 
         code:
@@ -3125,6 +3913,10 @@ app.post(
       );
 
       console.log(
+        `[Download] Usuário: ${user.id}`
+      );
+
+      console.log(
         `[Download] Vídeo: ${normalized.videoId}`
       );
 
@@ -3133,7 +3925,7 @@ app.post(
       );
 
       console.log(
-        `[Download] Duração: ${duration}s`
+        `[Download] Duração solicitada: ${duration}s`
       );
 
       original =
@@ -3149,28 +3941,31 @@ app.post(
         `[Download] Método escolhido: ${original.method}`
       );
 
-      const probe =
-        await probeVideo(
+      /*
+       * Validação adicional antes do FFmpeg.
+       */
+      const originalValidation =
+        await validateVideoFile(
           original.path
         );
+
+      console.log(
+        `[Download] Original validado: ${originalValidation.size} bytes | ${originalValidation.duration.toFixed(
+          2
+        )}s`
+      );
 
       let actualDuration =
         duration;
 
       if (
         Number.isFinite(
-          probe.duration
+          originalValidation.duration
         )
       ) {
-        console.log(
-          `[Download] Duração original: ${probe.duration.toFixed(
-            2
-          )}s`
-        );
-
         if (
           start >=
-          probe.duration
+          originalValidation.duration
         ) {
           throw new Error(
             "O tempo inicial solicitado está além da duração total do vídeo."
@@ -3180,13 +3975,23 @@ app.post(
         actualDuration =
           Math.min(
             actualDuration,
-            probe.duration -
+            originalValidation.duration -
               start
           );
       }
 
+      if (
+        actualDuration <= 0
+      ) {
+        throw new Error(
+          "A duração calculada do corte é inválida."
+        );
+      }
+
       const filename =
-        `clip-${normalized.videoId}-${Date.now()}.mp4`;
+        `clip-${sanitizeFilename(
+          normalized.videoId
+        )}-${Date.now()}.mp4`;
 
       clipPath =
         path.join(
@@ -3222,6 +4027,16 @@ app.post(
         `[Download] Corte pronto: ${filename}`
       );
 
+      /*
+       * O original pode ser apagado antes do envio,
+       * pois o MP4 final já está pronto.
+       */
+      await safeRemove(
+        original.path
+      );
+
+      original = null;
+
       return res.download(
         clipPath,
         filename,
@@ -3229,12 +4044,6 @@ app.post(
           await safeRemove(
             clipPath
           );
-
-          if (original) {
-            await safeRemove(
-              original.path
-            );
-          }
 
           if (error) {
             console.error(
@@ -3258,14 +4067,18 @@ app.post(
       }
 
       console.error(
-        `[Download] Erro: ${error.message}`
+        `[Download] Erro: ${redactSecrets(
+          error.message
+        )}`
       );
 
       return res.status(500).json({
         ok: false,
 
         error:
-          error.message ||
+          redactSecrets(
+            error.message
+          ) ||
           "Falha ao renderizar o corte.",
 
         code:
@@ -3402,6 +4215,9 @@ app.post(
             data.status,
 
           externalReference,
+
+          createdAt:
+            new Date().toISOString(),
         }
       );
 
@@ -3440,14 +4256,18 @@ app.post(
       metrics.pixRejected++;
 
       console.error(
-        `[Mercado Pago] ${error.message}`
+        `[Mercado Pago] ${redactSecrets(
+          error.message
+        )}`
       );
 
       return res.status(500).json({
         ok: false,
 
         error:
-          error.message ||
+          redactSecrets(
+            error.message
+          ) ||
           "Erro ao criar pagamento PIX.",
       });
     }
@@ -3484,6 +4304,11 @@ app.get(
               Authorization:
                 `Bearer ${MP_ACCESS_TOKEN}`,
             },
+
+            signal:
+              AbortSignal.timeout(
+                30000
+              ),
           }
         );
 
@@ -3524,6 +4349,9 @@ app.get(
             }
 
             user.vip = true;
+
+            payment.status =
+              "approved";
           }
         }
       }
@@ -3546,7 +4374,9 @@ app.get(
         ok: false,
 
         error:
-          error.message ||
+          redactSecrets(
+            error.message
+          ) ||
           "Erro ao consultar pagamento.",
       });
     }
@@ -3631,6 +4461,39 @@ app.get(
           process.memoryUsage(),
       },
 
+      configuration: {
+        gemini:
+          Boolean(
+            GEMINI_API_KEY
+          ),
+
+        rapidapi:
+          Boolean(
+            RAPIDAPI_KEY
+          ),
+
+        externalDownloader:
+          Boolean(
+            EXTERNAL_DOWNLOAD_URL
+          ),
+
+        ytdlp:
+          fs.existsSync(
+            YTDLP_PATH
+          ),
+
+        ffmpeg:
+          FFMPEG_PATH,
+
+        ffprobe:
+          FFPROBE_PATH,
+
+        mercadoPago:
+          Boolean(
+            MP_ACCESS_TOKEN
+          ),
+      },
+
       metrics,
 
       usersCount:
@@ -3678,7 +4541,11 @@ app.use(
 
     console.error(
       "[Global Error]",
-      error
+      redactSecrets(
+        error?.stack ||
+          error?.message ||
+          String(error)
+      )
     );
 
     if (
@@ -3691,7 +4558,9 @@ app.use(
       ok: false,
 
       error:
-        error.message ||
+        redactSecrets(
+          error?.message
+        ) ||
         "Erro interno do servidor.",
     });
   }
@@ -3706,6 +4575,9 @@ async function startServer() {
 
   await cleanupOldFiles();
 
+  /*
+   * Limpeza periódica.
+   */
   setInterval(
     () => {
       cleanupOldFiles()
@@ -3718,126 +4590,159 @@ async function startServer() {
       1000
   );
 
+  /*
+   * Verificações de ferramentas.
+   *
+   * Não interrompem o servidor caso alguma
+   * ferramenta esteja ausente.
+   */
+  console.log(
+    ""
+  );
+
+  console.log(
+    "===================================================="
+  );
+
+  console.log(
+    `CLIPFORGE PRO ${APP_VERSION}`
+  );
+
+  console.log(
+    "===================================================="
+  );
+
+  console.log(
+    `Node: ${process.version}`
+  );
+
+  console.log(
+    `Environment: ${NODE_ENV}`
+  );
+
+  console.log(
+    `Gemini: ${
+      GEMINI_API_KEY
+        ? "CONFIGURADO"
+        : "NÃO CONFIGURADO"
+    }`
+  );
+
+  console.log(
+    `Gemini Model: ${GEMINI_MODEL}`
+  );
+
+  console.log(
+    `Gemini Endpoint: ${GEMINI_ENDPOINT}`
+  );
+
+  console.log(
+    "Gemini API: Interactions API"
+  );
+
+  console.log(
+    `RapidAPI: ${
+      RAPIDAPI_KEY
+        ? "CONFIGURADO"
+        : "NÃO CONFIGURADO"
+    }`
+  );
+
+  console.log(
+    `yt-dlp: ${
+      fs.existsSync(
+        YTDLP_PATH
+      )
+        ? YTDLP_PATH
+        : "NÃO ENCONTRADO"
+    }`
+  );
+
+  console.log(
+    `FFmpeg: ${FFMPEG_PATH}`
+  );
+
+  console.log(
+    `FFprobe: ${FFPROBE_PATH}`
+  );
+
+  console.log(
+    `Downloader externo: ${
+      EXTERNAL_DOWNLOAD_URL
+        ? "CONFIGURADO"
+        : "NÃO CONFIGURADO"
+    }`
+  );
+
+  console.log(
+    `Mercado Pago: ${
+      MP_ACCESS_TOKEN
+        ? "CONFIGURADO"
+        : "NÃO CONFIGURADO"
+    }`
+  );
+
+  console.log(
+    `Frontend URL: ${
+      FRONTEND_URL ||
+      "não definida"
+    }`
+  );
+
+  console.log(
+    `YTDLP cookies: ${
+      YTDLP_COOKIES_FILE &&
+      fs.existsSync(
+        YTDLP_COOKIES_FILE
+      )
+        ? "CONFIGURADOS"
+        : "NÃO CONFIGURADOS"
+    }`
+  );
+
+  console.log(
+    "===================================================="
+  );
+
+  console.log(
+    "[Gemini] Análise direta de URLs públicas do YouTube ativa."
+  );
+
+  console.log(
+    "[Download] Externo -> RapidAPI -> yt-dlp fallback ativo."
+  );
+
+  console.log(
+    "[Download] Todo arquivo baixado passa por validação FFprobe."
+  );
+
+  console.log(
+    "[Download] Arquivos HTML/JSON disfarçados de MP4 são rejeitados."
+  );
+
+  console.log(
+    "[Download] RapidAPI 429 será tratado como rate limit."
+  );
+
+  console.log(
+    "[FFmpeg] Saída final H.264 + AAC + yuv420p + faststart."
+  );
+
+  console.log(
+    "===================================================="
+  );
+
+  console.log(
+    ""
+  );
+
   app.listen(
     PORT,
     HOST,
     () => {
-      console.log("");
-
       console.log(
-        "===================================================="
+        `CLIPFORGE PRO ${APP_VERSION} online em http://${HOST}:${PORT}`
       );
-
-      console.log(
-        `CLIPFORGE PRO ${APP_VERSION}`
-      );
-
-      console.log(
-        "===================================================="
-      );
-
-      console.log(
-        `Server: http://${HOST}:${PORT}`
-      );
-
-      console.log(
-        `Node: ${process.version}`
-      );
-
-      console.log(
-        `Environment: ${NODE_ENV}`
-      );
-
-      console.log(
-        `Gemini: ${
-          GEMINI_API_KEY
-            ? "CONFIGURADO"
-            : "NÃO CONFIGURADO"
-        }`
-      );
-
-      console.log(
-        `Gemini Model: ${GEMINI_MODEL}`
-      );
-
-      console.log(
-        `Gemini Endpoint: ${GEMINI_ENDPOINT}`
-      );
-
-      console.log(
-        "Gemini API: Interactions API"
-      );
-
-      console.log(
-        `RapidAPI: ${
-          RAPIDAPI_KEY
-            ? "CONFIGURADO"
-            : "NÃO CONFIGURADO"
-        }`
-      );
-
-      console.log(
-        `yt-dlp: ${
-          fs.existsSync(
-            YTDLP_PATH
-          )
-            ? YTDLP_PATH
-            : "NÃO ENCONTRADO"
-        }`
-      );
-
-      console.log(
-        `FFmpeg: ${FFMPEG_PATH}`
-      );
-
-      console.log(
-        `FFprobe: ${FFPROBE_PATH}`
-      );
-
-      console.log(
-        `Downloader externo: ${
-          EXTERNAL_DOWNLOAD_URL
-            ? "CONFIGURADO"
-            : "NÃO CONFIGURADO"
-        }`
-      );
-
-      console.log(
-        `Mercado Pago: ${
-          MP_ACCESS_TOKEN
-            ? "CONFIGURADO"
-            : "NÃO CONFIGURADO"
-        }`
-      );
-
-      console.log(
-        `Frontend URL: ${
-          FRONTEND_URL ||
-          "não definida"
-        }`
-      );
-
-      console.log(
-        "===================================================="
-      );
-
-      console.log(
-        "[Gemini] Análise direta de URLs públicas do YouTube ativa."
-      );
-
-      console.log(
-        "[Download] Externo -> RapidAPI -> yt-dlp fallback ativo."
-      );
-
-      console.log(
-        "[Download] RapidAPI 429 será tratado como rate limit e não como erro final."
-      );
-
-      console.log(
-        "===================================================="
-      );
-
-      console.log("");
     }
   );
 }
@@ -3847,7 +4752,11 @@ startServer()
     (error) => {
       console.error(
         "[FATAL] Erro ao iniciar servidor:",
-        error
+        redactSecrets(
+          error?.stack ||
+            error?.message ||
+            String(error)
+        )
       );
 
       process.exit(1);
