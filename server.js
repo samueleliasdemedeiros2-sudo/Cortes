@@ -84,7 +84,7 @@ const pagamentos = new Map();
 
 
 // ----------------------------------------------------
-// EXTRair VIDEO ID
+// EXTRAIR VIDEO ID
 // ----------------------------------------------------
 
 function extrairVideoId(url) {
@@ -111,7 +111,7 @@ function extrairVideoId(url) {
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    versao: '12.3.0-STABLE'
+    versao: '12.4.0-MUX'
   });
 });
 
@@ -119,17 +119,23 @@ app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
     uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    versao: '12.4.0-MUX'
   });
 });
+
+
+// ----------------------------------------------------
+// LOGIN ADMIN
+// ----------------------------------------------------
 
 app.post('/api/admin/login', (req, res) => {
   const { password } =
     req.body || {};
 
   if (
-    !ADMIN_PASSWORD ||samuel123
-    !password ||samuel123
+    !ADMIN_PASSWORD ||
+    !password ||
     password !== ADMIN_PASSWORD
   ) {
     return res.status(401).json({
@@ -141,6 +147,11 @@ app.post('/api/admin/login', (req, res) => {
     success: true
   });
 });
+
+
+// ----------------------------------------------------
+// DASHBOARD ADMIN
+// ----------------------------------------------------
 
 app.get('/api/admin/dashboard', (req, res) => {
   if (
@@ -174,6 +185,7 @@ app.get('/api/admin/dashboard', (req, res) => {
 
 app.post('/api/analisar', async (req, res) => {
   try {
+
     const {
       youtubeUrl
     } = req.body || {};
@@ -198,16 +210,20 @@ app.post('/api/analisar', async (req, res) => {
     metricas.totalAnalises += 1;
 
     const clips = [
+
       {
         id: 1,
         title:
           'Gancho Principal: Introdução Impactante',
+
         reason:
           'Pico de retenção e introdução perfeita para o feed do TikTok/Reels.',
+
         start: 35,
         end: 90,
         duration: 55,
         score: 98,
+
         thumbnail:
           `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
       },
@@ -216,12 +232,15 @@ app.post('/api/analisar', async (req, res) => {
         id: 2,
         title:
           'Clímax & Conversação Dinâmica',
+
         reason:
           'Trecho de fala contínua, sem pausas ou silêncio longo.',
+
         start: 145,
         end: 200,
         duration: 55,
         score: 95,
+
         thumbnail:
           `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
       },
@@ -230,15 +249,19 @@ app.post('/api/analisar', async (req, res) => {
         id: 3,
         title:
           'Revelação & Desfecho Viral',
+
         reason:
           'Excelente gancho para estimular curtidas e comentários.',
+
         start: 290,
         end: 345,
         duration: 55,
         score: 92,
+
         thumbnail:
           `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
       }
+
     ];
 
     return res.json({
@@ -248,6 +271,7 @@ app.post('/api/analisar', async (req, res) => {
     });
 
   } catch (error) {
+
     console.error(
       '[Analisar Error]:',
       error.message
@@ -311,6 +335,7 @@ app.post('/api/pix/criar', async (req, res) => {
     const resultado =
       await payment.create({
         body: {
+
           transaction_amount:
             valorFormatado,
 
@@ -321,6 +346,7 @@ app.post('/api/pix/criar', async (req, res) => {
             'pix',
 
           payer: {
+
             email:
               `user_${Date.now()}@clipforge.com`,
 
@@ -355,8 +381,10 @@ app.post('/api/pix/criar', async (req, res) => {
 
     return res.json({
       id: resultado.id,
+
       qr_code:
         pixData.qr_code,
+
       qr_code_base64:
         pixData.qr_code_base64
     });
@@ -390,6 +418,11 @@ app.post('/api/pix/criar', async (req, res) => {
     });
   }
 });
+
+
+// ----------------------------------------------------
+// STATUS PIX
+// ----------------------------------------------------
 
 app.get('/api/pix/status/:id', async (req, res) => {
 
@@ -461,6 +494,7 @@ app.get('/api/pix/status/:id', async (req, res) => {
       });
 
     } catch (error) {
+
       console.error(
         '[MercadoPago Status]',
         error.message
@@ -477,12 +511,18 @@ app.get('/api/pix/status/:id', async (req, res) => {
 
 
 // ----------------------------------------------------
-// RAPIDAPI STREAM — VÍDEO + ÁUDIO
+// RAPIDAPI / MUX
+// VÍDEO + ÁUDIO
 // ----------------------------------------------------
 
-async function extrairStreamOficial(videoId) {
+async function extrairStreamOficial(
+  videoId,
+  inicio,
+  duracao
+) {
 
   if (!RAPIDAPI_KEY) {
+
     console.error(
       '[RapidAPI] RAPIDAPI_KEY não configurada.'
     );
@@ -492,17 +532,31 @@ async function extrairStreamOficial(videoId) {
 
   try {
 
+    console.log(
+      `[RapidAPI MUX] Solicitando vídeo ${videoId} em 720p H264...`
+    );
+
     const response =
       await axios.get(
-        `https://${RAPIDAPI_HOST}/download`,
+        `https://${RAPIDAPI_HOST}/mux`,
         {
+
           params: {
+
             id: videoId,
-            quality: 'lowest',
-            filter: 'audioandvideo'
+
+            quality: '720',
+
+            codec: 'h264',
+
+            audioOnly: false,
+
+            videoOnly: false
+
           },
 
           headers: {
+
             'x-rapidapi-key':
               RAPIDAPI_KEY,
 
@@ -513,172 +567,51 @@ async function extrairStreamOficial(videoId) {
               'Mozilla/5.0'
           },
 
-          timeout: 25000
+          timeout: 90000
         }
       );
 
     const data =
-  response.data;
+      response.data;
 
-console.log(
-  '[RapidAPI DEBUG]',
-  {
-    temFormats: Array.isArray(data?.formats),
-    quantidadeFormats: Array.isArray(data?.formats)
-      ? data.formats.length
-      : 0,
-    campos: data && typeof data === 'object'
-      ? Object.keys(data)
-      : [],
-    primeiroFormato: Array.isArray(data?.formats)
-      ? {
-          campos: Object.keys(data.formats[0] || {}),
-          hasAudio: data.formats[0]?.hasAudio,
-          hasVideo: data.formats[0]?.hasVideo,
-          mimeType: data.formats[0]?.mimeType,
-          quality: data.formats[0]?.quality,
-          type: data.formats[0]?.type
-        }
-      : null
-  }
-);
+    console.log(
+      '[RapidAPI MUX DEBUG]',
+      {
+        campos:
+          data &&
+          typeof data === 'object'
+            ? Object.keys(data)
+            : [],
 
+        status:
+          data?.status || null,
+
+        filename:
+          data?.filename || null,
+
+        temUrl:
+          typeof data?.url === 'string',
+
+        temResultUrl:
+          typeof data?.result?.url === 'string'
+      }
+    );
 
 
     // ----------------------------------------------
-    // FORMATS
-    // ----------------------------------------------
-
-    if (
-      Array.isArray(data?.formats)
-    ) {
-
-      // 1. Prioridade máxima:
-      // vídeo + áudio explicitamente confirmados.
-      const formatoComAudio =
-        data.formats.find(item => {
-
-          if (
-            !item?.url ||
-            String(item.url)
-              .includes('ytimg.com')
-          ) {
-            return false;
-          }
-
-          const temVideo =
-            item.hasVideo !== false;
-
-          const temAudio =
-            item.hasAudio !== false;
-
-          return (
-            temVideo &&
-            temAudio
-          );
-        });
-
-      if (formatoComAudio?.url) {
-
-        console.log(
-          '[RapidAPI] Formato com vídeo + áudio encontrado.'
-        );
-
-        return formatoComAudio.url;
-      }
-
-      // 2. Alguns provedores não enviam
-      // hasAudio/hasVideo.
-      const formatoCombinado =
-        data.formats.find(item => {
-
-          if (!item?.url) {
-            return false;
-          }
-
-          const texto =
-            JSON.stringify(item)
-              .toLowerCase();
-
-          const pareceAudio =
-            texto.includes('audio') ||
-            texto.includes('m4a') ||
-            texto.includes('mp4a');
-
-          const pareceVideo =
-            texto.includes('video') ||
-            texto.includes('avc') ||
-            texto.includes('h264');
-
-          return (
-            !String(item.url)
-              .includes('ytimg.com') &&
-            pareceAudio &&
-            pareceVideo
-          );
-        });
-
-      if (formatoCombinado?.url) {
-
-        console.log(
-          '[RapidAPI] Formato combinado identificado.'
-        );
-
-        return formatoCombinado.url;
-      }
-
-      // 3. Fallback: formato válido.
-      const formatoValido =
-        data.formats.find(item =>
-          item?.url &&
-          !String(item.url)
-            .includes('ytimg.com')
-        );
-
-      if (formatoValido?.url) {
-
-        console.log(
-          '[RapidAPI] Usando formato válido disponível.'
-        );
-
-        return formatoValido.url;
-      }
-    }
-
-
-    // ----------------------------------------------
-    // URL DIRETA
+    // URL PRINCIPAL
     // ----------------------------------------------
 
     if (
       typeof data?.url === 'string' &&
-      data.url.length > 20 &&
-      !data.url.includes('ytimg.com')
+      data.url.length > 20
     ) {
 
       console.log(
-        '[RapidAPI] URL direta encontrada.'
+        '[RapidAPI MUX] URL muxada encontrada.'
       );
 
       return data.url;
-    }
-
-
-    // ----------------------------------------------
-    // DOWNLOAD URL
-    // ----------------------------------------------
-
-    if (
-      typeof data?.download_url === 'string' &&
-      data.download_url.length > 20 &&
-      !data.download_url.includes('ytimg.com')
-    ) {
-
-      console.log(
-        '[RapidAPI] Download URL encontrada.'
-      );
-
-      return data.download_url;
     }
 
 
@@ -688,15 +621,31 @@ console.log(
 
     if (
       typeof data?.result?.url === 'string' &&
-      data.result.url.length > 20 &&
-      !data.result.url.includes('ytimg.com')
+      data.result.url.length > 20
     ) {
 
       console.log(
-        '[RapidAPI] URL encontrada em result.'
+        '[RapidAPI MUX] URL encontrada em result.url.'
       );
 
       return data.result.url;
+    }
+
+
+    // ----------------------------------------------
+    // DOWNLOAD_URL
+    // ----------------------------------------------
+
+    if (
+      typeof data?.download_url === 'string' &&
+      data.download_url.length > 20
+    ) {
+
+      console.log(
+        '[RapidAPI MUX] Download URL encontrada.'
+      );
+
+      return data.download_url;
     }
 
 
@@ -706,21 +655,30 @@ console.log(
 
     if (
       typeof data?.result?.download_url === 'string' &&
-      data.result.download_url.length > 20 &&
-      !data.result.download_url.includes('ytimg.com')
+      data.result.download_url.length > 20
     ) {
 
       console.log(
-        '[RapidAPI] Download URL encontrada em result.'
+        '[RapidAPI MUX] result.download_url encontrada.'
       );
 
       return data.result.download_url;
     }
 
+
+    console.error(
+      '[RapidAPI MUX] Nenhuma URL de vídeo foi retornada.'
+    );
+
+    console.error(
+      '[RapidAPI MUX] Resposta:',
+      JSON.stringify(data)
+    );
+
   } catch (error) {
 
     console.error(
-      '[RapidAPI Error]:',
+      '[RapidAPI MUX Error]:',
       error.response?.data ||
       error.message
     );
@@ -751,6 +709,7 @@ function executarDownloadComFfmpeg(
         'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       ].join('\r\n') + '\r\n';
 
+
       let finalizado =
         false;
 
@@ -775,15 +734,15 @@ function executarDownloadComFfmpeg(
         '-loglevel',
         'error',
 
-        // Headers ANTES do input
+        // Headers
         '-headers',
         headers,
 
-        // Início
+        // Busca pelo ponto inicial
         '-ss',
         String(inicio),
 
-        // Fonte
+        // Entrada
         '-i',
         streamUrl,
 
@@ -829,7 +788,7 @@ function executarDownloadComFfmpeg(
         // ------------------------------------------
 
         '-map',
-        '0:a:0?',
+        '0:a:0',
 
         '-c:a',
         'aac',
@@ -848,7 +807,7 @@ function executarDownloadComFfmpeg(
 
 
         // ------------------------------------------
-        // MP4
+        // MP4 STREAMING
         // ------------------------------------------
 
         '-movflags',
@@ -886,6 +845,7 @@ function executarDownloadComFfmpeg(
       processo.stderr.on(
         'data',
         dados => {
+
           erro +=
             dados.toString();
         }
@@ -992,9 +952,11 @@ function executarDownloadComFfmpeg(
           ) {
 
             try {
+
               processo.kill(
                 'SIGKILL'
               );
+
             } catch (e) {}
           }
         }
@@ -1018,11 +980,13 @@ app.get(
         req.query.id || ''
       );
 
+
     let start =
       parseInt(
         req.query.start || 0,
         10
       );
+
 
     let duration =
       parseInt(
@@ -1047,6 +1011,7 @@ app.get(
       !Number.isFinite(start) ||
       start < 0
     ) {
+
       start = 0;
     }
 
@@ -1055,6 +1020,7 @@ app.get(
       !Number.isFinite(duration) ||
       duration < 1
     ) {
+
       duration = 55;
     }
 
@@ -1068,9 +1034,15 @@ app.get(
 
     try {
 
+      // --------------------------------------------
+      // PEGA VÍDEO MUXADO
+      // --------------------------------------------
+
       const streamUrl =
         await extrairStreamOficial(
-          videoId
+          videoId,
+          start,
+          duration
         );
 
 
@@ -1082,6 +1054,10 @@ app.get(
         });
       }
 
+
+      // --------------------------------------------
+      // NOME DO ARQUIVO
+      // --------------------------------------------
 
       const safeId =
         videoId.replace(
@@ -1108,6 +1084,10 @@ app.get(
       );
 
 
+      // --------------------------------------------
+      // FFMPEG
+      // --------------------------------------------
+
       await executarDownloadComFfmpeg(
         streamUrl,
         start,
@@ -1117,6 +1097,11 @@ app.get(
 
 
       metricas.totalDownloads += 1;
+
+
+      console.log(
+        `[Download] Download concluído: ${safeId} / ${start}s / ${duration}s`
+      );
 
 
     } catch (error) {
@@ -1151,7 +1136,9 @@ app.listen(
   () => {
 
     console.log(
-      `[ClipForge Core] Servidor operacional na porta ${PORT} [v12.3.0]`
+      '[ClipForge Core] Servidor operacional na porta ' +
+      PORT +
+      ' [v12.4.0-MUX]'
     );
 
     console.log(
@@ -1168,6 +1155,10 @@ app.listen(
           ? 'Configurado'
           : 'Em contingência'
       }`
+    );
+
+    console.log(
+      '[Download] Sistema MUX + FFmpeg ativo.'
     );
   }
 );
