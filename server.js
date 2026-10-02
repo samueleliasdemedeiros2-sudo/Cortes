@@ -518,7 +518,13 @@ async function extrairStreamOficial(videoId) {
       );
 
     const data =
-      response.data;
+response.data;
+
+ console.log(
+  '[RapidAPI DEBUG]',
+  JSON.stringify(data, null, 2)
+);
+
 
     // ----------------------------------------------
     // FORMATS
