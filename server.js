@@ -3,32 +3,40 @@
  * CLIPFORGE PRO - BACKEND 13.0.0
  * ============================================================
  *
- * PRINCIPAIS MELHORIAS:
+ * Baseado no backend 12.9.0
  *
- * - Usuário identificado pelo servidor
- * - Pontos controlados pelo backend
- * - VIP controlado pelo backend
- * - Bônus diário validado pelo backend
- * - Download protegido por autenticação
- * - Download desconta pontos NO SERVIDOR
- * - Pix vinculado ao usuário autenticado
- * - Valor do VIP não é confiado ao frontend
- * - VIP só é liberado após confirmação no Mercado Pago
- * - Sessão de usuário assinada
- * - Sessão administrativa separada
- * - Senha do admin nunca é enviada ao frontend
- * - Rate limit básico
- * - Mantém /api/analisar
- * - Mantém Gemini
- * - Mantém YT-API
- * - Mantém yt-dlp
- * - Mantém FFmpeg
- * - Mantém Mercado Pago
+ * MANTIDO:
+ * - Gemini
+ * - Análise direta de URL pública do YouTube
+ * - Seleção inteligente de cortes
+ * - RapidAPI YT-API
+ * - yt-dlp fallback
+ * - FFmpeg
+ * - Download/renderização MP4
+ * - Mercado Pago PIX
+ * - Dashboard administrativo
+ *
+ * NOVO:
+ * - Sessão segura de usuário
+ * - Token HMAC assinado
+ * - /api/session
+ * - /api/me
+ * - Pontos controlados pelo servidor
+ * - 200 pontos iniciais
+ * - +50 pontos diários
+ * - 50 pontos por download para usuários Free
+ * - VIP não consome pontos
+ * - Reembolso automático se renderização falhar
+ * - PIX não confia no valor enviado pelo frontend
+ * - PIX vinculado ao usuário autenticado
+ * - Ativação automática do VIP após aprovação
+ * - Webhook Mercado Pago
+ * - Sessão administrativa temporária
+ * - CORS configurável pelo FRONTEND_URL
  *
  * IMPORTANTE:
- * Este backend mantém usuários/pagamentos em memória.
- * No Render, reiniciar o serviço limpa esses dados.
- * Para produção definitiva, utilizar banco de dados.
+ * O estado de usuários e pagamentos nesta versão fica em memória.
+ * Para produção definitiva, recomendamos PostgreSQL/Supabase.
  * ============================================================
  */
 
@@ -44,11 +52,18 @@ const { spawn } = require("child_process");
 
 const app = express();
 
-const PORT = Number(process.env.PORT || 10000);
-
 /* ============================================================
    CONFIGURAÇÃO
    ============================================================ */
+
+const PORT = Number(
+  process.env.PORT || 10000
+);
+
+const FRONTEND_URL =
+  String(
+    process.env.FRONTEND_URL || "*"
+  ).trim();
 
 const RAPIDAPI_KEY =
   process.env.RAPIDAPI_KEY || "";
@@ -63,16 +78,16 @@ const MP_ACCESS_TOKEN =
 const ADMIN_PASSWORD =
   process.env.ADMIN_PASSWORD || "";
 
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  "";
+
 const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY || "";
 
 const GEMINI_MODEL =
   process.env.GEMINI_MODEL ||
   "gemini-3.8-flash";
-
-const SESSION_SECRET =
-  process.env.SESSION_SECRET ||
-  crypto.randomBytes(32).toString("hex");
 
 const YTDLP_PATH =
   process.env.YTDLP_PATH ||
@@ -97,8 +112,7 @@ const DOWNLOAD_TIMEOUT =
 
 const MAX_CLIPS =
   Number(
-    process.env.MAX_CLIPS ||
-    5
+    process.env.MAX_CLIPS || 5
   );
 
 const DEFAULT_CLIP_DURATION =
@@ -119,47 +133,110 @@ const MAX_CLIP_DURATION =
     60
   );
 
-/* Plano */
-const FREE_INITIAL_POINTS = 200;
-const DAILY_BONUS_POINTS = 50;
+/* ============================================================
+   CONFIGURAÇÕES DO CLIPFORGE
+   ============================================================ */
+
+const INITIAL_POINTS = 200;
+
+const DAILY_BONUS = 50;
+
 const DOWNLOAD_COST = 50;
 
 const VIP_PRICE = 19.90;
-const VIP_PLAN = "VIP";
 
-/*
- * VIP dura 30 dias.
- *
- * O pagamento atual é tratado como assinatura
- * mensal conforme o produto apresentado no frontend.
- */
-const VIP_DURATION_MS =
-  30 * 24 * 60 * 60 * 1000;
+const SESSION_DAYS = 30;
+
+const ADMIN_SESSION_HOURS = 12;
 
 
 /* ============================================================
-   APP
+   VALIDAÇÃO DE CONFIGURAÇÃO
    ============================================================ */
 
-const corsOrigin =
-  process.env.CORS_ORIGIN || "*";
+if (!SESSION_SECRET) {
+  console.warn(
+    "[SECURITY] ATENÇÃO: SESSION_SECRET não configurada."
+  );
+
+  console.warn(
+    "[SECURITY] Configure SESSION_SECRET no Render."
+  );
+}
+
+
+/* ============================================================
+   APP / CORS
+   ============================================================ */
+
+const corsOptions = {
+  origin: (origin, callback) => {
+
+    /*
+     * Permite ferramentas sem Origin e chamadas locais.
+     */
+
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    /*
+     * Durante desenvolvimento ou caso FRONTEND_URL
+     * ainda esteja como "*", liberamos.
+     */
+
+    if (
+      FRONTEND_URL === "*" ||
+      FRONTEND_URL === ""
+    ) {
+      return callback(null, true);
+    }
+
+    const allowed =
+      FRONTEND_URL
+        .split(",")
+        .map(item =>
+          item.trim()
+        )
+        .filter(Boolean);
+
+    if (
+      allowed.includes(origin)
+    ) {
+      return callback(null, true);
+    }
+
+    console.warn(
+      "[CORS] Origem bloqueada:",
+      origin
+    );
+
+    return callback(
+      new Error(
+        "Origem não autorizada."
+      )
+    );
+  },
+
+  methods: [
+    "GET",
+    "POST",
+    "OPTIONS"
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization"
+  ],
+
+  exposedHeaders: [
+    "Content-Disposition"
+  ]
+};
+
 
 app.use(
-  cors({
-    origin: corsOrigin,
-    methods: [
-      "GET",
-      "POST",
-      "OPTIONS"
-    ],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization"
-    ],
-    exposedHeaders: [
-      "Content-Disposition"
-    ]
-  })
+  cors(corsOptions)
 );
 
 app.use(
@@ -176,7 +253,7 @@ app.use(
 
 
 /* ============================================================
-   DIRETÓRIO TEMPORÁRIO
+   DIRETÓRIOS
    ============================================================ */
 
 try {
@@ -191,10 +268,9 @@ try {
 } catch (error) {
 
   console.error(
-    "[TEMP] Erro:",
+    "[TEMP] Erro criando diretório:",
     error.message
   );
-
 }
 
 
@@ -216,72 +292,62 @@ const metrics = {
 
   pixApproved: 0,
 
-  revenue: 0,
-
-  bonusClaims: 0,
-
-  usersCreated: 0,
-
-  unauthorizedDownloads: 0,
-
-  insufficientPoints: 0
-
+  revenue: 0
 };
 
 
 /* ============================================================
-   ARMAZENAMENTO EM MEMÓRIA
+   MEMÓRIA TEMPORÁRIA
    ============================================================ */
+
+/*
+ * Usuários:
+ *
+ * userId -> {
+ *   userId,
+ *   points,
+ *   vip,
+ *   lastBonus,
+ *   createdAt,
+ *   updatedAt
+ * }
+ */
 
 const usuarios =
   new Map();
 
+
+/*
+ * Pagamentos:
+ *
+ * paymentId -> {
+ *   id,
+ *   userId,
+ *   plano,
+ *   valor,
+ *   status,
+ *   approved,
+ *   counted,
+ *   createdAt,
+ *   externalReference
+ * }
+ */
+
 const pagamentos =
   new Map();
 
-const sessoesAdmin =
+
+/*
+ * Sessões administrativas:
+ *
+ * token -> {
+ *   createdAt,
+ *   expiresAt
+ * }
+ */
+
+const adminSessions =
   new Map();
-
-
-/* ============================================================
-   RATE LIMIT
-   ============================================================ */
-
-const rateBuckets =
-  new Map();
-
-function rateLimit(
-  key,
-  limit,
-  windowMs
-) {
-
-  const agora =
-    Date.now();
-
-  const atual =
-    rateBuckets.get(key);
-
-  if (
-    !atual ||
-    agora - atual.start >= windowMs
-  ) {
-
-    rateBuckets.set(
-      key,
-      {
-        start: agora,
-        count: 1
-      }
-    );
-
-    return true;
-  }
-
-  atual.count++;
-
-  return atual.count <= limit;
-}
 
 
 /* ============================================================
@@ -297,7 +363,6 @@ function sleep(ms) {
         ms
       )
   );
-
 }
 
 
@@ -312,13 +377,10 @@ function safeNumber(
   if (
     !Number.isFinite(number)
   ) {
-
     return fallback;
-
   }
 
   return number;
-
 }
 
 
@@ -335,9 +397,58 @@ function clamp(
       value
     )
   );
-
 }
 
+
+function randomId(
+  prefix = ""
+) {
+
+  return (
+    prefix +
+    crypto
+      .randomBytes(16)
+      .toString("hex")
+  );
+}
+
+
+/* ============================================================
+   DATA BRASIL
+   ============================================================ */
+
+function getBrazilDate() {
+
+  try {
+
+    return new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "America/Sao_Paulo",
+
+        year: "numeric",
+
+        month: "2-digit",
+
+        day: "2-digit"
+      }
+    ).format(
+      new Date()
+    );
+
+  } catch (_) {
+
+    return new Date()
+      .toISOString()
+      .slice(0, 10);
+  }
+}
+
+
+/* ============================================================
+   YOUTUBE
+   ============================================================ */
 
 function extractYouTubeId(
   input
@@ -348,17 +459,14 @@ function extractYouTubeId(
   }
 
   const value =
-    String(input)
-      .trim();
+    String(input).trim();
 
   if (
     /^[a-zA-Z0-9_-]{11}$/.test(
       value
     )
   ) {
-
     return value;
-
   }
 
   try {
@@ -366,41 +474,45 @@ function extractYouTubeId(
     const url =
       new URL(value);
 
+    const hostname =
+      url.hostname
+        .toLowerCase();
+
     if (
-      url.hostname.includes(
+      hostname.includes(
         "youtube.com"
       ) ||
-      url.hostname.includes(
+      hostname.includes(
         "youtu.be"
       ) ||
-      url.hostname.includes(
+      hostname.includes(
         "youtube-nocookie.com"
       )
     ) {
 
       if (
-        url.hostname ===
-        "youtu.be" ||
-        url.hostname.endsWith(
-          "youtu.be"
+        hostname ===
+          "youtu.be" ||
+        hostname.endsWith(
+          ".youtu.be"
         )
       ) {
 
         const id =
           url.pathname
-            .replace(/^\/+/, "")
+            .replace(
+              /^\/+/,
+              ""
+            )
             .split("/")[0];
 
         if (id) {
 
-          return id.substring(
-            0,
-            11
-          );
-
+          return id
+            .substring(0, 11);
         }
-
       }
+
 
       const queryId =
         url.searchParams.get(
@@ -409,54 +521,45 @@ function extractYouTubeId(
 
       if (queryId) {
 
-        return queryId.substring(
-          0,
-          11
-        );
-
+        return queryId
+          .substring(0, 11);
       }
+
 
       const pathParts =
         url.pathname
           .split("/")
           .filter(Boolean);
 
+
       let possibleIndex = -1;
 
-      if (
-        pathParts.includes(
+
+      const shortsIndex =
+        pathParts.indexOf(
           "shorts"
-        )
-      ) {
+        );
 
-        possibleIndex =
-          pathParts.indexOf(
-            "shorts"
-          ) + 1;
-
-      } else if (
-        pathParts.includes(
+      const embedIndex =
+        pathParts.indexOf(
           "embed"
-        )
+        );
+
+      if (
+        shortsIndex >= 0
       ) {
 
         possibleIndex =
-          pathParts.indexOf(
-            "embed"
-          ) + 1;
+          shortsIndex + 1;
 
       } else if (
-        pathParts.includes(
-          "live"
-        )
+        embedIndex >= 0
       ) {
 
         possibleIndex =
-          pathParts.indexOf(
-            "live"
-          ) + 1;
-
+          embedIndex + 1;
       }
+
 
       if (
         possibleIndex >= 0 &&
@@ -465,23 +568,16 @@ function extractYouTubeId(
 
         return pathParts[
           possibleIndex
-        ].substring(
-          0,
-          11
-        );
-
+        ].substring(0, 11);
       }
-
     }
 
   } catch (_) {
 
     return null;
-
   }
 
   return null;
-
 }
 
 
@@ -492,273 +588,14 @@ function buildYouTubeUrl(
   return (
     `https://www.youtube.com/watch?v=${videoId}`
   );
-
 }
 
 
 /* ============================================================
-   CRIPTOGRAFIA / SESSÕES
+   AUTENTICAÇÃO DO USUÁRIO
    ============================================================ */
 
-function criarAssinatura(
-  payload
-) {
-
-  return crypto
-    .createHmac(
-      "sha256",
-      SESSION_SECRET
-    )
-    .update(payload)
-    .digest("hex");
-
-}
-
-
-function criarTokenUsuario(
-  userId
-) {
-
-  const payload =
-    `${userId}.${Date.now()}`;
-
-  const assinatura =
-    criarAssinatura(
-      payload
-    );
-
-  return Buffer
-    .from(
-      `${payload}.${assinatura}`
-    )
-    .toString(
-      "base64url"
-    );
-
-}
-
-
-function validarTokenUsuario(
-  token
-) {
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-
-    const decoded =
-      Buffer
-        .from(
-          token,
-          "base64url"
-        )
-        .toString();
-
-    const partes =
-      decoded.split(".");
-
-    if (
-      partes.length !== 3
-    ) {
-
-      return null;
-
-    }
-
-    const userId =
-      partes[0];
-
-    const timestamp =
-      Number(partes[1]);
-
-    const assinatura =
-      partes[2];
-
-    if (
-      !userId ||
-      !timestamp ||
-      !assinatura
-    ) {
-
-      return null;
-
-    }
-
-    /*
-     * Sessão válida por 90 dias.
-     */
-    if (
-      Date.now() - timestamp >
-      90 * 24 * 60 * 60 * 1000
-    ) {
-
-      return null;
-
-    }
-
-    const payload =
-      `${userId}.${timestamp}`;
-
-    const esperada =
-      criarAssinatura(
-        payload
-      );
-
-    if (
-      assinatura.length !==
-      esperada.length
-    ) {
-
-      return null;
-
-    }
-
-    if (
-      !crypto.timingSafeEqual(
-        Buffer.from(
-          assinatura
-        ),
-        Buffer.from(
-          esperada
-        )
-      )
-    ) {
-
-      return null;
-
-    }
-
-    return userId;
-
-  } catch (_) {
-
-    return null;
-
-  }
-
-}
-
-
-function criarUsuario() {
-
-  const userId =
-    `cf_${crypto
-      .randomBytes(16)
-      .toString("hex")}`;
-
-  const agora =
-    Date.now();
-
-  const usuario = {
-
-    id: userId,
-
-    pontos:
-      FREE_INITIAL_POINTS,
-
-    vip: false,
-
-    vipExpiresAt: null,
-
-    ultimoBonus: null,
-
-    criadoEm: agora,
-
-    ultimoAcesso: agora,
-
-    downloads: 0,
-
-    analyses: 0
-
-  };
-
-  usuarios.set(
-    userId,
-    usuario
-  );
-
-  metrics.usersCreated++;
-
-  return usuario;
-
-}
-
-
-function obterUsuario(
-  userId
-) {
-
-  const usuario =
-    usuarios.get(
-      userId
-    );
-
-  if (!usuario) {
-    return null;
-  }
-
-  usuario.ultimoAcesso =
-    Date.now();
-
-  /*
-   * VIP expirado.
-   */
-  if (
-    usuario.vip &&
-    usuario.vipExpiresAt &&
-    Date.now() >
-      usuario.vipExpiresAt
-  ) {
-
-    usuario.vip =
-      false;
-
-    usuario.vipExpiresAt =
-      null;
-
-  }
-
-  return usuario;
-
-}
-
-
-function usuarioEhVip(
-  usuario
-) {
-
-  if (!usuario) {
-    return false;
-  }
-
-  if (!usuario.vip) {
-    return false;
-  }
-
-  if (
-    usuario.vipExpiresAt &&
-    Date.now() >
-      usuario.vipExpiresAt
-  ) {
-
-    usuario.vip =
-      false;
-
-    usuario.vipExpiresAt =
-      null;
-
-    return false;
-
-  }
-
-  return true;
-
-}
-
-
-function tokenUsuarioFromRequest(
+function authFromRequest(
   req
 ) {
 
@@ -766,64 +603,338 @@ function tokenUsuarioFromRequest(
     req.headers.authorization ||
     "";
 
+  if (!auth) {
+    return "";
+  }
+
   return auth
     .replace(
       /^Bearer\s+/i,
       ""
     )
     .trim();
-
 }
 
 
-function autenticarUsuario(
-  req,
-  res
+/* ============================================================
+   TOKEN DE USUÁRIO
+   ============================================================ */
+
+function createUserToken(
+  userId
 ) {
 
-  const token =
-    tokenUsuarioFromRequest(
-      req
+  if (!SESSION_SECRET) {
+
+    throw new Error(
+      "SESSION_SECRET não configurada."
     );
-
-  const userId =
-    validarTokenUsuario(
-      token
-    );
-
-  if (!userId) {
-
-    return null;
-
   }
 
-  const usuario =
-    obterUsuario(
+
+  const payload = {
+
+    userId,
+
+    exp:
+      Date.now() +
+      SESSION_DAYS *
+        24 *
+        60 *
+        60 *
+        1000
+  };
+
+
+  const payloadText =
+    Buffer
+      .from(
+        JSON.stringify(
+          payload
+        )
+      )
+      .toString(
+        "base64url"
+      );
+
+
+  const signature =
+    crypto
+      .createHmac(
+        "sha256",
+        SESSION_SECRET
+      )
+      .update(
+        payloadText
+      )
+      .digest(
+        "base64url"
+      );
+
+
+  return (
+    `${payloadText}.${signature}`
+  );
+}
+
+
+function verifyUserToken(
+  token
+) {
+
+  if (
+    !token ||
+    !SESSION_SECRET
+  ) {
+    return null;
+  }
+
+
+  const parts =
+    token.split(".");
+
+
+  if (
+    parts.length !== 2
+  ) {
+    return null;
+  }
+
+
+  const [
+    payloadText,
+    signature
+  ] = parts;
+
+
+  try {
+
+    const expected =
+      crypto
+        .createHmac(
+          "sha256",
+          SESSION_SECRET
+        )
+        .update(
+          payloadText
+        )
+        .digest(
+          "base64url"
+        );
+
+
+    const expectedBuffer =
+      Buffer.from(
+        expected
+      );
+
+    const receivedBuffer =
+      Buffer.from(
+        signature
+      );
+
+
+    if (
+      expectedBuffer.length !==
+      receivedBuffer.length
+    ) {
+      return null;
+    }
+
+
+    if (
+      !crypto.timingSafeEqual(
+        expectedBuffer,
+        receivedBuffer
+      )
+    ) {
+      return null;
+    }
+
+
+    const payload =
+      JSON.parse(
+        Buffer
+          .from(
+            payloadText,
+            "base64url"
+          )
+          .toString(
+            "utf8"
+          )
+      );
+
+
+    if (
+      !payload.userId ||
+      !payload.exp
+    ) {
+      return null;
+    }
+
+
+    if (
+      Date.now() >
+      Number(payload.exp)
+    ) {
+      return null;
+    }
+
+
+    return payload;
+
+  } catch (_) {
+
+    return null;
+  }
+}
+
+
+/* ============================================================
+   USUÁRIO
+   ============================================================ */
+
+function getOrCreateUser(
+  userId
+) {
+
+  let usuario =
+    usuarios.get(
       userId
     );
 
+
   if (!usuario) {
 
-    return null;
+    usuario = {
 
+      userId,
+
+      points:
+        INITIAL_POINTS,
+
+      vip: false,
+
+      lastBonus: null,
+
+      createdAt:
+        Date.now(),
+
+      updatedAt:
+        Date.now()
+    };
+
+
+    usuarios.set(
+      userId,
+      usuario
+    );
   }
 
-  return usuario;
 
+  return usuario;
 }
 
 
-function exigirUsuario(
+/* ============================================================
+   BÔNUS DIÁRIO
+   ============================================================ */
+
+function aplicarBonusDiario(
+  usuario
+) {
+
+  const hoje =
+    getBrazilDate();
+
+
+  if (
+    usuario.lastBonus ===
+    hoje
+  ) {
+
+    return false;
+  }
+
+
+  usuario.points =
+    Math.max(
+      0,
+      safeNumber(
+        usuario.points,
+        0
+      )
+    ) +
+    DAILY_BONUS;
+
+
+  usuario.lastBonus =
+    hoje;
+
+
+  usuario.updatedAt =
+    Date.now();
+
+
+  return true;
+}
+
+
+/* ============================================================
+   USUÁRIO ATUAL
+   ============================================================ */
+
+function getAuthenticatedUser(
+  req
+) {
+
+  const token =
+    authFromRequest(
+      req
+    );
+
+
+  const payload =
+    verifyUserToken(
+      token
+    );
+
+
+  if (!payload) {
+    return null;
+  }
+
+
+  const usuario =
+    getOrCreateUser(
+      payload.userId
+    );
+
+
+  aplicarBonusDiario(
+    usuario
+  );
+
+
+  return usuario;
+}
+
+
+/* ============================================================
+   MIDDLEWARE USUÁRIO
+   ============================================================ */
+
+function requireUser(
   req,
   res,
   next
 ) {
 
   const usuario =
-    autenticarUsuario(
-      req,
-      res
+    getAuthenticatedUser(
+      req
     );
+
 
   if (!usuario) {
 
@@ -832,17 +943,19 @@ function exigirUsuario(
       ok: false,
 
       error:
-        "Sessão de usuário inválida ou expirada."
+        "Sessão inválida ou expirada.",
 
+      code:
+        "AUTH_REQUIRED"
     });
-
   }
+
 
   req.usuario =
     usuario;
 
-  next();
 
+  next();
 }
 
 
@@ -850,25 +963,11 @@ function exigirUsuario(
    ADMIN
    ============================================================ */
 
-function criarSessaoAdmin() {
+function createAdminToken() {
 
-  const token =
-    crypto.randomBytes(
-      32
-    ).toString(
-      "hex"
-    );
-
-  sessoesAdmin.set(
-    token,
-    {
-      criadoEm:
-        Date.now()
-    }
-  );
-
-  return token;
-
+  return crypto
+    .randomBytes(32)
+    .toString("hex");
 }
 
 
@@ -876,50 +975,42 @@ function isAdmin(
   req
 ) {
 
-  const auth =
-    req.headers.authorization ||
-    "";
-
   const token =
-    auth
-      .replace(
-        /^Bearer\s+/i,
-        ""
-      )
-      .trim();
+    authFromRequest(
+      req
+    );
+
 
   if (!token) {
     return false;
   }
 
-  const sessao =
-    sessoesAdmin.get(
+
+  const session =
+    adminSessions.get(
       token
     );
 
-  if (!sessao) {
+
+  if (!session) {
     return false;
   }
 
-  /*
-   * Sessão admin de 12 horas.
-   */
+
   if (
-    Date.now() -
-      sessao.criadoEm >
-    12 * 60 * 60 * 1000
+    Date.now() >
+    session.expiresAt
   ) {
 
-    sessoesAdmin.delete(
+    adminSessions.delete(
       token
     );
 
     return false;
-
   }
 
-  return true;
 
+  return true;
 }
 
 
@@ -957,11 +1048,15 @@ app.get(
           GEMINI_API_KEY
         ),
 
+      authentication:
+        Boolean(
+          SESSION_SECRET
+        ),
+
       timestamp:
-        new Date().toISOString()
-
+        new Date()
+          .toISOString()
     });
-
   }
 );
 
@@ -999,278 +1094,185 @@ app.get(
             ADMIN_PASSWORD
           ),
 
+        authentication:
+          Boolean(
+            SESSION_SECRET
+          ),
+
         ytDlp:
           fs.existsSync(
             YTDLP_PATH
           )
-
       },
 
       metrics
-
     });
-
   }
 );
 
 
 /* ============================================================
-   SESSÃO / USUÁRIO
+   SESSÃO
    ============================================================ */
 
 app.post(
-  "/api/user/session",
+  "/api/session",
   (req, res) => {
 
-    const ip =
-      req.ip ||
-      req.socket.remoteAddress ||
-      "unknown";
+    try {
 
-    if (
-      !rateLimit(
-        `session:${ip}`,
-        20,
-        60 * 60 * 1000
-      )
-    ) {
+      if (!SESSION_SECRET) {
 
-      return res.status(429).json({
+        return res.status(503).json({
 
-        ok: false,
+          ok: false,
 
-        error:
-          "Muitas sessões criadas. Tente novamente mais tarde."
-
-      });
-
-    }
-
-    const usuario =
-      criarUsuario();
-
-    const token =
-      criarTokenUsuario(
-        usuario.id
-      );
-
-    return res.json({
-
-      ok: true,
-
-      token,
-
-      user: {
-
-        id:
-          usuario.id,
-
-        pontos:
-          usuario.pontos,
-
-        vip:
-          usuario.vip,
-
-        vipExpiresAt:
-          usuario.vipExpiresAt,
-
-        ultimoBonus:
-          usuario.ultimoBonus
-
+          error:
+            "SESSION_SECRET não configurada no servidor."
+        });
       }
 
-    });
 
-  }
-);
+      /*
+       * O frontend pode enviar um userId antigo.
+       * Porém nunca confiamos em dados de pontos/VIP
+       * enviados pelo cliente.
+       */
+
+      let requestedUserId =
+        String(
+          req.body?.userId ||
+          ""
+        ).trim();
 
 
-app.get(
-  "/api/user/me",
-  exigirUsuario,
-  (req, res) => {
+      /*
+       * Validamos o formato.
+       */
 
-    const usuario =
-      req.usuario;
+      if (
+        !/^[a-zA-Z0-9_-]{8,100}$/.test(
+          requestedUserId
+        )
+      ) {
 
-    res.json({
-
-      ok: true,
-
-      user: {
-
-        id:
-          usuario.id,
-
-        pontos:
-          usuarioEhVip(
-            usuario
-          )
-            ? null
-            : usuario.pontos,
-
-        vip:
-          usuarioEhVip(
-            usuario
-          ),
-
-        vipExpiresAt:
-          usuario.vipExpiresAt,
-
-        ultimoBonus:
-          usuario.ultimoBonus,
-
-        downloads:
-          usuario.downloads,
-
-        analyses:
-          usuario.analyses
-
+        requestedUserId =
+          randomId(
+            "user_"
+          );
       }
 
-    });
 
-  }
-);
-
-
-/* ============================================================
-   BÔNUS DIÁRIO
-   ============================================================ */
-
-function dataBrasilUTC(
-  agora = new Date()
-) {
-
-  /*
-   * A finalidade aqui é impedir múltiplos resgates
-   * durante o mesmo dia lógico.
-   *
-   * Usa America/Sao_Paulo.
-   */
-
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      timeZone:
-        "America/Sao_Paulo",
-      year:
-        "numeric",
-      month:
-        "2-digit",
-      day:
-        "2-digit"
-    }
-  ).format(
-    agora
-  );
-
-}
+      const usuario =
+        getOrCreateUser(
+          requestedUserId
+        );
 
 
-app.post(
-  "/api/user/bonus",
-  exigirUsuario,
-  (req, res) => {
+      const bonusAdded =
+        aplicarBonusDiario(
+          usuario
+        );
 
-    const usuario =
-      req.usuario;
 
-    if (
-      usuarioEhVip(
-        usuario
-      )
-    ) {
+      const token =
+        createUserToken(
+          usuario.userId
+        );
+
 
       return res.json({
 
         ok: true,
 
-        claimed: false,
-
-        message:
-          "Usuários VIP não precisam de bônus de pontos.",
+        token,
 
         user: {
 
+          userId:
+            usuario.userId,
+
           pontos:
-            null,
+            usuario.points,
+
+          points:
+            usuario.points,
 
           vip:
-            true
+            usuario.vip,
 
+          isVip:
+            usuario.vip,
+
+          dailyBonusAdded:
+            bonusAdded
         }
-
       });
 
-    }
+    } catch (error) {
 
-    const hoje =
-      dataBrasilUTC();
+      console.error(
+        "[SESSION]",
+        error.message
+      );
 
-    if (
-      usuario.ultimoBonus ===
-      hoje
-    ) {
 
-      return res.status(409).json({
+      return res.status(500).json({
 
         ok: false,
 
-        claimed: false,
-
         error:
-          "O bônus de hoje já foi resgatado.",
-
-        user: {
-
-          pontos:
-            usuario.pontos,
-
-          vip:
-            false,
-
-          ultimoBonus:
-            usuario.ultimoBonus
-
-        }
-
+          "Erro criando sessão."
       });
-
     }
+  }
+);
 
-    usuario.pontos +=
-      DAILY_BONUS_POINTS;
 
-    usuario.ultimoBonus =
-      hoje;
+/* ============================================================
+   ME
+   ============================================================ */
 
-    metrics.bonusClaims++;
+app.get(
+  "/api/me",
+  requireUser,
+  (req, res) => {
+
+    const usuario =
+      req.usuario;
+
+
+    const bonusAdded =
+      aplicarBonusDiario(
+        usuario
+      );
+
 
     return res.json({
 
       ok: true,
 
-      claimed: true,
-
-      added:
-        DAILY_BONUS_POINTS,
-
       user: {
 
+        userId:
+          usuario.userId,
+
         pontos:
-          usuario.pontos,
+          usuario.points,
+
+        points:
+          usuario.points,
 
         vip:
-          false,
+          usuario.vip,
 
-        ultimoBonus:
-          usuario.ultimoBonus
+        isVip:
+          usuario.vip,
 
+        dailyBonusAdded:
+          bonusAdded
       }
-
     });
-
   }
 );
 
@@ -1291,8 +1293,8 @@ async function analisarComGemini({
     throw new Error(
       "GEMINI_API_KEY não configurada no servidor."
     );
-
   }
+
 
   const quantidade =
     clamp(
@@ -1304,6 +1306,7 @@ async function analisarComGemini({
       MAX_CLIPS
     );
 
+
   const duracaoAlvo =
     clamp(
       safeNumber(
@@ -1313,6 +1316,7 @@ async function analisarComGemini({
       MIN_CLIP_DURATION,
       MAX_CLIP_DURATION
     );
+
 
   const schema = {
 
@@ -1357,7 +1361,6 @@ async function analisarComGemini({
               type:
                 "number"
             }
-
           },
 
           required: [
@@ -1367,17 +1370,13 @@ async function analisarComGemini({
             "reason",
             "score"
           ]
-
         }
-
       }
-
     },
 
     required: [
       "clips"
     ]
-
   };
 
 
@@ -1425,6 +1424,7 @@ IMPORTANTE:
 13. Não ultrapasse ${MAX_CLIPS} cortes.
 14. Não use timestamps negativos.
 15. Não use timestamps fora do vídeo.
+16. Cada corte deve respeitar aproximadamente a duração solicitada.
 
 A resposta deve conter SOMENTE o JSON solicitado.
 `;
@@ -1452,7 +1452,6 @@ A resposta deve conter SOMENTE o JSON solicitado.
         uri:
           youtubeUrl
       }
-
     ],
 
     response_format: {
@@ -1464,9 +1463,7 @@ A resposta deve conter SOMENTE o JSON solicitado.
         "application/json",
 
       schema
-
     }
-
   };
 
 
@@ -1500,14 +1497,12 @@ A resposta deve conter SOMENTE o JSON solicitado.
 
           "x-goog-api-key":
             GEMINI_API_KEY
-
         },
 
         body:
           JSON.stringify(
             body
           )
-
       }
     );
 
@@ -1517,6 +1512,7 @@ A resposta deve conter SOMENTE o JSON solicitado.
 
 
   let data;
+
 
   try {
 
@@ -1531,7 +1527,6 @@ A resposta deve conter SOMENTE o JSON solicitado.
       raw:
         rawText
     };
-
   }
 
 
@@ -1552,6 +1547,7 @@ A resposta deve conter SOMENTE o JSON solicitado.
       )
     );
 
+
     throw new Error(
       `Gemini HTTP ${response.status}: ${
         data?.error?.message ||
@@ -1561,7 +1557,6 @@ A resposta deve conter SOMENTE o JSON solicitado.
         )
       }`
     );
-
   }
 
 
@@ -1581,6 +1576,7 @@ A resposta deve conter SOMENTE o JSON solicitado.
     const textParts =
       [];
 
+
     for (
       const step of data.steps
     ) {
@@ -1593,8 +1589,8 @@ A resposta deve conter SOMENTE o JSON solicitado.
       ) {
 
         for (
-          const content of
-          step.content
+          const content
+          of step.content
         ) {
 
           if (
@@ -1606,18 +1602,14 @@ A resposta deve conter SOMENTE o JSON solicitado.
             textParts.push(
               content.text
             );
-
           }
-
         }
-
       }
-
     }
+
 
     outputText =
       textParts.join("");
-
   }
 
 
@@ -1636,14 +1628,15 @@ A resposta deve conter SOMENTE o JSON solicitado.
       )
     );
 
+
     throw new Error(
       "Gemini não retornou o JSON dos cortes."
     );
-
   }
 
 
   let result;
+
 
   try {
 
@@ -1670,6 +1663,7 @@ A resposta deve conter SOMENTE o JSON solicitado.
         )
         .trim();
 
+
     try {
 
       result =
@@ -1687,12 +1681,11 @@ A resposta deve conter SOMENTE o JSON solicitado.
         )
       );
 
+
       throw new Error(
         "Gemini retornou uma resposta que não pôde ser convertida em JSON."
       );
-
     }
-
   }
 
 
@@ -1706,12 +1699,12 @@ A resposta deve conter SOMENTE o JSON solicitado.
     throw new Error(
       "Gemini não retornou uma lista válida de clips."
     );
-
   }
 
 
   const clips =
     result.clips
+
       .map(
         (clip, index) => {
 
@@ -1724,11 +1717,11 @@ A resposta deve conter SOMENTE o JSON solicitado.
               )
             );
 
-          const end =
+
+          let end =
             Math.max(
               start +
                 MIN_CLIP_DURATION,
-
               safeNumber(
                 clip.end,
                 start +
@@ -1736,9 +1729,26 @@ A resposta deve conter SOMENTE o JSON solicitado.
               )
             );
 
+
+          /*
+           * Não permitimos cortes maiores
+           * que o máximo definido.
+           */
+
+          if (
+            end - start >
+            MAX_CLIP_DURATION
+          ) {
+
+            end =
+              start +
+              MAX_CLIP_DURATION;
+          }
+
+
           const duration =
-            end -
-            start;
+            end - start;
+
 
           return {
 
@@ -1795,11 +1805,10 @@ A resposta deve conter SOMENTE o JSON solicitado.
 
             modelo:
               GEMINI_MODEL
-
           };
-
         }
       )
+
       .filter(
         clip => {
 
@@ -1807,37 +1816,39 @@ A resposta deve conter SOMENTE o JSON solicitado.
             clip.duracao <
             MIN_CLIP_DURATION
           ) {
-
             return false;
-
           }
 
           if (
             clip.duracao >
-            MAX_CLIP_DURATION +
-              15
+            MAX_CLIP_DURATION
           ) {
-
             return false;
-
           }
 
           return true;
-
         }
       )
+
+      .sort(
+        (a, b) =>
+          b.score -
+          a.score
+      )
+
       .slice(
         0,
         quantidade
       );
 
 
-  if (!clips.length) {
+  if (
+    !clips.length
+  ) {
 
     throw new Error(
       "A IA não encontrou cortes válidos."
     );
-
   }
 
 
@@ -1846,10 +1857,22 @@ A resposta deve conter SOMENTE o JSON solicitado.
   );
 
 
+  for (
+    const clip of clips
+  ) {
+
+    console.log(
+      `[Gemini] #${clip.id} ` +
+      `${clip.inicio}s → ${clip.fim}s ` +
+      `score=${clip.score}`
+    );
+  }
+
+
   metrics.geminiAnalyses++;
 
-  return clips;
 
+  return clips;
 }
 
 
@@ -1885,7 +1908,6 @@ function gerarFallbackClips() {
 
       ai:
         false
-
     },
 
     {
@@ -1912,7 +1934,6 @@ function gerarFallbackClips() {
 
       ai:
         false
-
     },
 
     {
@@ -1939,11 +1960,8 @@ function gerarFallbackClips() {
 
       ai:
         false
-
     }
-
   ];
-
 }
 
 
@@ -1953,11 +1971,8 @@ function gerarFallbackClips() {
 
 app.post(
   "/api/analisar",
-  exigirUsuario,
+  requireUser,
   async (req, res) => {
-
-    const usuario =
-      req.usuario;
 
     const youtubeUrl =
       String(
@@ -1966,17 +1981,20 @@ app.post(
         ""
       ).trim();
 
+
     const requestedVideoId =
       String(
         req.body.videoId ||
         ""
       ).trim();
 
+
     const quantity =
       safeNumber(
         req.body.quantity,
         3
       );
+
 
     const duration =
       safeNumber(
@@ -1985,36 +2003,18 @@ app.post(
       );
 
 
-    if (
-      !rateLimit(
-        `analysis:${usuario.id}`,
-        10,
-        10 * 60 * 1000
-      )
-    ) {
-
-      return res.status(429).json({
-
-        ok: false,
-
-        error:
-          "Muitas análises em pouco tempo. Aguarde alguns minutos."
-
-      });
-
-    }
-
-
     console.log("");
 
     console.log(
       "[Análise] =================================="
     );
 
+
     console.log(
       "[Análise] Usuário:",
-      usuario.id
+      req.usuario.userId
     );
+
 
     console.log(
       "[Análise] Entrada:",
@@ -2040,9 +2040,7 @@ app.post(
 
         error:
           "Link do YouTube inválido."
-
       });
-
     }
 
 
@@ -2054,7 +2052,23 @@ app.post(
 
     metrics.analyses++;
 
-    usuario.analyses++;
+
+    console.log(
+      "[Análise] ID:",
+      videoId
+    );
+
+
+    console.log(
+      "[Análise] Quantidade:",
+      quantity
+    );
+
+
+    console.log(
+      "[Análise] Duração:",
+      duration
+    );
 
 
     if (
@@ -2075,20 +2089,16 @@ app.post(
 
             targetDuration:
               duration
-
           });
 
 
         return res.json({
 
-          ok:
-            true,
+          ok: true,
 
-          success:
-            true,
+          success: true,
 
-          ai:
-            true,
+          ai: true,
 
           modelo:
             GEMINI_MODEL,
@@ -2105,12 +2115,12 @@ app.post(
 
           message:
             "Cortes encontrados pela IA Gemini."
-
         });
 
       } catch (error) {
 
         metrics.failedAnalyses++;
+
 
         console.error(
           "[Análise] Gemini falhou:",
@@ -2118,18 +2128,13 @@ app.post(
         );
 
 
-        return res.status(
-          502
-        ).json({
+        return res.status(502).json({
 
-          ok:
-            false,
+          ok: false,
 
-          success:
-            false,
+          success: false,
 
-          ai:
-            false,
+          ai: false,
 
           videoId,
 
@@ -2141,17 +2146,9 @@ app.post(
 
           hint:
             "Verifique se o vídeo é público e se a GEMINI_API_KEY está válida."
-
         });
-
       }
-
     }
-
-
-    console.warn(
-      "[Análise] GEMINI_API_KEY não configurada."
-    );
 
 
     const clips =
@@ -2160,14 +2157,11 @@ app.post(
 
     return res.json({
 
-      ok:
-        true,
+      ok: true,
 
-      success:
-        true,
+      success: true,
 
-      ai:
-        false,
+      ai: false,
 
       modelo:
         null,
@@ -2184,9 +2178,7 @@ app.post(
 
       message:
         "Gemini não configurado. Foram usados cortes de fallback."
-
     });
-
   }
 );
 
@@ -2199,12 +2191,13 @@ async function consultarYTAPI(
   videoId
 ) {
 
-  if (!RAPIDAPI_KEY) {
+  if (
+    !RAPIDAPI_KEY
+  ) {
 
     throw new Error(
       "RAPIDAPI_KEY não configurada."
     );
-
   }
 
 
@@ -2235,14 +2228,12 @@ async function consultarYTAPI(
 
           "x-rapidapi-host":
             RAPIDAPI_HOST
-
         },
 
         signal:
           AbortSignal.timeout(
             30000
           )
-
       }
     );
 
@@ -2252,6 +2243,7 @@ async function consultarYTAPI(
 
 
   let data;
+
 
   try {
 
@@ -2265,7 +2257,6 @@ async function consultarYTAPI(
     throw new Error(
       "YT-API retornou resposta inválida."
     );
-
   }
 
 
@@ -2276,7 +2267,6 @@ async function consultarYTAPI(
     throw new Error(
       `YT-API HTTP ${response.status}`
     );
-
   }
 
 
@@ -2300,18 +2290,15 @@ async function consultarYTAPI(
     ) {
 
       for (
-        const item of
-        value
+        const item of value
       ) {
 
         collect(
           item
         );
-
       }
 
       return;
-
     }
 
 
@@ -2319,9 +2306,7 @@ async function consultarYTAPI(
       typeof value !==
       "object"
     ) {
-
       return;
-
     }
 
 
@@ -2374,21 +2359,19 @@ async function consultarYTAPI(
             value.audio ||
             value.hasAudio
           )
-
       });
-
     }
 
 
     for (
-      const key of
-      Object.keys(
+      const key of Object.keys(
         value
       )
     ) {
 
       const child =
         value[key];
+
 
       if (
         child &&
@@ -2399,11 +2382,8 @@ async function consultarYTAPI(
         collect(
           child
         );
-
       }
-
     }
-
   }
 
 
@@ -2415,13 +2395,13 @@ async function consultarYTAPI(
   const unique =
     [];
 
+
   const seen =
     new Set();
 
 
   for (
-    const stream of
-    streams
+    const stream of streams
   ) {
 
     if (
@@ -2429,19 +2409,18 @@ async function consultarYTAPI(
         stream.url
       )
     ) {
-
       continue;
-
     }
+
 
     seen.add(
       stream.url
     );
 
+
     unique.push(
       stream
     );
-
   }
 
 
@@ -2452,7 +2431,6 @@ async function consultarYTAPI(
 
 
   return unique;
-
 }
 
 
@@ -2481,7 +2459,6 @@ async function testarStream(
 
             "User-Agent":
               "Mozilla/5.0"
-
           },
 
           redirect:
@@ -2491,7 +2468,6 @@ async function testarStream(
             AbortSignal.timeout(
               15000
             )
-
         }
       );
 
@@ -2513,7 +2489,6 @@ async function testarStream(
         await response.body.cancel();
 
       } catch (_) {}
-
     }
 
 
@@ -2526,15 +2501,14 @@ async function testarStream(
       error.message
     );
 
+
     return false;
-
   }
-
 }
 
 
 /* ============================================================
-   FFPROBE
+   FFPROMBE
    ============================================================ */
 
 function ffprobeDuration(
@@ -2559,7 +2533,6 @@ function ffprobeDuration(
             "default=noprint_wrappers=1:nokey=1",
 
             filePath
-
           ]
         );
 
@@ -2574,7 +2547,6 @@ function ffprobeDuration(
 
           output +=
             data.toString();
-
         }
       );
 
@@ -2588,6 +2560,7 @@ function ffprobeDuration(
               output.trim()
             );
 
+
           resolve(
             Number.isFinite(
               value
@@ -2595,7 +2568,6 @@ function ffprobeDuration(
               ? value
               : null
           );
-
         }
       );
 
@@ -2607,13 +2579,10 @@ function ffprobeDuration(
           resolve(
             null
           );
-
         }
       );
-
     }
   );
-
 }
 
 
@@ -2646,7 +2615,6 @@ async function baixarStreamParaArquivo(
 
                 "User-Agent":
                   "Mozilla/5.0"
-
               },
 
               redirect:
@@ -2656,7 +2624,6 @@ async function baixarStreamParaArquivo(
                 AbortSignal.timeout(
                   DOWNLOAD_TIMEOUT
                 )
-
             }
           );
 
@@ -2672,7 +2639,6 @@ async function baixarStreamParaArquivo(
           );
 
           return;
-
         }
 
 
@@ -2687,7 +2653,6 @@ async function baixarStreamParaArquivo(
           );
 
           return;
-
         }
 
 
@@ -2715,9 +2680,7 @@ async function baixarStreamParaArquivo(
             if (
               done
             ) {
-
               break;
-
             }
 
 
@@ -2740,14 +2703,10 @@ async function baixarStreamParaArquivo(
                       "drain",
                       resolveDrain
                     );
-
                   }
                 );
-
               }
-
             }
-
           }
 
 
@@ -2768,7 +2727,6 @@ async function baixarStreamParaArquivo(
             reject
           );
 
-
         } catch (error) {
 
           fileStream.destroy();
@@ -2776,7 +2734,6 @@ async function baixarStreamParaArquivo(
           reject(
             error
           );
-
         }
 
       } catch (error) {
@@ -2784,12 +2741,9 @@ async function baixarStreamParaArquivo(
         reject(
           error
         );
-
       }
-
     }
   );
-
 }
 
 
@@ -2839,7 +2793,6 @@ function executar(
 
           stdout +=
             data.toString();
-
         }
       );
 
@@ -2850,7 +2803,6 @@ function executar(
 
           stderr +=
             data.toString();
-
         }
       );
 
@@ -2872,15 +2824,11 @@ function executar(
             stdout,
 
             stderr
-
           });
-
         }
       );
-
     }
   );
-
 }
 
 
@@ -2902,7 +2850,6 @@ async function baixarComYtDlp(
     throw new Error(
       "yt-dlp não encontrado."
     );
-
   }
 
 
@@ -2941,7 +2888,6 @@ async function baixarComYtDlp(
     outputPath,
 
     url
-
   ];
 
 
@@ -2955,7 +2901,6 @@ async function baixarComYtDlp(
           path.dirname(
             YTDLP_PATH
           )
-
       }
     );
 
@@ -2970,7 +2915,6 @@ async function baixarComYtDlp(
         -2000
       )
     );
-
   }
 
 
@@ -2983,12 +2927,10 @@ async function baixarComYtDlp(
     throw new Error(
       "yt-dlp terminou sem gerar o arquivo."
     );
-
   }
 
 
   return outputPath;
-
 }
 
 
@@ -3075,7 +3017,6 @@ async function cortarVideo(
     "+faststart",
 
     outputPath
-
   ];
 
 
@@ -3096,7 +3037,6 @@ async function cortarVideo(
         -3000
       )
     );
-
   }
 
 
@@ -3109,12 +3049,10 @@ async function cortarVideo(
     throw new Error(
       "FFmpeg não gerou o arquivo."
     );
-
   }
 
 
   return outputPath;
-
 }
 
 
@@ -3124,7 +3062,7 @@ async function cortarVideo(
 
 app.get(
   "/api/download",
-  exigirUsuario,
+  requireUser,
   async (req, res) => {
 
     const usuario =
@@ -3155,105 +3093,102 @@ app.get(
           req.query.duration,
           DEFAULT_CLIP_DURATION
         ),
-        MIN_CLIP_DURATION,
-        MAX_CLIP_DURATION
+        1,
+        300
       );
 
 
     if (!videoId) {
 
-      return res.status(
-        400
-      ).json({
+      return res.status(400).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "ID ou URL do YouTube inválido."
-
       });
-
     }
 
 
     /*
      * ========================================================
-     * AUTORIZAÇÃO FINANCEIRA
+     * CONTROLE DE PONTOS
      * ========================================================
      */
 
-    const vip =
-      usuarioEhVip(
-        usuario
+    const isVip =
+      Boolean(
+        usuario.vip
       );
 
 
-    if (
-      !vip &&
-      usuario.pontos <
-        DOWNLOAD_COST
-    ) {
-
-      metrics.insufficientPoints++;
-
-      return res.status(
-        402
-      ).json({
-
-        ok:
-          false,
-
-        error:
-          "Pontos insuficientes.",
-
-        code:
-          "INSUFFICIENT_POINTS",
-
-        required:
-          DOWNLOAD_COST,
-
-        points:
-          usuario.pontos,
-
-        vip:
-          false
-
-      });
-
-    }
-
-
-    /*
-     * Se não for VIP, reservamos os pontos
-     * ANTES do processamento.
-     *
-     * Se o download falhar, devolvemos os pontos.
-     */
-
-    let pontosCobrados =
+    let chargedPoints =
       false;
 
 
-    if (!vip) {
+    if (!isVip) {
 
-      usuario.pontos -=
+      const points =
+        safeNumber(
+          usuario.points,
+          0
+        );
+
+
+      if (
+        points <
+        DOWNLOAD_COST
+      ) {
+
+        return res.status(402).json({
+
+          ok: false,
+
+          error:
+            "Pontos insuficientes.",
+
+          code:
+            "INSUFFICIENT_POINTS",
+
+          pontos:
+            points,
+
+          points,
+
+          custo:
+            DOWNLOAD_COST,
+
+          vip:
+            false
+        });
+      }
+
+
+      /*
+       * Deduzimos imediatamente.
+       *
+       * Caso o processamento falhe,
+       * os pontos serão devolvidos.
+       */
+
+      usuario.points =
+        points -
         DOWNLOAD_COST;
 
-      pontosCobrados =
-        true;
 
+      usuario.updatedAt =
+        Date.now();
+
+
+      chargedPoints =
+        true;
     }
 
 
     const jobId =
       crypto
-        .randomBytes(
-          8
-        )
-        .toString(
-          "hex"
-        );
+        .randomBytes(8)
+        .toString("hex");
 
 
     const originalPath =
@@ -3282,17 +3217,19 @@ app.get(
 
     console.log(
       "[Download] Usuário:",
-      usuario.id
+      usuario.userId
     );
 
     console.log(
       "[Download] VIP:",
-      vip
+      isVip
     );
 
     console.log(
-      "[Download] Pontos:",
-      usuario.pontos
+      "[Download] Pontos cobrados:",
+      chargedPoints
+        ? DOWNLOAD_COST
+        : 0
     );
 
     console.log(
@@ -3320,9 +3257,9 @@ app.get(
 
 
       /*
-       * ======================================================
+       * ========================================================
        * 1. RAPIDAPI
-       * ======================================================
+       * ========================================================
        */
 
       if (
@@ -3342,13 +3279,26 @@ app.get(
             );
 
 
+          console.log(
+            `[Download] ${streams.length} streams encontradas.`
+          );
+
+
           const candidates =
             streams
+
               .sort(
                 (a, b) =>
-                  (b.height || 0) -
-                  (a.height || 0)
+                  (
+                    b.height ||
+                    0
+                  ) -
+                  (
+                    a.height ||
+                    0
+                  )
               )
+
               .slice(
                 0,
                 12
@@ -3356,16 +3306,14 @@ app.get(
 
 
           for (
-            const stream of
-            candidates
+            const stream
+            of candidates
           ) {
 
             if (
               !stream.url
             ) {
-
               continue;
-
             }
 
 
@@ -3378,10 +3326,13 @@ app.get(
             if (
               !accessible
             ) {
-
               continue;
-
             }
+
+
+            console.log(
+              "[Download] Stream acessível encontrada."
+            );
 
 
             try {
@@ -3401,15 +3352,13 @@ app.get(
               if (
                 sourceDownloaded
               ) {
-
                 break;
-
               }
 
             } catch (error) {
 
               console.log(
-                "[Download] Falha stream:",
+                "[Download] Falha baixando stream:",
                 error.message
               );
 
@@ -3421,9 +3370,7 @@ app.get(
                 );
 
               } catch (_) {}
-
             }
-
           }
 
         } catch (error) {
@@ -3432,16 +3379,14 @@ app.get(
             "[Download] YT-API falhou:",
             error.message
           );
-
         }
-
       }
 
 
       /*
-       * ======================================================
+       * ========================================================
        * 2. YT-DLP
-       * ======================================================
+       * ========================================================
        */
 
       if (
@@ -3472,33 +3417,66 @@ app.get(
             "[YT-DLP] Falhou:",
             error.message
           );
-
         }
-
       }
 
 
       /*
-       * ======================================================
-       * 3. FALHA DE FONTE
-       * ======================================================
+       * ========================================================
+       * 3. NENHUMA FONTE
+       * ========================================================
        */
 
       if (
         !sourceDownloaded
       ) {
 
-        throw new Error(
-          "Não foi possível obter uma fonte de vídeo acessível para gerar o MP4."
-        );
+        if (
+          chargedPoints
+        ) {
 
+          usuario.points +=
+            DOWNLOAD_COST;
+
+          usuario.updatedAt =
+            Date.now();
+        }
+
+
+        return res.status(502).json({
+
+          ok: false,
+
+          error:
+            "Não foi possível obter uma fonte de vídeo acessível para gerar o MP4.",
+
+          reason:
+            "O YouTube ou a fonte utilizada bloqueou o acesso ao arquivo.",
+
+          pointsRefunded:
+            chargedPoints,
+
+          pontos:
+            usuario.points,
+
+          points:
+            usuario.points,
+
+          ai:
+            Boolean(
+              GEMINI_API_KEY
+            ),
+
+          message:
+            "A IA pode analisar o vídeo, mas a renderização do MP4 depende de uma fonte de vídeo acessível ao servidor."
+        });
       }
 
 
       /*
-       * ======================================================
-       * 4. FFmpeg
-       * ======================================================
+       * ========================================================
+       * 4. FFMPEG
+       * ========================================================
        */
 
       await cortarVideo(
@@ -3510,8 +3488,6 @@ app.get(
 
 
       metrics.downloads++;
-
-      usuario.downloads++;
 
 
       const filename =
@@ -3547,10 +3523,38 @@ app.get(
         error => {
 
           console.error(
-            "[Download] Erro enviando:",
+            "[Download] Erro enviando arquivo:",
             error.message
           );
 
+
+          if (
+            chargedPoints
+          ) {
+
+            usuario.points +=
+              DOWNLOAD_COST;
+
+            usuario.updatedAt =
+              Date.now();
+          }
+
+
+          if (
+            !res.headersSent
+          ) {
+
+            res.status(500).json({
+
+              ok: false,
+
+              error:
+                "Erro enviando o vídeo.",
+
+              pointsRefunded:
+                chargedPoints
+            });
+          }
         }
       );
 
@@ -3582,7 +3586,6 @@ app.get(
             },
             3000
           );
-
         }
       );
 
@@ -3590,7 +3593,6 @@ app.get(
       stream.pipe(
         res
       );
-
 
     } catch (error) {
 
@@ -3601,21 +3603,24 @@ app.get(
 
 
       /*
-       * Reembolso automático caso os pontos tenham
-       * sido cobrados e o processamento tenha falhado.
+       * REEMBOLSO
        */
 
       if (
-        pontosCobrados
+        chargedPoints
       ) {
 
-        usuario.pontos +=
+        usuario.points +=
           DOWNLOAD_COST;
 
-        console.log(
-          `[Download] ${DOWNLOAD_COST} pontos devolvidos.`
-        );
+        usuario.updatedAt =
+          Date.now();
 
+
+        console.log(
+          "[Pontos] Reembolso:",
+          DOWNLOAD_COST
+        );
       }
 
 
@@ -3641,12 +3646,9 @@ app.get(
         !res.headersSent
       ) {
 
-        return res.status(
-          502
-        ).json({
+        return res.status(500).json({
 
-          ok:
-            false,
+          ok: false,
 
           error:
             "Erro ao gerar o corte.",
@@ -3654,19 +3656,17 @@ app.get(
           details:
             error.message,
 
+          pointsRefunded:
+            chargedPoints,
+
+          pontos:
+            usuario.points,
+
           points:
-            usuarioEhVip(
-              usuario
-            )
-              ? null
-              : usuario.pontos
-
+            usuario.points
         });
-
       }
-
     }
-
   }
 );
 
@@ -3679,38 +3679,9 @@ app.post(
   "/api/admin/login",
   (req, res) => {
 
-    const ip =
-      req.ip ||
-      req.socket.remoteAddress ||
-      "unknown";
-
-
-    if (
-      !rateLimit(
-        `admin:${ip}`,
-        10,
-        15 * 60 * 1000
-      )
-    ) {
-
-      return res.status(
-        429
-      ).json({
-
-        ok:
-          false,
-
-        error:
-          "Muitas tentativas de login."
-
-      });
-
-    }
-
-
     const password =
       String(
-        req.body.password ||
+        req.body?.password ||
         ""
       );
 
@@ -3719,18 +3690,13 @@ app.post(
       !ADMIN_PASSWORD
     ) {
 
-      return res.status(
-        503
-      ).json({
+      return res.status(503).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "ADMIN_PASSWORD não configurada."
-
       });
-
     }
 
 
@@ -3739,37 +3705,88 @@ app.post(
       ADMIN_PASSWORD
     ) {
 
-      return res.status(
-        401
-      ).json({
+      return res.status(401).json({
 
-        ok:
+        ok: false,
+
+        authenticated:
           false,
 
         error:
           "Senha administrativa inválida."
-
       });
-
     }
 
 
     const token =
-      criarSessaoAdmin();
+      createAdminToken();
+
+
+    const createdAt =
+      Date.now();
+
+
+    const expiresAt =
+      createdAt +
+      ADMIN_SESSION_HOURS *
+        60 *
+        60 *
+        1000;
+
+
+    adminSessions.set(
+      token,
+      {
+        createdAt,
+        expiresAt
+      }
+    );
 
 
     return res.json({
 
-      ok:
-        true,
+      ok: true,
 
       authenticated:
         true,
 
-      token
+      token,
 
+      expiresAt
     });
+  }
+);
 
+
+/* ============================================================
+   ADMIN LOGOUT
+   ============================================================ */
+
+app.post(
+  "/api/admin/logout",
+  (req, res) => {
+
+    const token =
+      authFromRequest(
+        req
+      );
+
+
+    if (token) {
+
+      adminSessions.delete(
+        token
+      );
+    }
+
+
+    return res.json({
+
+      ok: true,
+
+      loggedOut:
+        true
+    });
   }
 );
 
@@ -3783,23 +3800,16 @@ app.get(
   (req, res) => {
 
     if (
-      !isAdmin(
-        req
-      )
+      !isAdmin(req)
     ) {
 
-      return res.status(
-        401
-      ).json({
+      return res.status(401).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "Não autorizado."
-
       });
-
     }
 
 
@@ -3813,16 +3823,34 @@ app.get(
           memory.rss /
           1024 /
           1024
-        ).toFixed(
-          2
-        )
+        ).toFixed(2)
       );
+
+
+    let totalUsuarios =
+      usuarios.size;
+
+
+    let totalVip =
+      0;
+
+
+    for (
+      const usuario
+      of usuarios.values()
+    ) {
+
+      if (
+        usuario.vip
+      ) {
+        totalVip++;
+      }
+    }
 
 
     return res.json({
 
-      ok:
-        true,
+      ok: true,
 
       version:
         "13.0.0",
@@ -3848,11 +3876,9 @@ app.get(
         analisesGemini:
           metrics.geminiAnalyses,
 
-        usuarios:
-          usuarios.size,
+        totalUsuarios,
 
-        bonusResgatados:
-          metrics.bonusClaims,
+        totalVip,
 
         memoriaMB,
 
@@ -3860,7 +3886,6 @@ app.get(
           Math.round(
             process.uptime()
           )
-
       },
 
       services: {
@@ -3881,23 +3906,25 @@ app.get(
         mercadoPago:
           Boolean(
             MP_ACCESS_TOKEN
+          ),
+
+        authentication:
+          Boolean(
+            SESSION_SECRET
           )
-
       }
-
     });
-
   }
 );
 
 
 /* ============================================================
-   PIX - CRIAR
+   MERCADO PAGO - PIX CRIAR
    ============================================================ */
 
 app.post(
   "/api/pix/criar",
-  exigirUsuario,
+  requireUser,
   async (req, res) => {
 
     const usuario =
@@ -3905,53 +3932,28 @@ app.post(
 
 
     if (
-      usuarioEhVip(
-        usuario
-      )
-    ) {
-
-      return res.status(
-        409
-      ).json({
-
-        ok:
-          false,
-
-        error:
-          "Este usuário já possui VIP ativo.",
-
-        vip:
-          true,
-
-        vipExpiresAt:
-          usuario.vipExpiresAt
-
-      });
-
-    }
-
-
-    if (
       !MP_ACCESS_TOKEN
     ) {
 
-      return res.status(
-        503
-      ).json({
+      return res.status(503).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "Mercado Pago não configurado."
-
       });
-
     }
 
 
     /*
-     * NÃO confiamos em valor enviado pelo frontend.
+     * IMPORTANTE:
+     *
+     * Não usamos:
+     * req.body.valor
+     * req.body.plano
+     * req.body.userId
+     *
+     * O servidor define o preço e o plano.
      */
 
     const valor =
@@ -3959,11 +3961,36 @@ app.post(
 
 
     const plano =
-      VIP_PLAN;
+      "VIP";
+
+
+    const userId =
+      usuario.userId;
 
 
     const externalReference =
-      `clipforge-${usuario.id}-${Date.now()}`;
+      `clipforge-${userId}-${Date.now()}`;
+
+
+    /*
+     * Email opcional.
+     *
+     * O frontend atual pode não enviar.
+     */
+
+    const emailRecebido =
+      String(
+        req.body?.email ||
+        ""
+      ).trim();
+
+
+    const email =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        emailRecebido
+      )
+        ? emailRecebido
+        : `user-${userId}@clipforge.local`;
 
 
     try {
@@ -3986,17 +4013,20 @@ app.post(
 
               "X-Idempotency-Key":
                 crypto.randomUUID()
-
             },
 
             body:
               JSON.stringify({
 
                 transaction_amount:
-                  valor,
+                  Number(
+                    valor.toFixed(
+                      2
+                    )
+                  ),
 
                 description:
-                  "ClipForge Pro VIP - 30 dias",
+                  "ClipForge Pro VIP",
 
                 payment_method_id:
                   "pix",
@@ -4006,13 +4036,9 @@ app.post(
 
                 payer: {
 
-                  email:
-                    `clipforge-${usuario.id}@users.invalid`
-
+                  email
                 }
-
               })
-
           }
         );
 
@@ -4037,15 +4063,12 @@ app.post(
           response.status
         ).json({
 
-          ok:
-            false,
+          ok: false,
 
           error:
             data?.message ||
             "Erro criando pagamento."
-
         });
-
       }
 
 
@@ -4067,8 +4090,7 @@ app.post(
 
           id,
 
-          userId:
-            usuario.id,
+          userId,
 
           plano,
 
@@ -4078,15 +4100,16 @@ app.post(
             data.status ||
             "pending",
 
-          createdAt:
-            Date.now(),
-
           approved:
             false,
 
           counted:
-            false
+            false,
 
+          createdAt:
+            Date.now(),
+
+          externalReference
         }
       );
 
@@ -4094,16 +4117,37 @@ app.post(
       metrics.pixCreated++;
 
 
+      console.log(
+        "[PIX] Criado:",
+        id
+      );
+
+
+      console.log(
+        "[PIX] Usuário:",
+        userId
+      );
+
+
+      console.log(
+        "[PIX] Valor:",
+        valor
+      );
+
+
       /*
-       * Retornamos tanto snake_case quanto camelCase
-       * para manter compatibilidade com versões antigas
-       * do frontend.
+       * Retornamos os dois formatos:
+       *
+       * snake_case
+       * camelCase
+       *
+       * para manter compatibilidade
+       * com diferentes versões do frontend.
        */
 
       return res.json({
 
-        ok:
-          true,
+        ok: true,
 
         id,
 
@@ -4112,6 +4156,12 @@ app.post(
 
         status:
           data.status,
+
+        valor,
+
+        plano,
+
+        externalReference,
 
         qr_code:
           pix?.qr_code ||
@@ -4135,14 +4185,7 @@ app.post(
 
         ticketUrl:
           pix?.ticket_url ||
-          null,
-
-        externalReference,
-
-        valor,
-
-        plano
-
+          null
       });
 
     } catch (error) {
@@ -4153,34 +4196,210 @@ app.post(
       );
 
 
-      return res.status(
-        500
-      ).json({
+      return res.status(500).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "Erro criando PIX.",
 
         details:
           error.message
-
       });
-
     }
-
   }
 );
 
 
 /* ============================================================
-   PIX - STATUS
+   PROCESSAR PAGAMENTO APROVADO
+   ============================================================ */
+
+function processarPagamentoAprovado(
+  data
+) {
+
+  if (!data) {
+    return null;
+  }
+
+
+  const paymentId =
+    String(
+      data.id ||
+      ""
+    );
+
+
+  if (!paymentId) {
+    return null;
+  }
+
+
+  const status =
+    String(
+      data.status ||
+      ""
+    );
+
+
+  const approved =
+    status ===
+    "approved";
+
+
+  let registro =
+    pagamentos.get(
+      paymentId
+    );
+
+
+  /*
+   * Caso o servidor tenha reiniciado,
+   * podemos recuperar o userId através
+   * do external_reference.
+   */
+
+  if (
+    !registro &&
+    data.external_reference
+  ) {
+
+    const externalReference =
+      String(
+        data.external_reference
+      );
+
+
+    const match =
+      externalReference.match(
+        /^clipforge-(.+)-(\d+)$/
+      );
+
+
+    if (
+      match
+    ) {
+
+      registro = {
+
+        id:
+          paymentId,
+
+        userId:
+          match[1],
+
+        plano:
+          "VIP",
+
+        valor:
+          safeNumber(
+            data.transaction_amount,
+            VIP_PRICE
+          ),
+
+        status,
+
+        approved:
+          false,
+
+        counted:
+          false,
+
+        createdAt:
+          Date.now(),
+
+        externalReference
+      };
+
+
+      pagamentos.set(
+        paymentId,
+        registro
+      );
+    }
+  }
+
+
+  if (!registro) {
+
+    return null;
+  }
+
+
+  registro.status =
+    status;
+
+
+  registro.approved =
+    approved;
+
+
+  if (
+    approved
+  ) {
+
+    const usuario =
+      getOrCreateUser(
+        registro.userId
+      );
+
+
+    /*
+     * Ativação VIP.
+     */
+
+    if (
+      !usuario.vip
+    ) {
+
+      usuario.vip =
+        true;
+
+      usuario.updatedAt =
+        Date.now();
+
+      console.log(
+        "[VIP] Ativado para:",
+        usuario.userId
+      );
+    }
+
+
+    /*
+     * Receita é contabilizada apenas uma vez.
+     */
+
+    if (
+      !registro.counted
+    ) {
+
+      registro.counted =
+        true;
+
+      metrics.pixApproved++;
+
+
+      metrics.revenue +=
+        safeNumber(
+          registro.valor,
+          VIP_PRICE
+        );
+    }
+  }
+
+
+  return registro;
+}
+
+
+/* ============================================================
+   MERCADO PAGO - STATUS
    ============================================================ */
 
 app.get(
   "/api/pix/status/:id",
-  exigirUsuario,
+  requireUser,
   async (req, res) => {
 
     const usuario =
@@ -4197,50 +4416,13 @@ app.get(
       !MP_ACCESS_TOKEN
     ) {
 
-      return res.status(
-        503
-      ).json({
+      return res.status(503).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "Mercado Pago não configurado."
-
       });
-
-    }
-
-
-    const registro =
-      pagamentos.get(
-        paymentId
-      );
-
-
-    /*
-     * Impede um usuário de consultar o pagamento
-     * pertencente a outro usuário.
-     */
-
-    if (
-      !registro ||
-      registro.userId !==
-        usuario.id
-    ) {
-
-      return res.status(
-        403
-      ).json({
-
-        ok:
-          false,
-
-        error:
-          "Pagamento não pertence a este usuário."
-
-      });
-
     }
 
 
@@ -4257,14 +4439,12 @@ app.get(
 
               "Authorization":
                 `Bearer ${MP_ACCESS_TOKEN}`
-
             },
 
             signal:
               AbortSignal.timeout(
                 20000
               )
-
           }
         );
 
@@ -4281,16 +4461,88 @@ app.get(
           response.status
         ).json({
 
-          ok:
-            false,
+          ok: false,
 
           error:
             data?.message ||
             "Erro consultando pagamento."
-
         });
-
       }
+
+
+      const externalReference =
+        String(
+          data.external_reference ||
+          ""
+        );
+
+
+      /*
+       * Verificação de propriedade.
+       *
+       * Só permitimos que o usuário consulte
+       * o próprio pagamento.
+       */
+
+      let registro =
+        pagamentos.get(
+          paymentId
+        );
+
+
+      if (
+        registro &&
+        registro.userId !==
+          usuario.userId
+      ) {
+
+        return res.status(403).json({
+
+          ok: false,
+
+          error:
+            "Este pagamento não pertence ao usuário atual."
+        });
+      }
+
+
+      if (
+        !registro &&
+        externalReference
+      ) {
+
+        const match =
+          externalReference.match(
+            /^clipforge-(.+)-(\d+)$/
+          );
+
+
+        if (
+          match &&
+          match[1] !==
+            usuario.userId
+        ) {
+
+          return res.status(403).json({
+
+            ok: false,
+
+            error:
+              "Este pagamento não pertence ao usuário atual."
+          });
+        }
+      }
+
+
+      /*
+       * Se pertencer ao usuário,
+       * processamos aprovação.
+       */
+
+      registro =
+        processarPagamentoAprovado(
+          data
+        );
 
 
       const status =
@@ -4303,55 +4555,34 @@ app.get(
         "approved";
 
 
-      registro.status =
-        status;
-
-      registro.approved =
-        approved;
-
-
       /*
-       * O VIP é liberado SOMENTE aqui,
-       * no backend, depois da confirmação
-       * real do Mercado Pago.
+       * Garante VIP também no polling.
        */
 
       if (
         approved &&
-        !registro.counted
+        registro &&
+        registro.userId ===
+          usuario.userId
       ) {
-
-        registro.counted =
-          true;
-
-        metrics.pixApproved++;
-
-        metrics.revenue +=
-          safeNumber(
-            registro.valor,
-            0
-          );
-
 
         usuario.vip =
           true;
 
-        usuario.vipExpiresAt =
-          Date.now() +
-          VIP_DURATION_MS;
-
-
-        console.log(
-          `[VIP] Ativado para ${usuario.id}`
-        );
-
+        usuario.updatedAt =
+          Date.now();
       }
+
+
+      const valor =
+        registro?.valor ||
+        data.transaction_amount ||
+        VIP_PRICE;
 
 
       return res.json({
 
-        ok:
-          true,
+        ok: true,
 
         id:
           paymentId,
@@ -4360,27 +4591,27 @@ app.get(
 
         approved,
 
+        plano:
+          registro?.plano ||
+          "VIP",
+
+        valor,
+
         vip:
-          usuarioEhVip(
-            usuario
+          Boolean(
+            usuario.vip
           ),
 
-        vipExpiresAt:
-          usuario.vipExpiresAt,
+        isVip:
+          Boolean(
+            usuario.vip
+          ),
 
         pontos:
-          usuarioEhVip(
-            usuario
-          )
-            ? null
-            : usuario.pontos,
+          usuario.points,
 
-        plano:
-          registro.plano,
-
-        valor:
-          registro.valor
-
+        points:
+          usuario.points
       });
 
     } catch (error) {
@@ -4391,20 +4622,14 @@ app.get(
       );
 
 
-      return res.status(
-        500
-      ).json({
+      return res.status(500).json({
 
-        ok:
-          false,
+        ok: false,
 
         error:
           "Erro consultando pagamento."
-
       });
-
     }
-
   }
 );
 
@@ -4429,18 +4654,283 @@ app.post(
 
 
     /*
-     * Respondemos rapidamente.
-     *
-     * A confirmação oficial continua sendo feita
-     * consultando o pagamento diretamente na API
-     * do Mercado Pago.
+     * Respondemos rapidamente ao Mercado Pago.
      */
 
-    return res.sendStatus(
-      200
-    );
+    res.sendStatus(200);
 
+
+    try {
+
+      let paymentId =
+        "";
+
+
+      /*
+       * Formato comum:
+       *
+       * {
+       *   type: "payment",
+       *   data: {
+       *      id: "123"
+       *   }
+       * }
+       */
+
+      if (
+        req.body?.data?.id
+      ) {
+
+        paymentId =
+          String(
+            req.body.data.id
+          );
+      }
+
+
+      /*
+       * Alguns formatos usam query params.
+       */
+
+      if (
+        !paymentId &&
+        req.query?.["data.id"]
+      ) {
+
+        paymentId =
+          String(
+            req.query[
+              "data.id"
+            ]
+          );
+      }
+
+
+      if (
+        !paymentId &&
+        req.body?.id
+      ) {
+
+        paymentId =
+          String(
+            req.body.id
+          );
+      }
+
+
+      if (
+        !paymentId
+      ) {
+
+        console.log(
+          "[Webhook MP] Nenhum payment ID encontrado."
+        );
+
+        return;
+      }
+
+
+      if (
+        !MP_ACCESS_TOKEN
+      ) {
+
+        console.log(
+          "[Webhook MP] MP_ACCESS_TOKEN não configurado."
+        );
+
+        return;
+      }
+
+
+      /*
+       * Consultamos o pagamento diretamente
+       * na API do Mercado Pago.
+       */
+
+      const response =
+        await fetch(
+          `https://api.mercadopago.com/v1/payments/${encodeURIComponent(
+            paymentId
+          )}`,
+          {
+
+            headers: {
+
+              "Authorization":
+                `Bearer ${MP_ACCESS_TOKEN}`
+            },
+
+            signal:
+              AbortSignal.timeout(
+                20000
+              )
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !response.ok
+      ) {
+
+        console.error(
+          "[Webhook MP] Erro consultando pagamento:",
+          JSON.stringify(
+            data
+          )
+        );
+
+        return;
+      }
+
+
+      const registro =
+        processarPagamentoAprovado(
+          data
+        );
+
+
+      if (
+        registro
+      ) {
+
+        console.log(
+          "[Webhook MP] Pagamento processado:",
+          paymentId,
+          registro.status
+        );
+      }
+
+    } catch (error) {
+
+      console.error(
+        "[Webhook MP] Erro:",
+        error.message
+      );
+    }
   }
+);
+
+
+/* ============================================================
+   LIMPEZA DE SESSÕES ADMIN
+   ============================================================ */
+
+setInterval(
+  () => {
+
+    const agora =
+      Date.now();
+
+
+    for (
+      const [
+        token,
+        session
+      ]
+      of adminSessions
+    ) {
+
+      if (
+        agora >
+        session.expiresAt
+      ) {
+
+        adminSessions.delete(
+          token
+        );
+      }
+    }
+
+  },
+  60 * 60 * 1000
+);
+
+
+/* ============================================================
+   LIMPEZA TEMPORÁRIA
+   ============================================================ */
+
+setInterval(
+  () => {
+
+    try {
+
+      if (
+        !fs.existsSync(
+          TEMP_DIR
+        )
+      ) {
+        return;
+      }
+
+
+      const files =
+        fs.readdirSync(
+          TEMP_DIR
+        );
+
+
+      const agora =
+        Date.now();
+
+
+      for (
+        const file of files
+      ) {
+
+        const fullPath =
+          path.join(
+            TEMP_DIR,
+            file
+          );
+
+
+        try {
+
+          const stat =
+            fs.statSync(
+              fullPath
+            );
+
+
+          /*
+           * Remove arquivos com mais de 30 minutos.
+           */
+
+          if (
+            agora -
+              stat.mtimeMs >
+            30 * 60 * 1000
+          ) {
+
+            fs.unlinkSync(
+              fullPath
+            );
+
+
+            console.log(
+              "[Cleanup] Removido:",
+              file
+            );
+          }
+
+        } catch (_) {}
+      }
+
+    } catch (error) {
+
+      console.error(
+        "[Cleanup]",
+        error.message
+      );
+    }
+
+  },
+  10 * 60 * 1000
 );
 
 
@@ -4451,21 +4941,16 @@ app.post(
 app.use(
   (req, res) => {
 
-    res.status(
-      404
-    ).json({
+    res.status(404).json({
 
-      ok:
-        false,
+      ok: false,
 
       error:
         "Rota não encontrada.",
 
       path:
         req.originalUrl
-
     });
-
   }
 );
 
@@ -4495,145 +4980,17 @@ app.use(
       return next(
         error
       );
-
     }
 
 
-    res.status(
-      500
-    ).json({
+    res.status(500).json({
 
-      ok:
-        false,
+      ok: false,
 
       error:
         "Erro interno do servidor."
-
     });
-
   }
-);
-
-
-/* ============================================================
-   LIMPEZA TEMPORÁRIA
-   ============================================================ */
-
-setInterval(
-  () => {
-
-    try {
-
-      if (
-        !fs.existsSync(
-          TEMP_DIR
-        )
-      ) {
-
-        return;
-
-      }
-
-
-      const files =
-        fs.readdirSync(
-          TEMP_DIR
-        );
-
-
-      const agora =
-        Date.now();
-
-
-      for (
-        const file of
-        files
-      ) {
-
-        const fullPath =
-          path.join(
-            TEMP_DIR,
-            file
-          );
-
-
-        try {
-
-          const stat =
-            fs.statSync(
-              fullPath
-            );
-
-
-          if (
-            agora -
-              stat.mtimeMs >
-            30 * 60 * 1000
-          ) {
-
-            fs.unlinkSync(
-              fullPath
-            );
-
-            console.log(
-              "[Cleanup] Removido:",
-              file
-            );
-
-          }
-
-        } catch (_) {}
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        "[Cleanup]",
-        error.message
-      );
-
-    }
-
-  },
-  10 * 60 * 1000
-);
-
-
-/* ============================================================
-   LIMPEZA DE SESSÕES ADMIN
-   ============================================================ */
-
-setInterval(
-  () => {
-
-    const agora =
-      Date.now();
-
-    for (
-      const [
-        token,
-        sessao
-      ] of
-      sessoesAdmin.entries()
-    ) {
-
-      if (
-        agora -
-          sessao.criadoEm >
-        12 * 60 * 60 * 1000
-      ) {
-
-        sessoesAdmin.delete(
-          token
-        );
-
-      }
-
-    }
-
-  },
-  60 * 60 * 1000
 );
 
 
@@ -4653,7 +5010,7 @@ app.listen(
     );
 
     console.log(
-      "      CLIPFORGE PRO BACKEND VERSION 13.0.0"
+      "       CLIPFORGE PRO BACKEND VERSION 13.0.0"
     );
 
     console.log(
@@ -4662,6 +5019,12 @@ app.listen(
 
     console.log(
       `[ClipForge] Porta: ${PORT}`
+    );
+
+    console.log(
+      `[Frontend] ${
+        FRONTEND_URL
+      }`
     );
 
     console.log(
@@ -4689,7 +5052,9 @@ app.listen(
     );
 
     console.log(
-      `[Gemini] Modelo: ${GEMINI_MODEL}`
+      `[Gemini] Modelo: ${
+        GEMINI_MODEL
+      }`
     );
 
     console.log(
@@ -4697,6 +5062,14 @@ app.listen(
         ADMIN_PASSWORD
           ? "CONFIGURADO"
           : "NÃO CONFIGURADO"
+      }`
+    );
+
+    console.log(
+      `[Sessão] ${
+        SESSION_SECRET
+          ? "CONFIGURADA"
+          : "NÃO CONFIGURADA"
       }`
     );
 
@@ -4711,19 +5084,19 @@ app.listen(
     );
 
     console.log(
-      "[Auth] Sessões de usuário ativadas."
+      `[Pontos] Inicial: ${INITIAL_POINTS}`
     );
 
     console.log(
-      "[Pontos] Controle pelo servidor ativado."
+      `[Pontos] Bônus diário: +${DAILY_BONUS}`
     );
 
     console.log(
-      "[VIP] Controle pelo servidor ativado."
+      `[Pontos] Custo por corte: ${DOWNLOAD_COST}`
     );
 
     console.log(
-      "[Download] Cobrança de pontos no backend ativada."
+      `[VIP] Preço: R$ ${VIP_PRICE.toFixed(2)}`
     );
 
     console.log(
@@ -4735,10 +5108,17 @@ app.listen(
     );
 
     console.log(
+      "[Auth] Sessões de usuário ativadas."
+    );
+
+    console.log(
+      "[PIX] Mercado Pago integrado."
+    );
+
+    console.log(
       "===================================================="
     );
 
     console.log("");
-
   }
 );
