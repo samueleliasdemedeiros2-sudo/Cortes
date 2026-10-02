@@ -1,14 +1,16 @@
 {
   "name": "clipforge-server",
-  "version": "1.0.1",
-  "description": "ClipForge Server v1.0.1 - Cortes Rápidos e Leves",
+  "version": "1.0.2",
+  "description": "ClipForge Server - Cortes com IA Gemini",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "@google/genai": "^1.29.0",
     "axios": "^1.7.0",
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "mercadopago": "^2.11.0"
   }
 }
