@@ -1,15 +1,14 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.2.2 COMPLETO
+ * CLIPFORGE PRO — BACKEND 13.2.3 ESTÁVEL
  * Node.js + Express
  *
- * Configurado para o package.json exato:
- * - @ffmpeg-installer/ffmpeg
- * - @ffprobe-installer/ffprobe
- * - ffmpeg-static
- * - @google/genai
- * - multer (v2.x compatível)
- * - cors, express
+ * PRINCIPAIS CORREÇÕES
+ * ------------------------------------------------------------
+ * - Gemini Files e Inferência via REST Nativo (sem erros de SDK legado)
+ * - FFmpeg e FFprobe com detecção prioritária em ./bin/
+ * - Fallbacks inteligentes de modelos com tratamento para 404 e 504
+ * - Upload direto de MP4 com isolamento total de RapidAPI/YouTube
  * ============================================================
  */
 
@@ -26,7 +25,6 @@ const { spawn } = require("child_process");
 const { pipeline } = require("stream/promises");
 const { Readable } = require("stream");
 const multer = require("multer");
-const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
 
@@ -36,7 +34,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-const VERSION = "13.2.2";
+const VERSION = "13.2.3";
 
 const FREE_POINTS = Number(process.env.FREE_POINTS || 200);
 const DAILY_POINTS = Number(process.env.DAILY_POINTS || 50);
@@ -63,32 +61,16 @@ const GEMINI_API_KEY =
 
 const GEMINI_MODEL =
   process.env.GEMINI_MODEL ||
-  "gemini-3.8-flash";
+  "gemini-2.5-flash";
 
 const GEMINI_FALLBACK_MODELS = (
   process.env.GEMINI_FALLBACK_MODELS ||
-  "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash"
+  "gemini-2.0-flash,gemini-1.5-flash"
 )
   .split(",")
   .map((v) => v.trim())
   .filter(Boolean)
   .filter((v, i, arr) => arr.indexOf(v) === i && v !== GEMINI_MODEL);
-
-const GEMINI_INTERACTIONS_URL =
-  process.env.GEMINI_INTERACTIONS_URL ||
-  "https://generativelanguage.googleapis.com/v1beta/interactions";
-
-let geminiClient = null;
-
-function getGeminiClient() {
-  if (!GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY não configurada.");
-  }
-  if (!geminiClient) {
-    geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-  }
-  return geminiClient;
-}
 
 function getGeminiErrorStatus(err) {
   const candidates = [
@@ -149,7 +131,7 @@ const OUTPUT_DIR = path.join(TEMP_ROOT, "outputs");
 const UPLOAD_DIR = path.join(TEMP_ROOT, "uploads");
 
 /* ============================================================
-   BINÁRIOS (ROBUSTEZ COM PRIORIDADE FFMPEG-STATIC)
+   BINÁRIOS (ROBUSTEZ: PRIORIDADE PARA BIN LOCAL)
 ============================================================ */
 
 function findExecutable(candidates = []) {
@@ -163,15 +145,21 @@ function findExecutable(candidates = []) {
 }
 
 /* ---------------- FFmpeg ---------------- */
-let resolvedFfmpeg = "";
+let resolvedFfmpeg = findExecutable([
+  path.join(process.cwd(), "bin", "ffmpeg"),
+  process.env.FFMPEG_PATH,
+  process.env.FFMPEG_BIN,
+]);
 
-try {
-  const ffmpegStatic = require("ffmpeg-static");
-  if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
-    try { fs.chmodSync(ffmpegStatic, 0o755); } catch {}
-    resolvedFfmpeg = ffmpegStatic;
-  }
-} catch {}
+if (!resolvedFfmpeg) {
+  try {
+    const ffmpegStatic = require("ffmpeg-static");
+    if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
+      try { fs.chmodSync(ffmpegStatic, 0o755); } catch {}
+      resolvedFfmpeg = ffmpegStatic;
+    }
+  } catch {}
+}
 
 if (!resolvedFfmpeg) {
   try {
@@ -183,45 +171,33 @@ if (!resolvedFfmpeg) {
   } catch {}
 }
 
-if (!resolvedFfmpeg) {
-  resolvedFfmpeg =
-    process.env.FFMPEG_PATH ||
-    process.env.FFMPEG_BIN ||
-    findExecutable([
-      path.join(process.cwd(), "bin", "ffmpeg"),
-      path.join(process.cwd(), "ffmpeg"),
-    ]) || "ffmpeg";
-}
-const FFMPEG_BIN = resolvedFfmpeg;
+const FFMPEG_BIN = resolvedFfmpeg || "ffmpeg";
 
 /* ---------------- FFprobe ---------------- */
-let resolvedFfprobe = "";
-
-try {
-  const probePath = require("@ffprobe-installer/ffprobe").path;
-  if (probePath && fs.existsSync(probePath)) {
-    try { fs.chmodSync(probePath, 0o755); } catch {}
-    resolvedFfprobe = probePath;
-  }
-} catch {}
+let resolvedFfprobe = findExecutable([
+  path.join(process.cwd(), "bin", "ffprobe"),
+  process.env.FFPROBE_PATH,
+  process.env.FFPROBE_BIN,
+]);
 
 if (!resolvedFfprobe) {
-  resolvedFfprobe =
-    process.env.FFPROBE_PATH ||
-    process.env.FFPROBE_BIN ||
-    findExecutable([
-      path.join(process.cwd(), "bin", "ffprobe"),
-      path.join(process.cwd(), "ffprobe"),
-    ]) || "ffprobe";
+  try {
+    const probePath = require("@ffprobe-installer/ffprobe").path;
+    if (probePath && fs.existsSync(probePath)) {
+      try { fs.chmodSync(probePath, 0o755); } catch {}
+      resolvedFfprobe = probePath;
+    }
+  } catch {}
 }
-const FFPROBE_BIN = resolvedFfprobe;
+
+const FFPROBE_BIN = resolvedFfprobe || "ffprobe";
 
 /* ---------------- yt-dlp ---------------- */
 const YTDLP_BIN =
-  process.env.YTDLP_PATH ||
-  process.env.YTDLP_BIN ||
   findExecutable([
     path.join(process.cwd(), "bin", "yt-dlp"),
+    process.env.YTDLP_PATH,
+    process.env.YTDLP_BIN,
     path.join(process.cwd(), "yt-dlp"),
   ]) || "yt-dlp";
 
@@ -280,7 +256,7 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
-   MULTER (COMPATÍVEL COM V2.X)
+   MULTER (UPLOAD MP4)
 ============================================================ */
 
 const uploadStorage = multer.diskStorage({
@@ -712,6 +688,139 @@ Retorne SOMENTE o JSON estruturado de acordo com o schema solicitado.
 }
 
 /* ============================================================
+   GEMINI: REST NATIVO PARA ARQUIVOS MP4 (ZERO DEPENDÊNCIA DE SDK)
+============================================================ */
+
+async function uploadVideoToGemini(filePath) {
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY não configurada.");
+  console.log(`[Gemini Files] Enviando vídeo via REST: ${path.basename(filePath)}`);
+
+  const stat = await fsp.stat(filePath);
+
+  // 1. Inicia Resumable Upload no endpoint oficial
+  const initRes = await fetch(
+    `[https://generativelanguage.googleapis.com/upload/v1beta/files?key=$](https://generativelanguage.googleapis.com/upload/v1beta/files?key=$){GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": String(stat.size),
+        "X-Goog-Upload-Header-Content-Type": "video/mp4",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        file: { display_name: path.basename(filePath) },
+      }),
+    }
+  );
+
+  if (!initRes.ok) {
+    throw new Error(`Falha ao iniciar upload: HTTP ${initRes.status}`);
+  }
+
+  const uploadUrl = initRes.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Header de upload do Gemini não retornado.");
+
+  // 2. Envia os bytes
+  const buffer = await fsp.readFile(filePath);
+  const uploadRes = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Content-Length": String(stat.size),
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body: buffer,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`Erro ao enviar bytes para o Gemini: HTTP ${uploadRes.status}`);
+  }
+
+  const fileData = await uploadRes.json();
+  const fileUri = fileData?.file?.uri;
+  const fileName = fileData?.file?.name;
+
+  if (!fileUri || !fileName) {
+    throw new Error("Gemini Files API não retornou URI válida.");
+  }
+
+  metrics.geminiFileUploads++;
+  console.log(`[Gemini Files] Registrado com sucesso: ${fileName}`);
+
+  // 3. Aguarda o processamento do vídeo no cluster
+  const startedAt = Date.now();
+  while (true) {
+    if (Date.now() - startedAt > 10 * 60 * 1000) {
+      throw new Error("Gemini demorou mais de 10 minutos para processar o vídeo.");
+    }
+
+    const checkRes = await fetch(
+      `[https://generativelanguage.googleapis.com/v1beta/$](https://generativelanguage.googleapis.com/v1beta/$){fileName}?key=${GEMINI_API_KEY}`
+    );
+    const checkData = await checkRes.json();
+    const state = String(checkData.state || "").toUpperCase();
+
+    if (state === "ACTIVE") break;
+    if (state === "FAILED") throw new Error("Gemini falhou ao processar o vídeo.");
+
+    console.log("[Gemini Files] Vídeo processando no cluster...");
+    await sleep(3000);
+  }
+
+  console.log(`[Gemini Files] Vídeo pronto para inferência: ${fileUri}`);
+  return { uri: fileUri, name: fileName, mimeType: "video/mp4" };
+}
+
+async function requestGeminiUploadedModel(model, geminiFile, prompt) {
+  const url = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){model}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            file_data: {
+              mime_type: geminiFile.mimeType,
+              file_uri: geminiFile.uri,
+            },
+          },
+          { text: prompt },
+        ],
+      },
+    ],
+    generationConfig: {
+      response_mime_type: "application/json",
+      response_schema: CLIPS_SCHEMA,
+    },
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const err = new Error(errorData?.error?.message || `HTTP ${response.status}`);
+    err.status = response.status;
+    err.model = model;
+    throw err;
+  }
+
+  const data = await response.json();
+  const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  return {
+    clips: parseGeminiOutput(textOutput, model),
+    model,
+    fallback: model !== GEMINI_MODEL,
+  };
+}
+
+/* ============================================================
    GEMINI: INTERACTIONS API (YOUTUBE)
 ============================================================ */
 
@@ -735,16 +844,19 @@ async function requestGeminiYoutubeModel(model, url, prompt) {
 
   let response;
   try {
-    response = await fetch(GEMINI_INTERACTIONS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    response = await fetch(
+      "[https://generativelanguage.googleapis.com/v1beta/interactions](https://generativelanguage.googleapis.com/v1beta/interactions)",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      }
+    );
   } catch (err) {
     if (err?.name === "AbortError") {
       const e = new Error(`Gemini (${model}) excedeu o tempo limite de 120 segundos.`);
@@ -787,80 +899,7 @@ async function requestGeminiYoutubeModel(model, url, prompt) {
 }
 
 /* ============================================================
-   GEMINI: FILES API & INTERACTIONS (UPLOAD LOCAL)
-============================================================ */
-
-async function uploadVideoToGemini(filePath) {
-  const client = getGeminiClient();
-  console.log(`[Gemini Files] Enviando vídeo: ${path.basename(filePath)}`);
-
-  const uploaded = await client.files.upload({
-    file: filePath,
-    config: { mimeType: "video/mp4" },
-  });
-
-  if (!uploaded?.name || !uploaded?.uri) {
-    throw new Error("Gemini Files API não retornou uma referência válida.");
-  }
-
-  metrics.geminiFileUploads++;
-  console.log(`[Gemini Files] Arquivo registrado: ${uploaded.name}`);
-
-  let current = uploaded;
-  const startedAt = now();
-
-  while (String(current.state || "").toUpperCase() === "PROCESSING") {
-    if (now() - startedAt > 10 * 60 * 1000) {
-      throw new Error("Gemini demorou mais de 10 minutos para processar o vídeo.");
-    }
-    console.log("[Gemini Files] Vídeo em processamento no cluster...");
-    await sleep(3000);
-    current = await client.files.get({ name: uploaded.name });
-  }
-
-  const state = String(current.state || "").toUpperCase();
-  if (state === "FAILED") throw new Error("Gemini falhou ao processar o vídeo enviado.");
-  if (state && state !== "ACTIVE") throw new Error(`Estado inesperado do vídeo: ${state}`);
-
-  console.log(`[Gemini Files] Vídeo pronto: ${current.uri}`);
-  return {
-    name: current.name || uploaded.name,
-    uri: current.uri || uploaded.uri,
-    mimeType: current.mimeType || uploaded.mimeType || "video/mp4",
-  };
-}
-
-async function requestGeminiUploadedModel(model, geminiFile, prompt) {
-  const client = getGeminiClient();
-
-  const interaction = await client.interactions.create({
-    model,
-    input: [
-      {
-        type: "video",
-        uri: geminiFile.uri,
-        mime_type: geminiFile.mimeType || "video/mp4",
-        processing: "agentic",
-      },
-      { type: "text", text: prompt },
-    ],
-    response_format: {
-      type: "text",
-      mime_type: "application/json",
-      schema: CLIPS_SCHEMA,
-    },
-  });
-
-  const outText = interaction?.output_text || "";
-  return {
-    clips: parseGeminiOutput(outText, model),
-    model,
-    fallback: model !== GEMINI_MODEL,
-  };
-}
-
-/* ============================================================
-   FALLBACKS DE ANÁLISE
+   FALLBACKS DE ANÁLISE COM SUPORTE A 404 E 504
 ============================================================ */
 
 async function analyzeYoutubeWithGemini(url) {
@@ -883,6 +922,11 @@ async function analyzeYoutubeWithGemini(url) {
       console.warn(`[Gemini] ${model} falhou: HTTP ${status || "N/A"} — ${err.message}`);
 
       if (status === 400 || status === 401 || status === 403) throw err;
+
+      if (status === 404 || status === 504) {
+        if (i < models.length - 1) continue;
+        break;
+      }
 
       if (status === 503) {
         if (i < models.length - 1) { await sleep(600); continue; }
@@ -943,6 +987,11 @@ async function analyzeUploadedWithGemini(uploadItem) {
       console.warn(`[Gemini Upload] ${model} falhou: HTTP ${status || "N/A"} — ${err.message}`);
 
       if (status === 400 || status === 401 || status === 403) throw err;
+
+      if (status === 404 || status === 504) {
+        if (i < models.length - 1) continue;
+        break;
+      }
 
       if (status === 503) {
         if (i < models.length - 1) { await sleep(600); continue; }
@@ -1374,7 +1423,6 @@ app.post("/api/download", requireUser, async (req, res) => {
   if (!Number.isFinite(start) || start < 0) return jsonError(res, 400, "Tempo inicial inválido.");
   if (!Number.isFinite(duration) || duration < 1 || duration > 90) return jsonError(res, 400, "Duração inválida (1-90s).");
 
-  // Proteção do servidor: valida saldo real do usuário
   if (!req.user.vip && req.user.points < DOWNLOAD_COST) {
     return jsonError(res, 402, `Pontos insuficientes (${DOWNLOAD_COST} necessários).`);
   }
@@ -1421,7 +1469,6 @@ app.post("/api/download", requireUser, async (req, res) => {
     const stat = await fsp.stat(outputFile);
     if (!stat.size || stat.size < 10000) throw new Error("Arquivo MP4 final inválido.");
 
-    // Cobrança atômica realizada somente após a renderização ter sucesso
     if (!req.user.vip) {
       req.user.points -= DOWNLOAD_COST;
       charged = true;
