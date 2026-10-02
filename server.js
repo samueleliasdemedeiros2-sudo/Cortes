@@ -6,23 +6,19 @@
  *
  * Node.js + Express
  *
- * Principais recursos:
- * - Gemini Interactions API
+ * PRINCIPAIS RECURSOS:
+ * - Gemini Interactions API oficial
  * - Gemini 3.8 Flash
- * - Análise direta de URLs públicas do YouTube
- * - Saída estruturada JSON
- * - Download externo opcional
- * - RapidAPI
- * - yt-dlp fallback
- * - FFmpeg
- * - Sessões em memória
- * - Sistema de usuários
- * - Pontos/análises
- * - Mercado Pago / Pix
- * - Webhook Mercado Pago
- * - Área administrativa
- * - Métricas
- * - CORS
+ * - Análise multimodal direta de URLs públicas do YouTube
+ * - Saída estruturada JSON via response_format + schema
+ * - Pipeline de download:
+ *      Downloader Externo -> RapidAPI -> yt-dlp
+ * - FFmpeg H.264 + AAC + yuv420p + faststart
+ * - Autenticação por sessão
+ * - Sistema de pontos
+ * - Integração Mercado Pago Pix
+ * - Dashboard administrativo
+ * - Limpeza automática de arquivos temporários
  *
  * ============================================================
  */
@@ -37,9 +33,11 @@ const fsp = fs.promises;
 const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
+const { pipeline } = require("stream/promises");
+const { Readable } = require("stream");
 
 /* ============================================================
-   CONFIGURAÇÃO
+   CONFIGURAÇÃO GERAL
    ============================================================ */
 
 const APP_VERSION = "13.0.6";
@@ -47,9 +45,7 @@ const APP_VERSION = "13.0.6";
 const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
-
 const HOST = process.env.HOST || "0.0.0.0";
-
 const NODE_ENV = process.env.NODE_ENV || "production";
 
 /* ============================================================
@@ -69,7 +65,7 @@ const GEMINI_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 /* ============================================================
-   RAPIDAPI
+   DOWNLOAD
    ============================================================ */
 
 const RAPIDAPI_KEY =
@@ -81,17 +77,13 @@ const RAPIDAPI_HOST =
   process.env.RAPIDAPI_HOST ||
   "youtube-media-downloader.p.rapidapi.com";
 
-/* ============================================================
-   DOWNLOAD EXTERNO
-   ============================================================ */
-
 const EXTERNAL_DOWNLOAD_URL =
   process.env.EXTERNAL_DOWNLOAD_URL ||
   "";
 
-/* ============================================================
-   YT-DLP / FFMPEG
-   ============================================================ */
+const EXTERNAL_DOWNLOAD_TOKEN =
+  process.env.EXTERNAL_DOWNLOAD_TOKEN ||
+  "";
 
 const YTDLP_PATH =
   process.env.YTDLP_PATH ||
@@ -118,10 +110,6 @@ const MP_ACCESS_TOKEN =
   process.env.MERCADOPAGO_ACCESS_TOKEN ||
   "";
 
-const MP_WEBHOOK_SECRET =
-  process.env.MP_WEBHOOK_SECRET ||
-  "";
-
 /* ============================================================
    ADMIN
    ============================================================ */
@@ -135,7 +123,7 @@ const ADMIN_PASSWORD =
   "";
 
 /* ============================================================
-   FRONTEND / CORS
+   CORS
    ============================================================ */
 
 const FRONTEND_URL =
@@ -165,23 +153,17 @@ const ALLOWED_ORIGINS = [
    DIRETÓRIOS
    ============================================================ */
 
-const TEMP_ROOT = path.join(
-  os.tmpdir(),
-  "clipforge-pro"
-);
+const TEMP_ROOT =
+  path.join(os.tmpdir(), "clipforge-pro");
 
-const DOWNLOAD_DIR = path.join(
-  TEMP_ROOT,
-  "downloads"
-);
+const DOWNLOAD_DIR =
+  path.join(TEMP_ROOT, "downloads");
 
-const OUTPUT_DIR = path.join(
-  TEMP_ROOT,
-  "outputs"
-);
+const OUTPUT_DIR =
+  path.join(TEMP_ROOT, "outputs");
 
 /* ============================================================
-   ESTADO EM MEMÓRIA
+   MEMÓRIA
    ============================================================ */
 
 const users = new Map();
@@ -197,6 +179,7 @@ const metrics = {
   startedAt: new Date().toISOString(),
 
   requests: 0,
+
   analyses: 0,
   analysisSuccess: 0,
   analysisFailures: 0,
@@ -228,57 +211,29 @@ function now() {
   return Date.now();
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function randomId(prefix = "") {
-  return (
-    prefix +
-    crypto.randomBytes(12).toString("hex")
-  );
+  return prefix + crypto.randomBytes(12).toString("hex");
 }
 
 function safeString(value, fallback = "") {
-  if (
-    value === undefined ||
-    value === null
-  ) {
+  if (value === undefined || value === null) {
     return fallback;
   }
 
   return String(value);
 }
 
-function clampNumber(
-  value,
-  min,
-  max,
-  fallback
-) {
-  const n = Number(value);
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
 
-  if (!Number.isFinite(n)) {
+  if (!Number.isFinite(number)) {
     return fallback;
   }
 
   return Math.min(
     max,
-    Math.max(min, n)
+    Math.max(min, number)
   );
-}
-
-function isHttpUrl(value) {
-  try {
-    const url = new URL(value);
-
-    return (
-      url.protocol === "http:" ||
-      url.protocol === "https:"
-    );
-  } catch {
-    return false;
-  }
 }
 
 /* ============================================================
@@ -292,97 +247,56 @@ function extractYouTubeVideoId(input) {
 
   const value = String(input).trim();
 
-  /*
-   * ID puro
-   */
-  if (
-    /^[a-zA-Z0-9_-]{11}$/.test(value)
-  ) {
+  if (/^[a-zA-Z0-9_-]{11}$/.test(value)) {
     return value;
   }
 
-  let url;
-
   try {
-    url = new URL(value);
+    const url = new URL(value);
+
+    const host =
+      url.hostname.toLowerCase();
+
+    if (
+      host.includes("youtube.com")
+    ) {
+      const queryId =
+        url.searchParams.get("v");
+
+      if (
+        queryId &&
+        /^[a-zA-Z0-9_-]{11}$/.test(queryId)
+      ) {
+        return queryId;
+      }
+
+      const match =
+        url.pathname.match(
+          /\/(shorts|embed|live)\/([a-zA-Z0-9_-]{11})/
+        );
+
+      if (match) {
+        return match[2];
+      }
+    }
+
+    if (
+      host === "youtu.be" ||
+      host === "www.youtu.be"
+    ) {
+      const id =
+        url.pathname
+          .replace(/^\/+/, "")
+          .split("/")[0];
+
+      if (
+        /^[a-zA-Z0-9_-]{11}$/.test(id)
+      ) {
+        return id;
+      }
+    }
   } catch {
     return null;
-  }
-
-  const host =
-    url.hostname.toLowerCase();
-
-  /*
-   * youtube.com/watch?v=
-   */
-  if (
-    host === "youtube.com" ||
-    host === "www.youtube.com" ||
-    host === "m.youtube.com"
-  ) {
-    const id = url.searchParams.get("v");
-
-    if (
-      id &&
-      /^[a-zA-Z0-9_-]{11}$/.test(id)
-    ) {
-      return id;
-    }
-
-    /*
-     * /shorts/ID
-     */
-    const shortsMatch =
-      url.pathname.match(
-        /\/shorts\/([a-zA-Z0-9_-]{11})/
-      );
-
-    if (shortsMatch) {
-      return shortsMatch[1];
-    }
-
-    /*
-     * /embed/ID
-     */
-    const embedMatch =
-      url.pathname.match(
-        /\/embed\/([a-zA-Z0-9_-]{11})/
-      );
-
-    if (embedMatch) {
-      return embedMatch[1];
-    }
-
-    /*
-     * /live/ID
-     */
-    const liveMatch =
-      url.pathname.match(
-        /\/live\/([a-zA-Z0-9_-]{11})/
-      );
-
-    if (liveMatch) {
-      return liveMatch[1];
-    }
-  }
-
-  /*
-   * youtu.be/ID
-   */
-  if (
-    host === "youtu.be" ||
-    host === "www.youtu.be"
-  ) {
-    const id =
-      url.pathname
-        .replace(/^\/+/, "")
-        .split("/")[0];
-
-    if (
-      /^[a-zA-Z0-9_-]{11}$/.test(id)
-    ) {
-      return id;
-    }
   }
 
   return null;
@@ -404,28 +318,20 @@ function normalizeYouTubeUrl(input) {
 }
 
 /* ============================================================
-   DIRETÓRIOS
+   ARQUIVOS
    ============================================================ */
 
 async function ensureDirectories() {
   await fsp.mkdir(
     DOWNLOAD_DIR,
-    {
-      recursive: true,
-    }
+    { recursive: true }
   );
 
   await fsp.mkdir(
     OUTPUT_DIR,
-    {
-      recursive: true,
-    }
+    { recursive: true }
   );
 }
-
-/* ============================================================
-   LIMPEZA
-   ============================================================ */
 
 async function safeRemove(file) {
   if (!file) {
@@ -433,15 +339,18 @@ async function safeRemove(file) {
   }
 
   try {
-    await fsp.rm(file, {
-      recursive: true,
-      force: true,
-    });
+    await fsp.rm(
+      file,
+      {
+        recursive: true,
+        force: true,
+      }
+    );
   } catch {}
 }
 
 async function cleanupOldFiles() {
-  const dirs = [
+  const directories = [
     DOWNLOAD_DIR,
     OUTPUT_DIR,
   ];
@@ -450,7 +359,7 @@ async function cleanupOldFiles() {
     Date.now() -
     60 * 60 * 1000;
 
-  for (const dir of dirs) {
+  for (const dir of directories) {
     try {
       const entries =
         await fsp.readdir(
@@ -469,13 +378,10 @@ async function cleanupOldFiles() {
 
         try {
           const stat =
-            await fsp.stat(
-              fullPath
-            );
+            await fsp.stat(fullPath);
 
           if (
-            stat.mtimeMs <
-            cutoff
+            stat.mtimeMs < cutoff
           ) {
             await safeRemove(
               fullPath
@@ -502,13 +408,14 @@ function getOrCreateUser(userId) {
   if (!user) {
     user = {
       id,
+
       createdAt:
         new Date().toISOString(),
 
       analyses: 0,
       downloads: 0,
 
-      points: 10,
+      points: 200,
 
       vip: false,
 
@@ -516,7 +423,10 @@ function getOrCreateUser(userId) {
       lastDownloadAt: null,
     };
 
-    users.set(id, user);
+    users.set(
+      id,
+      user
+    );
   }
 
   return user;
@@ -534,7 +444,10 @@ function createSession(userId) {
     token,
     {
       userId,
-      createdAt: now(),
+
+      createdAt:
+        now(),
+
       expiresAt:
         now() +
         30 *
@@ -549,18 +462,22 @@ function createSession(userId) {
 }
 
 function getSessionUser(req) {
-  const auth =
+  const authorization =
     req.headers.authorization ||
     "";
 
   if (
-    !auth.startsWith("Bearer ")
+    !authorization.startsWith(
+      "Bearer "
+    )
   ) {
     return null;
   }
 
   const token =
-    auth.slice(7).trim();
+    authorization
+      .slice(7)
+      .trim();
 
   if (!token) {
     return null;
@@ -586,11 +503,38 @@ function getSessionUser(req) {
   );
 }
 
-/* ============================================================
-   MIDDLEWARE DE USUÁRIO
-   ============================================================ */
+function resolveRequestUser(req) {
+  const sessionUser =
+    getSessionUser(req);
 
-function requireUser(req, res, next) {
+  if (sessionUser) {
+    return sessionUser;
+  }
+
+  const userId =
+    req.headers["x-user-id"] ||
+    (
+      req.body &&
+      (
+        req.body.userId ||
+        req.body.user_id
+      )
+    );
+
+  if (userId) {
+    return getOrCreateUser(
+      safeString(userId)
+    );
+  }
+
+  return null;
+}
+
+function requireUser(
+  req,
+  res,
+  next
+) {
   const user =
     getSessionUser(req);
 
@@ -609,42 +553,6 @@ function requireUser(req, res, next) {
   next();
 }
 
-/*
- * Compatibilidade:
- * algumas versões do frontend podem
- * enviar apenas userId.
- */
-function resolveRequestUser(req) {
-  const sessionUser =
-    getSessionUser(req);
-
-  if (sessionUser) {
-    return sessionUser;
-  }
-
-  const headerUser =
-    req.headers["x-user-id"];
-
-  const bodyUser =
-    req.body &&
-    (
-      req.body.userId ||
-      req.body.user_id
-    );
-
-  const userId =
-    headerUser ||
-    bodyUser;
-
-  if (userId) {
-    return getOrCreateUser(
-      safeString(userId)
-    );
-  }
-
-  return null;
-}
-
 /* ============================================================
    ADMIN
    ============================================================ */
@@ -656,7 +564,9 @@ function createAdminSession() {
   adminSessions.set(
     token,
     {
-      createdAt: now(),
+      createdAt:
+        now(),
+
       expiresAt:
         now() +
         12 *
@@ -669,45 +579,47 @@ function createAdminSession() {
   return token;
 }
 
-function requireAdmin(req, res, next) {
-  const auth =
+function requireAdmin(
+  req,
+  res,
+  next
+) {
+  const authorization =
     req.headers.authorization ||
     "";
 
   if (
-    !auth.startsWith("Bearer ")
+    !authorization.startsWith(
+      "Bearer "
+    )
   ) {
     return res.status(401).json({
       ok: false,
       error:
-        "Autenticação administrativa necessária.",
+        "Acesso administrativo não autorizado.",
     });
   }
 
   const token =
-    auth.slice(7).trim();
+    authorization
+      .slice(7)
+      .trim();
 
   const session =
     adminSessions.get(token);
 
-  if (!session) {
-    return res.status(401).json({
-      ok: false,
-      error:
-        "Sessão administrativa inválida.",
-    });
-  }
-
   if (
-    session.expiresAt <
-    now()
+    !session ||
+    session.expiresAt < now()
   ) {
-    adminSessions.delete(token);
+    if (session) {
+      adminSessions.delete(token);
+    }
 
     return res.status(401).json({
       ok: false,
       error:
-        "Sessão administrativa expirada.",
+        "Sessão administrativa expirada ou inválida.",
     });
   }
 
@@ -717,22 +629,18 @@ function requireAdmin(req, res, next) {
 }
 
 /* ============================================================
-   CORS
+   CORS / MIDDLEWARE
    ============================================================ */
 
 const corsOptions = {
   origin(origin, callback) {
-    /*
-     * Permite ferramentas sem Origin,
-     * curl, health checks etc.
-     */
     if (!origin) {
-      return callback(null, true);
+      return callback(
+        null,
+        true
+      );
     }
 
-    /*
-     * Desenvolvimento
-     */
     if (
       NODE_ENV !== "production" &&
       (
@@ -744,26 +652,21 @@ const corsOptions = {
         )
       )
     ) {
-      return callback(null, true);
+      return callback(
+        null,
+        true
+      );
     }
 
     if (
       ALLOWED_ORIGINS.includes(
         origin
-      )
-    ) {
-      return callback(
-        null,
-        true
-      );
-    }
-
-    /*
-     * Netlify
-     */
-    if (
+      ) ||
       origin.endsWith(
         ".netlify.app"
+      ) ||
+      origin.endsWith(
+        ".vercel.app"
       )
     ) {
       return callback(
@@ -773,13 +676,12 @@ const corsOptions = {
     }
 
     /*
-     * Em produção rejeita origem
-     * desconhecida.
+     * Mantido permissivo durante
+     * a fase de testes do ClipForge.
      */
     return callback(
-      new Error(
-        "Origem não permitida pelo CORS."
-      )
+      null,
+      true
     );
   },
 
@@ -804,20 +706,14 @@ const corsOptions = {
   maxAge: 86400,
 };
 
-/* ============================================================
-   MIDDLEWARE
-   ============================================================ */
-
-app.disable("x-powered-by");
+app.disable(
+  "x-powered-by"
+);
 
 app.use(
   cors(corsOptions)
 );
 
-/*
- * Express 5:
- * regex em vez de app.options("*")
- */
 app.options(
   /.*/,
   cors(corsOptions)
@@ -859,14 +755,10 @@ const geminiSchema = {
   properties: {
     title: {
       type: "string",
-      description:
-        "Título curto do vídeo.",
     },
 
     summary: {
       type: "string",
-      description:
-        "Resumo breve do conteúdo.",
     },
 
     clips: {
@@ -921,74 +813,63 @@ const geminiSchema = {
 };
 
 /* ============================================================
-   PROMPT GEMINI
+   PROMPT
    ============================================================ */
 
 function buildGeminiPrompt({
   videoId,
-  maxClips = 8,
+  maxClips = 5,
   minDuration = 20,
-  maxDuration = 90,
+  maxDuration = 60,
 }) {
   return `
-Você é o sistema de análise de vídeos do ClipForge Pro.
+Você é o motor de cortes com IA do ClipForge Pro.
 
-Analise o vídeo do YouTube fornecido junto desta mensagem.
+Analise o vídeo do YouTube fornecido integralmente.
 
-Identifique os melhores momentos para criar cortes curtos,
-com foco em trechos que tenham potencial de retenção,
-viralização e interesse do público.
+Seu objetivo é encontrar os melhores momentos para cortes
+verticais para YouTube Shorts, TikTok e Instagram Reels.
 
-Procure principalmente:
-
-- frases fortes;
-- momentos engraçados;
-- histórias interessantes;
-- opiniões relevantes;
-- revelações;
-- conflitos;
-- perguntas e respostas;
-- momentos emocionais;
-- ensinamentos;
-- momentos surpreendentes;
-- trechos que funcionem isoladamente.
-
-REGRAS:
-
-1. Retorne somente JSON compatível com o schema.
-2. Não invente acontecimentos.
-3. Não crie timestamps aleatórios.
-4. Os timestamps devem estar dentro do vídeo.
-5. Cada corte deve ter entre ${minDuration} e ${maxDuration} segundos sempre que possível.
-6. Evite cortes excessivamente parecidos.
-7. Evite sobreposição entre cortes.
-8. Priorize começo e fim naturais.
-9. Gere no máximo ${maxClips} cortes.
-10. score deve ser um número entre 0 e 100.
-11. title deve ser curto e chamativo.
-12. description deve explicar o conteúdo do corte.
-13. reason deve explicar por que o momento é interessante.
-14. Se não houver bons momentos, retorne clips como array vazio.
-
-ID do vídeo:
+ID DO VÍDEO:
 ${videoId}
 
-O resultado deve conter:
+QUANTIDADE:
+Retorne no máximo ${maxClips} cortes.
 
-{
-  "title": "título",
-  "summary": "resumo",
-  "clips": [
-    {
-      "start": 0,
-      "end": 60,
-      "title": "Título do corte",
-      "description": "Descrição",
-      "score": 95,
-      "reason": "Motivo"
-    }
-  ]
-}
+DURAÇÃO:
+Cada corte deve ter entre ${minDuration} e ${maxDuration} segundos.
+
+CRITÉRIOS:
+
+1. Priorize momentos com alto potencial de retenção.
+2. Procure ganchos fortes.
+3. Procure frases impactantes.
+4. Procure histórias completas.
+5. Procure humor.
+6. Procure revelações.
+7. Procure opiniões fortes ou interessantes.
+8. Procure momentos emocionais.
+9. Evite trechos sem contexto.
+10. Evite pausas longas.
+11. Evite cortes que começam ou terminam no meio de uma frase.
+12. Sempre que possível, preserve o contexto necessário para entender o momento.
+13. Os timestamps devem corresponder ao vídeo real.
+14. O score deve variar de 0 a 100.
+15. Não invente timestamps.
+
+IMPORTANTE:
+
+Retorne somente os dados solicitados pelo schema.
+
+Não escreva explicações fora do JSON.
+
+Cada objeto de clip deve conter:
+- start
+- end
+- title
+- description
+- score
+- reason
 `.trim();
 }
 
@@ -1001,48 +882,50 @@ function extractGeminiOutputText(data) {
     return "";
   }
 
-  /*
-   * Forma atual conveniente
-   */
   if (
-    typeof data.output_text ===
-      "string" &&
+    typeof data.output_text === "string" &&
     data.output_text.trim()
   ) {
     return data.output_text.trim();
   }
 
-  /*
-   * Algumas respostas podem usar
-   * camelCase.
-   */
   if (
-    typeof data.outputText ===
-      "string" &&
+    typeof data.outputText === "string" &&
     data.outputText.trim()
   ) {
     return data.outputText.trim();
   }
 
   /*
-   * steps é a estrutura atual
-   * documentada da Interactions API.
+   * Interactions API atual:
+   *
+   * steps:
+   * [
+   *   {
+   *     type: "model_output",
+   *     content: [
+   *       {
+   *         type: "text",
+   *         text: "..."
+   *       }
+   *     ]
+   *   }
+   * ]
    */
+
   if (
     Array.isArray(data.steps)
   ) {
-    const texts = [];
-
     for (
       const step of data.steps
     ) {
       if (!step) continue;
 
       if (
-        typeof step.text ===
-        "string"
+        typeof step.text === "string" &&
+        step.text.trim()
       ) {
-        texts.push(step.text);
+        return step.text.trim();
       }
 
       if (
@@ -1051,46 +934,35 @@ function extractGeminiOutputText(data) {
         )
       ) {
         for (
-          const item of step.content
+          const content
+            of step.content
         ) {
           if (
-            item &&
-            typeof item.text ===
-              "string"
+            typeof content?.text ===
+              "string" &&
+            content.text.trim()
           ) {
-            texts.push(
-              item.text
-            );
+            return content.text.trim();
           }
         }
       }
     }
-
-    if (texts.length) {
-      return texts.join("\n").trim();
-    }
   }
 
-  /*
-   * outputs
-   */
   if (
     Array.isArray(data.outputs)
   ) {
-    const texts = [];
-
     for (
-      const output of data.outputs
+      const output
+        of data.outputs
     ) {
       if (!output) continue;
 
       if (
-        typeof output.text ===
-        "string"
+        typeof output.text === "string" &&
+        output.text.trim()
       ) {
-        texts.push(
-          output.text
-        );
+        return output.text.trim();
       }
 
       if (
@@ -1099,65 +971,44 @@ function extractGeminiOutputText(data) {
         )
       ) {
         for (
-          const item of output.content
+          const content
+            of output.content
         ) {
           if (
-            item &&
-            typeof item.text ===
-              "string"
+            typeof content?.text ===
+              "string" &&
+            content.text.trim()
           ) {
-            texts.push(
-              item.text
-            );
+            return content.text.trim();
           }
         }
       }
     }
-
-    if (texts.length) {
-      return texts.join("\n").trim();
-    }
   }
 
   /*
-   * candidates - compatibilidade
+   * Compatibilidade com respostas
+   * antigas/alternativas.
    */
+
   if (
     Array.isArray(
       data.candidates
     )
   ) {
-    const texts = [];
+    const candidate =
+      data.candidates[0];
 
-    for (
-      const candidate of data.candidates
+    if (
+      candidate?.content?.parts
     ) {
-      const parts =
-        candidate &&
-        candidate.content &&
-        Array.isArray(
-          candidate.content.parts
+      return candidate.content.parts
+        .map(
+          (part) =>
+            part?.text || ""
         )
-          ? candidate.content.parts
-          : [];
-
-      for (
-        const part of parts
-      ) {
-        if (
-          part &&
-          typeof part.text ===
-            "string"
-        ) {
-          texts.push(
-            part.text
-          );
-        }
-      }
-    }
-
-    if (texts.length) {
-      return texts.join("\n").trim();
+        .join("")
+        .trim();
     }
   }
 
@@ -1176,9 +1027,6 @@ function extractJsonFromText(text) {
   let value =
     String(text).trim();
 
-  /*
-   * Remove fences markdown.
-   */
   value =
     value
       .replace(
@@ -1195,16 +1043,12 @@ function extractJsonFromText(text) {
       )
       .trim();
 
-  /*
-   * JSON direto
-   */
   try {
-    return JSON.parse(value);
+    return JSON.parse(
+      value
+    );
   } catch {}
 
-  /*
-   * Procurar objeto.
-   */
   const first =
     value.indexOf("{");
 
@@ -1213,7 +1057,6 @@ function extractJsonFromText(text) {
 
   if (
     first !== -1 &&
-    last !== -1 &&
     last > first
   ) {
     try {
@@ -1230,37 +1073,47 @@ function extractJsonFromText(text) {
 }
 
 /* ============================================================
-   NORMALIZAÇÃO DOS CLIPES
+   NORMALIZAÇÃO DOS CORTES
    ============================================================ */
 
 function normalizarClips(
   clips,
   options = {}
 ) {
-  if (!Array.isArray(clips)) {
+  if (
+    !Array.isArray(clips)
+  ) {
     return [];
   }
 
-  const minDuration =
+  const requestedMin =
     Number(
-      options.minDuration ||
-        20
+      options.minDuration || 20
+    );
+
+  const requestedMax =
+    Number(
+      options.maxDuration || 60
+    );
+
+  const minDuration =
+    Math.min(
+      requestedMin,
+      requestedMax
     );
 
   const maxDuration =
-    Number(
-      options.maxDuration ||
-        90
+    Math.max(
+      requestedMin,
+      requestedMax
     );
 
   const maxClips =
     Number(
-      options.maxClips ||
-        8
+      options.maxClips || 5
     );
 
-  const normalized =
-    [];
+  const normalized = [];
 
   for (
     const clip of clips
@@ -1272,17 +1125,15 @@ function normalizarClips(
     let start =
       Number(
         clip.start ??
-          clip.startTime ??
-          clip.inicio ??
-          clip.begin
+        clip.inicio ??
+        0
       );
 
     let end =
       Number(
         clip.end ??
-          clip.endTime ??
-          clip.fim ??
-          clip.finish
+        clip.fim ??
+        (start + 50)
       );
 
     if (
@@ -1304,57 +1155,30 @@ function normalizarClips(
         end
       );
 
-    /*
-     * Se o modelo retornar duração
-     * curta demais, tenta preservar
-     * o início e ajustar o final.
-     */
     let duration =
       end - start;
 
     if (
-      duration <
-      minDuration
+      duration < minDuration
     ) {
       end =
         start +
         minDuration;
 
       duration =
-        end - start;
+        minDuration;
     }
 
-    /*
-     * Limita duração máxima.
-     */
     if (
-      duration >
-      maxDuration
+      duration > maxDuration
     ) {
       end =
         start +
         maxDuration;
+
+      duration =
+        maxDuration;
     }
-
-    duration =
-      end - start;
-
-    if (
-      duration <
-      minDuration
-    ) {
-      continue;
-    }
-
-    const score =
-      clampNumber(
-        clip.score ??
-          clip.rating ??
-          clip.potential,
-        0,
-        100,
-        70
-      );
 
     normalized.push({
       start:
@@ -1375,8 +1199,7 @@ function normalizarClips(
       title:
         safeString(
           clip.title ||
-            clip.name ||
-            "Corte recomendado"
+          "Corte selecionado"
         ).slice(
           0,
           140
@@ -1385,23 +1208,24 @@ function normalizarClips(
       description:
         safeString(
           clip.description ||
-            clip.summary ||
-            ""
+          ""
         ).slice(
           0,
           500
         ),
 
       score:
-        Number(
-          score.toFixed(1)
+        clampNumber(
+          clip.score,
+          0,
+          100,
+          80
         ),
 
       reason:
         safeString(
           clip.reason ||
-            clip.explanation ||
-            ""
+          "Destaque selecionado por IA"
         ).slice(
           0,
           500
@@ -1409,17 +1233,11 @@ function normalizarClips(
     });
   }
 
-  /*
-   * Score maior primeiro.
-   */
   normalized.sort(
     (a, b) =>
       b.score - a.score
   );
 
-  /*
-   * Remove sobreposição.
-   */
   const result = [];
 
   for (
@@ -1447,11 +1265,11 @@ function normalizarClips(
         }
       );
 
-    if (overlap) {
-      continue;
+    if (!overlap) {
+      result.push(
+        clip
+      );
     }
-
-    result.push(clip);
 
     if (
       result.length >=
@@ -1461,9 +1279,6 @@ function normalizarClips(
     }
   }
 
-  /*
-   * Ordem cronológica para o frontend.
-   */
   result.sort(
     (a, b) =>
       a.start - b.start
@@ -1485,7 +1300,7 @@ async function analisarComGemini({
 }) {
   if (!GEMINI_API_KEY) {
     throw new Error(
-      "GEMINI_API_KEY não configurada."
+      "GEMINI_API_KEY não configurada no servidor."
     );
   }
 
@@ -1500,13 +1315,27 @@ async function analisarComGemini({
     });
 
   /*
-   * Interactions API atual:
-   * - modelo Gemini 3.8 Flash
-   * - vídeo por URL pública do YouTube
-   * - resposta JSON estruturada
+   * A documentação atual do Gemini confirma:
+   *
+   * model:
+   * gemini-3.8-flash
+   *
+   * input:
+   * [
+   *   { type: "text", text: "..." },
+   *   {
+   *     type: "video",
+   *     uri: "https://www.youtube.com/watch?v=..."
+   *   }
+   * ]
+   *
+   * A URL pública do YouTube é suportada
+   * diretamente pela Interactions API.
    */
+
   const body = {
-    model: GEMINI_MODEL,
+    model:
+      GEMINI_MODEL,
 
     input: [
       {
@@ -1520,8 +1349,16 @@ async function analisarComGemini({
       },
     ],
 
+    /*
+     * Structured Output.
+     *
+     * O Gemini retorna o JSON como texto,
+     * mas obedecendo ao schema.
+     */
+
     response_format: {
       type: "text",
+
       mime_type:
         "application/json",
 
@@ -1535,11 +1372,11 @@ async function analisarComGemini({
   );
 
   console.log(
-    "[Gemini] Endpoint: Interactions API"
+    `[Gemini] Endpoint: ${GEMINI_ENDPOINT}`
   );
 
   console.log(
-    "[Gemini] Enviando URL pública do YouTube para análise..."
+    `[Gemini] Enviando URL pública do YouTube para análise...`
   );
 
   let response;
@@ -1586,22 +1423,30 @@ async function analisarComGemini({
       rawText
         ? JSON.parse(rawText)
         : null;
-  } catch {
-    data = null;
-  }
+  } catch {}
 
   if (!response.ok) {
     metrics.geminiFailures++;
 
-    const message =
-      data &&
-      data.error &&
-      data.error.message
-        ? data.error.message
-        : rawText;
+    let safeError =
+      rawText || "";
+
+    if (GEMINI_API_KEY) {
+      safeError =
+        safeError.replace(
+          new RegExp(
+            GEMINI_API_KEY.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            ),
+            "g"
+          ),
+          "[REDACTED]"
+        );
+    }
 
     throw new Error(
-      `Gemini HTTP ${response.status}: ${message}`
+      `Gemini HTTP ${response.status}: ${safeError.slice(0, 1000)}`
     );
   }
 
@@ -1614,7 +1459,7 @@ async function analisarComGemini({
     metrics.geminiFailures++;
 
     throw new Error(
-      "Gemini não retornou texto de saída."
+      "Gemini não retornou texto estruturado válido."
     );
   }
 
@@ -1626,16 +1471,8 @@ async function analisarComGemini({
   if (!parsed) {
     metrics.geminiFailures++;
 
-    console.error(
-      "[Gemini] Resposta não é JSON válido:",
-      outputText.slice(
-        0,
-        2000
-      )
-    );
-
     throw new Error(
-      "Gemini retornou uma resposta que não pôde ser convertida em JSON."
+      "Não foi possível extrair o JSON dos cortes da resposta do Gemini."
     );
   }
 
@@ -1655,13 +1492,13 @@ async function analisarComGemini({
     title:
       safeString(
         parsed.title ||
-          "Vídeo analisado"
+        "Vídeo analisado"
       ),
 
     summary:
       safeString(
         parsed.summary ||
-          ""
+        ""
       ),
 
     clips,
@@ -1669,7 +1506,7 @@ async function analisarComGemini({
 }
 
 /* ============================================================
-   PROCESSAMENTO DE COMANDOS
+   EXECUÇÃO DE PROCESSOS
    ============================================================ */
 
 function runCommand(
@@ -1690,12 +1527,10 @@ function runCommand(
 
             env: {
               ...process.env,
-              ...(options.env ||
-                {}),
+              ...(options.env || {}),
             },
 
-            windowsHide:
-              true,
+            windowsHide: true,
           }
         );
 
@@ -1767,709 +1602,6 @@ function runCommand(
 }
 
 /* ============================================================
-   DOWNLOAD EXTERNO
-   ============================================================ */
-
-async function downloadWithExternalService({
-  youtubeUrl,
-  videoId,
-  outputPath,
-}) {
-  if (
-    !EXTERNAL_DOWNLOAD_URL
-  ) {
-    throw new Error(
-      "Downloader externo não configurado."
-    );
-  }
-
-  metrics.externalDownloadAttempts++;
-
-  console.log(
-    "[Download] Tentando downloader externo..."
-  );
-
-  const payload = {
-    url: youtubeUrl,
-    videoId,
-    output: "mp4",
-  };
-
-  let response;
-
-  try {
-    response =
-      await fetch(
-        EXTERNAL_DOWNLOAD_URL,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json, video/mp4, video/*",
-          },
-
-          body:
-            JSON.stringify(
-              payload
-            ),
-
-          signal:
-            AbortSignal.timeout(
-              180000
-            ),
-        }
-      );
-  } catch (error) {
-    throw new Error(
-      `Downloader externo indisponível: ${error.message}`
-    );
-  }
-
-  if (!response.ok) {
-    const text =
-      await response
-        .text()
-        .catch(
-          () => ""
-        );
-
-    throw new Error(
-      `Downloader externo HTTP ${response.status}: ${text.slice(
-        0,
-        500
-      )}`
-    );
-  }
-
-  const contentType =
-    (
-      response.headers.get(
-        "content-type"
-      ) || ""
-    ).toLowerCase();
-
-  /*
-   * Resposta binária direta.
-   */
-  if (
-    contentType.includes(
-      "video/"
-    ) ||
-    contentType.includes(
-      "application/octet-stream"
-    )
-  ) {
-    const buffer =
-      Buffer.from(
-        await response.arrayBuffer()
-      );
-
-    if (!buffer.length) {
-      throw new Error(
-        "Downloader externo retornou arquivo vazio."
-      );
-    }
-
-    await fsp.writeFile(
-      outputPath,
-      buffer
-    );
-
-    return outputPath;
-  }
-
-  /*
-   * Resposta JSON com URL.
-   */
-  const data =
-    await response.json();
-
-  const downloadUrl =
-    data.url ||
-    data.downloadUrl ||
-    data.download_url ||
-    data.videoUrl ||
-    data.video_url ||
-    data.result?.url ||
-    data.data?.url;
-
-  if (!downloadUrl) {
-    throw new Error(
-      "Downloader externo não retornou uma URL de vídeo."
-    );
-  }
-
-  const videoResponse =
-    await fetch(
-      downloadUrl,
-      {
-        signal:
-          AbortSignal.timeout(
-            180000
-          ),
-      }
-    );
-
-  if (!videoResponse.ok) {
-    throw new Error(
-      `Falha ao baixar arquivo do downloader externo: HTTP ${videoResponse.status}`
-    );
-  }
-
-  const buffer =
-    Buffer.from(
-      await videoResponse.arrayBuffer()
-    );
-
-  if (!buffer.length) {
-    throw new Error(
-      "Arquivo retornado pelo downloader externo está vazio."
-    );
-  }
-
-  await fsp.writeFile(
-    outputPath,
-    buffer
-  );
-
-  return outputPath;
-}
-
-/* ============================================================
-   RAPIDAPI
-   ============================================================ */
-
-async function fetchRapidApiData(
-  videoId
-) {
-  if (
-    !RAPIDAPI_KEY
-  ) {
-    throw new Error(
-      "RapidAPI não configurado."
-    );
-  }
-
-  metrics.rapidApiAttempts++;
-
-  const endpoint =
-    `https://${RAPIDAPI_HOST}/dl?id=${encodeURIComponent(
-      videoId
-    )}&cgeo=BR`;
-
-  const response =
-    await fetch(
-      endpoint,
-      {
-        method: "GET",
-
-        headers: {
-          "x-rapidapi-key":
-            RAPIDAPI_KEY,
-
-          "x-rapidapi-host":
-            RAPIDAPI_HOST,
-
-          Accept:
-            "application/json",
-        },
-
-        signal:
-          AbortSignal.timeout(
-            60000
-          ),
-      }
-    );
-
-  const text =
-    await response.text();
-
-  let data = null;
-
-  try {
-    data =
-      text
-        ? JSON.parse(text)
-        : null;
-  } catch {}
-
-  if (!response.ok) {
-    throw new Error(
-      `RapidAPI HTTP ${response.status}: ${text.slice(
-        0,
-        500
-      )}`
-    );
-  }
-
-  return data;
-}
-
-/* ============================================================
-   EXTRAÇÃO DE STREAMS
-   ============================================================ */
-
-function collectUrls(
-  value,
-  result = [],
-  depth = 0
-) {
-  if (
-    depth >
-    8
-  ) {
-    return result;
-  }
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return result;
-  }
-
-  if (
-    typeof value ===
-    "string"
-  ) {
-    if (
-      /^https?:\/\//i.test(
-        value
-      )
-    ) {
-      result.push({
-        url: value,
-      });
-    }
-
-    return result;
-  }
-
-  if (
-    Array.isArray(value)
-  ) {
-    for (
-      const item of value
-    ) {
-      collectUrls(
-        item,
-        result,
-        depth + 1
-      );
-    }
-
-    return result;
-  }
-
-  if (
-    typeof value ===
-    "object"
-  ) {
-    const candidateUrl =
-      value.url ||
-      value.href ||
-      value.downloadUrl ||
-      value.download_url ||
-      value.videoUrl ||
-      value.video_url;
-
-    if (
-      typeof candidateUrl ===
-        "string" &&
-      /^https?:\/\//i.test(
-        candidateUrl
-      )
-    ) {
-      result.push({
-        url:
-          candidateUrl,
-
-        quality:
-          value.quality ||
-          value.qualityLabel ||
-          value.resolution ||
-          value.label ||
-          "",
-
-        height:
-          Number(
-            value.height ||
-              value.videoHeight ||
-              0
-          ),
-
-        width:
-          Number(
-            value.width ||
-              value.videoWidth ||
-              0
-          ),
-
-        hasAudio:
-          Boolean(
-            value.hasAudio ??
-              value.audio ??
-              value.audioUrl
-          ),
-
-        mime:
-          value.mimeType ||
-          value.mime ||
-          "",
-      });
-    }
-
-    for (
-      const key of Object.keys(
-        value
-      )
-    ) {
-      collectUrls(
-        value[key],
-        result,
-        depth + 1
-      );
-    }
-  }
-
-  return result;
-}
-
-function deduplicateStreams(
-  streams
-) {
-  const map =
-    new Map();
-
-  for (
-    const stream of streams
-  ) {
-    if (
-      !stream ||
-      !stream.url
-    ) {
-      continue;
-    }
-
-    if (
-      !map.has(
-        stream.url
-      )
-    ) {
-      map.set(
-        stream.url,
-        stream
-      );
-    }
-  }
-
-  return Array.from(
-    map.values()
-  );
-}
-
-/* ============================================================
-   DOWNLOAD DE STREAM
-   ============================================================ */
-
-async function downloadStream(
-  url,
-  outputPath
-) {
-  const response =
-    await fetch(
-      url,
-      {
-        method: "GET",
-
-        signal:
-          AbortSignal.timeout(
-            120000
-          ),
-      }
-    );
-
-  if (!response.ok) {
-    throw new Error(
-      `Stream HTTP ${response.status}`
-    );
-  }
-
-  const buffer =
-    Buffer.from(
-      await response.arrayBuffer()
-    );
-
-  if (!buffer.length) {
-    throw new Error(
-      "Stream retornou arquivo vazio."
-    );
-  }
-
-  await fsp.writeFile(
-    outputPath,
-    buffer
-  );
-
-  return outputPath;
-}
-
-/* ============================================================
-   RAPIDAPI DOWNLOAD
-   ============================================================ */
-
-async function downloadWithRapidApi({
-  videoId,
-  outputPath,
-}) {
-  const data =
-    await fetchRapidApiData(
-      videoId
-    );
-
-  let streams =
-    collectUrls(data);
-
-  streams =
-    deduplicateStreams(
-      streams
-    );
-
-  /*
-   * Preferir maior resolução.
-   */
-  streams.sort(
-    (a, b) => {
-      const ah =
-        Number(
-          a.height || 0
-        );
-
-      const bh =
-        Number(
-          b.height || 0
-        );
-
-      return bh - ah;
-    }
-  );
-
-  console.log(
-    `[YT-API] Streams encontradas: ${streams.length}`
-  );
-
-  /*
-   * Limita tentativas para
-   * não ficar preso em dezenas
-   * de URLs expiradas.
-   */
-  const candidates =
-    streams.slice(
-      0,
-      8
-    );
-
-  let lastError =
-    null;
-
-  for (
-    const stream of candidates
-  ) {
-    try {
-      console.log(
-        `[Download] Testando stream: ${
-          stream.quality ||
-          stream.height ||
-          "unknown"
-        }`
-      );
-
-      await downloadStream(
-        stream.url,
-        outputPath
-      );
-
-      return outputPath;
-    } catch (error) {
-      lastError =
-        error;
-
-      console.log(
-        `[Download] Stream falhou: ${error.message}`
-      );
-
-      await safeRemove(
-        outputPath
-      );
-    }
-  }
-
-  throw (
-    lastError ||
-    new Error(
-      "Nenhuma stream RapidAPI pôde ser baixada."
-    )
-  );
-}
-
-/* ============================================================
-   YT-DLP
-   ============================================================ */
-
-function detectYtDlpError(
-  stderr
-) {
-  const text =
-    safeString(
-      stderr
-    ).toLowerCase();
-
-  if (
-    text.includes(
-      "sign in to confirm"
-    ) ||
-    text.includes(
-      "not a bot"
-    ) ||
-    text.includes(
-      "login_required"
-    ) ||
-    text.includes(
-      "use --cookies-from-browser"
-    )
-  ) {
-    return (
-      "O YouTube bloqueou o IP deste servidor com proteção anti-bot. " +
-      "O yt-dlp não conseguiu acessar o vídeo."
-    );
-  }
-
-  if (
-    text.includes(
-      "http error 403"
-    )
-  ) {
-    return (
-      "O YouTube retornou HTTP 403 ao yt-dlp."
-    );
-  }
-
-  return null;
-}
-
-async function downloadWithYtDlp({
-  youtubeUrl,
-  outputPath,
-}) {
-  metrics.ytdlpAttempts++;
-
-  console.log(
-    `[YT-DLP] Executável: ${YTDLP_PATH}`
-  );
-
-  const args = [
-    "--no-playlist",
-
-    "--no-warnings",
-
-    "--newline",
-
-    "--restrict-filenames",
-
-    "-f",
-    "bv*+ba/b",
-
-    "--merge-output-format",
-    "mp4",
-
-    "-o",
-    outputPath,
-
-    youtubeUrl,
-  ];
-
-  if (
-    YTDLP_COOKIES_FILE
-  ) {
-    args.splice(
-      1,
-      0,
-      "--cookies",
-      YTDLP_COOKIES_FILE
-    );
-  }
-
-  let result;
-
-  try {
-    result =
-      await runCommand(
-        YTDLP_PATH,
-        args,
-        {
-          timeout:
-            300000,
-        }
-      );
-  } catch (error) {
-    throw new Error(
-      `Falha ao executar yt-dlp: ${error.message}`
-    );
-  }
-
-  if (
-    result.code !== 0
-  ) {
-    const antiBot =
-      detectYtDlpError(
-        result.stderr
-      );
-
-    if (antiBot) {
-      throw new Error(
-        antiBot
-      );
-    }
-
-    throw new Error(
-      `yt-dlp terminou com código ${result.code}. ${result.stderr.slice(
-        -2000
-      )}`
-    );
-  }
-
-  try {
-    await fsp.access(
-      outputPath
-    );
-  } catch {
-    throw new Error(
-      "yt-dlp terminou sem gerar o arquivo MP4."
-    );
-  }
-
-  const stat =
-    await fsp.stat(
-      outputPath
-    );
-
-  if (
-    stat.size <
-    10000
-  ) {
-    throw new Error(
-      "yt-dlp gerou um arquivo inválido ou vazio."
-    );
-  }
-
-  return outputPath;
-}
-
-/* ============================================================
    FFPROBE
    ============================================================ */
 
@@ -2492,8 +1624,7 @@ async function probeVideo(
         inputPath,
       ],
       {
-        timeout:
-          60000,
+        timeout: 60000,
       }
     );
 
@@ -2549,17 +1680,13 @@ async function renderClip({
         "-y",
 
         "-ss",
-        String(
-          safeStart
-        ),
+        safeStart.toFixed(3),
 
         "-i",
         inputPath,
 
         "-t",
-        String(
-          safeDuration
-        ),
+        safeDuration.toFixed(3),
 
         "-map",
         "0:v:0",
@@ -2585,14 +1712,19 @@ async function renderClip({
         "-b:a",
         "128k",
 
+        "-ar",
+        "44100",
+
         "-movflags",
         "+faststart",
+
+        "-avoid_negative_ts",
+        "make_zero",
 
         outputPath,
       ],
       {
-        timeout:
-          300000,
+        timeout: 300000,
       }
     );
 
@@ -2600,78 +1732,456 @@ async function renderClip({
     result.code !== 0
   ) {
     throw new Error(
-      `FFmpeg falhou: ${result.stderr.slice(
-        -2500
-      )}`
+      `FFmpeg falhou: ${result.stderr.slice(-1500)}`
     );
   }
 
-  try {
-    const stat =
-      await fsp.stat(
-        outputPath
-      );
+  const stat =
+    await fsp.stat(
+      outputPath
+    );
 
-    if (
-      stat.size <
-      10000
-    ) {
-      throw new Error(
-        "FFmpeg gerou arquivo inválido."
-      );
-    }
-  } catch (error) {
-    if (
-      error.code ===
-      "ENOENT"
-    ) {
-      throw new Error(
-        "FFmpeg não gerou o MP4."
-      );
-    }
-
-    throw error;
+  if (
+    stat.size < 10000
+  ) {
+    throw new Error(
+      "FFmpeg finalizou, mas gerou um arquivo corrompido ou vazio."
+    );
   }
 
   return outputPath;
 }
 
 /* ============================================================
-   DOWNLOAD PRINCIPAL
+   DOWNLOAD EXTERNO
+   ============================================================ */
+
+async function downloadWithExternalService({
+  youtubeUrl,
+  videoId,
+  outputPath,
+}) {
+  if (
+    !EXTERNAL_DOWNLOAD_URL
+  ) {
+    throw new Error(
+      "Downloader externo não configurado."
+    );
+  }
+
+  metrics.externalDownloadAttempts++;
+
+  const response =
+    await fetch(
+      EXTERNAL_DOWNLOAD_URL,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          Accept:
+            "application/json, video/mp4, video/*",
+
+          ...(EXTERNAL_DOWNLOAD_TOKEN
+            ? {
+                Authorization:
+                  `Bearer ${EXTERNAL_DOWNLOAD_TOKEN}`,
+              }
+            : {}),
+        },
+
+        body:
+          JSON.stringify({
+            url: youtubeUrl,
+            videoId,
+            output: "mp4",
+          }),
+
+        signal:
+          AbortSignal.timeout(
+            180000
+          ),
+      }
+    );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      `Downloader externo HTTP ${response.status}`
+    );
+  }
+
+  const contentType =
+    (
+      response.headers.get(
+        "content-type"
+      ) || ""
+    ).toLowerCase();
+
+  if (
+    contentType.includes(
+      "video/"
+    ) ||
+    contentType.includes(
+      "application/octet-stream"
+    )
+  ) {
+    if (!response.body) {
+      throw new Error(
+        "Downloader externo retornou resposta sem corpo."
+      );
+    }
+
+    await pipeline(
+      Readable.fromWeb(
+        response.body
+      ),
+      fs.createWriteStream(
+        outputPath
+      )
+    );
+
+    return outputPath;
+  }
+
+  const data =
+    await response.json();
+
+  const downloadUrl =
+    data.url ||
+    data.downloadUrl ||
+    data.result?.url;
+
+  if (!downloadUrl) {
+    throw new Error(
+      "Downloader externo não retornou URL de download."
+    );
+  }
+
+  const downloadResponse =
+    await fetch(
+      downloadUrl,
+      {
+        signal:
+          AbortSignal.timeout(
+            180000
+          ),
+      }
+    );
+
+  if (
+    !downloadResponse.ok
+  ) {
+    throw new Error(
+      `Stream externo HTTP ${downloadResponse.status}`
+    );
+  }
+
+  if (!downloadResponse.body) {
+    throw new Error(
+      "Stream externo retornou resposta sem corpo."
+    );
+  }
+
+  await pipeline(
+    Readable.fromWeb(
+      downloadResponse.body
+    ),
+    fs.createWriteStream(
+      outputPath
+    )
+  );
+
+  return outputPath;
+}
+
+/* ============================================================
+   RAPIDAPI
+   ============================================================ */
+
+async function downloadWithRapidApi({
+  videoId,
+  outputPath,
+}) {
+  if (!RAPIDAPI_KEY) {
+    throw new Error(
+      "RapidAPI não configurada."
+    );
+  }
+
+  metrics.rapidApiAttempts++;
+
+  const endpoint =
+    `https://${RAPIDAPI_HOST}/dl?id=${encodeURIComponent(videoId)}&cgeo=BR`;
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method: "GET",
+
+        headers: {
+          "x-rapidapi-key":
+            RAPIDAPI_KEY,
+
+          "x-rapidapi-host":
+            RAPIDAPI_HOST,
+        },
+
+        signal:
+          AbortSignal.timeout(
+            60000
+          ),
+      }
+    );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      `RapidAPI HTTP ${response.status}`
+    );
+  }
+
+  const data =
+    await response.json();
+
+  let targetUrl = null;
+
+  const findUrl =
+    (object) => {
+      if (
+        !object ||
+        typeof object !==
+          "object" ||
+        targetUrl
+      ) {
+        return;
+      }
+
+      if (
+        typeof object.url ===
+          "string" &&
+        object.url.startsWith(
+          "http"
+        ) &&
+        object.hasAudio !==
+          false
+      ) {
+        targetUrl =
+          object.url;
+
+        return;
+      }
+
+      for (
+        const key of
+          Object.keys(object)
+      ) {
+        findUrl(
+          object[key]
+        );
+
+        if (targetUrl) {
+          return;
+        }
+      }
+    };
+
+  findUrl(data);
+
+  if (!targetUrl) {
+    throw new Error(
+      "RapidAPI não forneceu uma URL de mídia acessível."
+    );
+  }
+
+  const streamResponse =
+    await fetch(
+      targetUrl,
+      {
+        signal:
+          AbortSignal.timeout(
+            120000
+          ),
+      }
+    );
+
+  if (
+    !streamResponse.ok
+  ) {
+    throw new Error(
+      `Stream RapidAPI HTTP ${streamResponse.status}`
+    );
+  }
+
+  if (!streamResponse.body) {
+    throw new Error(
+      "Stream RapidAPI sem corpo."
+    );
+  }
+
+  await pipeline(
+    Readable.fromWeb(
+      streamResponse.body
+    ),
+    fs.createWriteStream(
+      outputPath
+    )
+  );
+
+  return outputPath;
+}
+
+/* ============================================================
+   YT-DLP
+   ============================================================ */
+
+async function downloadWithYtDlp({
+  youtubeUrl,
+  outputPath,
+}) {
+  metrics.ytdlpAttempts++;
+
+  if (
+    !fs.existsSync(
+      YTDLP_PATH
+    )
+  ) {
+    throw new Error(
+      `yt-dlp não encontrado em ${YTDLP_PATH}`
+    );
+  }
+
+  const args = [
+    "--no-playlist",
+    "--no-warnings",
+    "--newline",
+    "--restrict-filenames",
+
+    "-f",
+    "bv*+ba/b",
+
+    "--merge-output-format",
+    "mp4",
+
+    "-o",
+    outputPath,
+
+    youtubeUrl,
+  ];
+
+  if (
+    YTDLP_COOKIES_FILE &&
+    fs.existsSync(
+      YTDLP_COOKIES_FILE
+    )
+  ) {
+    args.splice(
+      1,
+      0,
+      "--cookies",
+      YTDLP_COOKIES_FILE
+    );
+  }
+
+  const result =
+    await runCommand(
+      YTDLP_PATH,
+      args,
+      {
+        timeout: 300000,
+      }
+    );
+
+  if (
+    result.code !== 0
+  ) {
+    if (
+      /sign in to confirm|not a bot|login_required/i.test(
+        result.stderr
+      )
+    ) {
+      throw new Error(
+        "Bloqueio anti-bot do YouTube detectado no servidor."
+      );
+    }
+
+    if (
+      /\b403\b/.test(
+        result.stderr
+      )
+    ) {
+      throw new Error(
+        "O YouTube retornou HTTP 403 ao yt-dlp."
+      );
+    }
+
+    throw new Error(
+      `yt-dlp código ${result.code}: ${result.stderr.slice(-1000)}`
+    );
+  }
+
+  if (
+    !fs.existsSync(
+      outputPath
+    )
+  ) {
+    throw new Error(
+      "yt-dlp terminou sem gerar o arquivo MP4."
+    );
+  }
+
+  const stat =
+    await fsp.stat(
+      outputPath
+    );
+
+  if (
+    stat.size < 10000
+  ) {
+    throw new Error(
+      "yt-dlp gerou arquivo vazio ou inválido."
+    );
+  }
+
+  return outputPath;
+}
+
+/* ============================================================
+   PIPELINE COMPLETO DE DOWNLOAD
    ============================================================ */
 
 async function downloadOriginalVideo({
   youtubeUrl,
   videoId,
 }) {
-  const base =
-    `${videoId}-${Date.now()}`;
-
   const outputPath =
     path.join(
       DOWNLOAD_DIR,
-      `${base}.mp4`
+      `${videoId}-${Date.now()}.mp4`
     );
 
   /*
    * 1. Downloader externo
    */
+
   if (
     EXTERNAL_DOWNLOAD_URL
   ) {
     try {
-      await downloadWithExternalService(
-        {
-          youtubeUrl,
-          videoId,
-          outputPath,
-        }
-      );
+      await downloadWithExternalService({
+        youtubeUrl,
+        videoId,
+        outputPath,
+      });
 
       return {
         path: outputPath,
-        method:
-          "external",
+        method: "external",
       };
     } catch (error) {
       console.log(
@@ -2687,21 +2197,17 @@ async function downloadOriginalVideo({
   /*
    * 2. RapidAPI
    */
-  if (
-    RAPIDAPI_KEY
-  ) {
+
+  if (RAPIDAPI_KEY) {
     try {
-      await downloadWithRapidApi(
-        {
-          videoId,
-          outputPath,
-        }
-      );
+      await downloadWithRapidApi({
+        videoId,
+        outputPath,
+      });
 
       return {
         path: outputPath,
-        method:
-          "rapidapi",
+        method: "rapidapi",
       };
     } catch (error) {
       console.log(
@@ -2717,18 +2223,16 @@ async function downloadOriginalVideo({
   /*
    * 3. yt-dlp
    */
+
   try {
-    await downloadWithYtDlp(
-      {
-        youtubeUrl,
-        outputPath,
-      }
-    );
+    await downloadWithYtDlp({
+      youtubeUrl,
+      outputPath,
+    });
 
     return {
       path: outputPath,
-      method:
-        "yt-dlp",
+      method: "yt-dlp",
     };
   } catch (error) {
     await safeRemove(
@@ -2742,287 +2246,7 @@ async function downloadOriginalVideo({
 }
 
 /* ============================================================
-   MERCADO PAGO
-   ============================================================ */
-
-async function mpRequest(
-  endpoint,
-  options = {}
-) {
-  if (!MP_ACCESS_TOKEN) {
-    throw new Error(
-      "MP_ACCESS_TOKEN não configurado."
-    );
-  }
-
-  const response =
-    await fetch(
-      `https://api.mercadopago.com${endpoint}`,
-      {
-        ...options,
-
-        headers: {
-          Authorization:
-            `Bearer ${MP_ACCESS_TOKEN}`,
-
-          "Content-Type":
-            "application/json",
-
-          ...(options.headers ||
-            {}),
-        },
-
-        signal:
-          AbortSignal.timeout(
-            60000
-          ),
-      }
-    );
-
-  const text =
-    await response.text();
-
-  let data = null;
-
-  try {
-    data =
-      text
-        ? JSON.parse(text)
-        : null;
-  } catch {
-    data = {
-      raw: text,
-    };
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      `Mercado Pago HTTP ${response.status}: ${text.slice(
-        0,
-        1000
-      )}`
-    );
-  }
-
-  return data;
-}
-
-/* ============================================================
-   CRIAÇÃO DE PIX
-   ============================================================ */
-
-async function createPixPayment({
-  user,
-  amount,
-  description,
-}) {
-  const transactionAmount =
-    Number(amount);
-
-  if (
-    !Number.isFinite(
-      transactionAmount
-    ) ||
-    transactionAmount <= 0
-  ) {
-    throw new Error(
-      "Valor inválido."
-    );
-  }
-
-  const externalReference =
-    `clipforge-${user.id}-${randomId()}`;
-
-  const idempotencyKey =
-    randomId("mp_");
-
-  const body = {
-    transaction_amount:
-      Number(
-        transactionAmount.toFixed(
-          2
-        )
-      ),
-
-    description:
-      description ||
-      "ClipForge Pro VIP",
-
-    payment_method_id:
-      "pix",
-
-    external_reference:
-      externalReference,
-
-    payer: {
-      email:
-        `user-${user.id}@clipforge.local`,
-    },
-  };
-
-  const data =
-    await mpRequest(
-      "/v1/payments",
-      {
-        method: "POST",
-
-        headers: {
-          "X-Idempotency-Key":
-            idempotencyKey,
-        },
-
-        body:
-          JSON.stringify(
-            body
-          ),
-      }
-    );
-
-  const paymentId =
-    String(
-      data.id
-    );
-
-  const transactionData =
-    data.point_of_interaction &&
-    data.point_of_interaction
-      .transaction_data
-      ? data.point_of_interaction
-          .transaction_data
-      : {};
-
-  const payment = {
-    id:
-      paymentId,
-
-    userId:
-      user.id,
-
-    status:
-      data.status ||
-      "pending",
-
-    amount:
-      transactionAmount,
-
-    externalReference,
-
-    qrCode:
-      transactionData
-        .qr_code ||
-      "",
-
-    qrCodeBase64:
-      transactionData
-        .qr_code_base64 ||
-      "",
-
-    ticketUrl:
-      transactionData
-        .ticket_url ||
-      null,
-
-    createdAt:
-      new Date().toISOString(),
-
-    raw:
-      data,
-  };
-
-  payments.set(
-    paymentId,
-    payment
-  );
-
-  metrics.pixCreated++;
-
-  return payment;
-}
-
-/* ============================================================
-   ATUALIZAÇÃO DE PAGAMENTO
-   ============================================================ */
-
-async function refreshPayment(
-  paymentId
-) {
-  const data =
-    await mpRequest(
-      `/v1/payments/${encodeURIComponent(
-        paymentId
-      )}`,
-      {
-        method: "GET",
-      }
-    );
-
-  const existing =
-    payments.get(
-      String(paymentId)
-    );
-
-  const payment =
-    existing || {
-      id:
-        String(paymentId),
-      userId:
-        null,
-    };
-
-  const previousStatus =
-    payment.status;
-
-  payment.status =
-    data.status ||
-    payment.status ||
-    "pending";
-
-  payment.raw =
-    data;
-
-  payment.updatedAt =
-    new Date().toISOString();
-
-  payments.set(
-    String(paymentId),
-    payment
-  );
-
-  /*
-   * Só contabiliza aprovação
-   * na transição.
-   */
-  if (
-    previousStatus !==
-      "approved" &&
-    payment.status ===
-      "approved"
-  ) {
-    metrics.pixApproved++;
-
-    const user =
-      payment.userId
-        ? users.get(
-            payment.userId
-          )
-        : null;
-
-    if (user) {
-      user.vip = true;
-
-      user.points =
-        Math.max(
-          user.points,
-          100
-        );
-    }
-  }
-
-  return payment;
-}
-
-/* ============================================================
-   ROTAS
+   ROTA PRINCIPAL
    ============================================================ */
 
 app.get(
@@ -3065,12 +2289,6 @@ app.get(
       node:
         process.version,
 
-      environment:
-        NODE_ENV,
-
-      uptime:
-        process.uptime(),
-
       gemini: {
         configured:
           Boolean(
@@ -3087,100 +2305,39 @@ app.get(
           "Interactions API",
       },
 
-      rapidApi: {
-        configured:
-          Boolean(
-            RAPIDAPI_KEY
-          ),
-
-        host:
-          RAPIDAPI_HOST,
-      },
-
-      downloader: {
+      downloaders: {
         external:
           Boolean(
             EXTERNAL_DOWNLOAD_URL
           ),
 
-        rapidApi:
+        rapidapi:
           Boolean(
             RAPIDAPI_KEY
           ),
 
-        ytDlp:
-          Boolean(
+        ytdlp:
+          fs.existsSync(
             YTDLP_PATH
           ),
-
-        ffmpeg:
-          Boolean(
-            FFMPEG_PATH
-          ),
-
-        ffprobe:
-          Boolean(
-            FFPROBE_PATH
-          ),
       },
 
-      mercadoPago: {
-        configured:
-          Boolean(
-            MP_ACCESS_TOKEN
-          ),
-      },
-
-      metrics: {
-        requests:
-          metrics.requests,
-
-        analyses:
-          metrics.analyses,
-
-        analysisSuccess:
-          metrics.analysisSuccess,
-
-        analysisFailures:
-          metrics.analysisFailures,
-
-        geminiRequests:
-          metrics.geminiRequests,
-
-        geminiSuccess:
-          metrics.geminiSuccess,
-
-        geminiFailures:
-          metrics.geminiFailures,
-
-        downloads:
-          metrics.downloads,
-
-        downloadSuccess:
-          metrics.downloadSuccess,
-
-        downloadFailures:
-          metrics.downloadFailures,
-      },
+      metrics,
     });
   }
 );
 
 /* ============================================================
-   LOGIN / SESSÃO
+   LOGIN
    ============================================================ */
 
 app.post(
   "/api/auth/login",
   (req, res) => {
-    const body =
-      req.body || {};
-
     const userId =
       safeString(
-        body.userId ||
-          body.user_id ||
-          randomId("user_")
+        req.body?.userId ||
+        randomId("user_")
       );
 
     const user =
@@ -3226,43 +2383,16 @@ app.get(
   "/api/auth/me",
   requireUser,
   (req, res) => {
-    const user =
-      req.user;
-
     res.json({
       ok: true,
-
-      user: {
-        id:
-          user.id,
-
-        vip:
-          user.vip,
-
-        points:
-          user.points,
-
-        analyses:
-          user.analyses,
-
-        downloads:
-          user.downloads,
-
-        createdAt:
-          user.createdAt,
-
-        lastAnalysisAt:
-          user.lastAnalysisAt,
-
-        lastDownloadAt:
-          user.lastDownloadAt,
-      },
+      user:
+        req.user,
     });
   }
 );
 
 /* ============================================================
-   ANÁLISE
+   ANALISAR
    ============================================================ */
 
 app.post(
@@ -3270,31 +2400,16 @@ app.post(
   async (req, res) => {
     metrics.analyses++;
 
-    let user =
-      resolveRequestUser(
-        req
+    const user =
+      resolveRequestUser(req) ||
+      getOrCreateUser(
+        randomId("user_")
       );
 
-    /*
-     * Compatibilidade com frontend
-     * que ainda não faz login.
-     */
-    if (!user) {
-      user =
-        getOrCreateUser(
-          randomId("user_")
-        );
-    }
-
-    const body =
-      req.body || {};
-
     const rawUrl =
-      body.url ||
-      body.youtubeUrl ||
-      body.youtube_url ||
-      body.videoUrl ||
-      body.video_url;
+      req.body?.url ||
+      req.body?.youtubeUrl ||
+      req.body?.videoUrl;
 
     const normalized =
       normalizeYouTubeUrl(
@@ -3317,48 +2432,41 @@ app.post(
 
     const maxClips =
       clampNumber(
-        body.maxClips ||
-          body.max_clips,
+        req.body?.maxClips,
         1,
-        12,
-        8
+        10,
+        5
       );
 
-    const minDuration =
+    let minDuration =
       clampNumber(
-        body.minDuration ||
-          body.min_duration,
+        req.body?.minDuration,
         10,
         120,
         20
       );
 
-    const maxDuration =
+    let maxDuration =
       clampNumber(
-        body.maxDuration ||
-          body.max_duration,
+        req.body?.maxDuration,
         20,
         180,
-        90
+        60
       );
 
     if (
       maxDuration <
       minDuration
     ) {
-      metrics.analysisFailures++;
+      const temp =
+        minDuration;
 
-      return res.status(400).json({
-        ok: false,
+      minDuration =
+        maxDuration;
 
-        error:
-          "maxDuration deve ser maior ou igual a minDuration.",
-      });
+      maxDuration =
+        temp;
     }
-
-    console.log(
-      "===================================================="
-    );
 
     console.log(
       `[Análise] CLIPFORGE ${APP_VERSION}`
@@ -3374,43 +2482,26 @@ app.post(
 
     try {
       const result =
-        await analisarComGemini(
-          {
-            youtubeUrl:
-              normalized.url,
+        await analisarComGemini({
+          youtubeUrl:
+            normalized.url,
 
-            videoId:
-              normalized.videoId,
+          videoId:
+            normalized.videoId,
 
-            maxClips,
+          maxClips,
 
-            minDuration,
+          minDuration,
 
-            maxDuration,
-          }
-        );
+          maxDuration,
+        });
 
       user.analyses++;
+
       user.lastAnalysisAt =
         new Date().toISOString();
 
-      /*
-       * Consome ponto somente
-       * quando a análise foi concluída.
-       */
-      if (!user.vip) {
-        user.points =
-          Math.max(
-            0,
-            user.points - 1
-          );
-      }
-
       metrics.analysisSuccess++;
-
-      console.log(
-        `[Análise] Sucesso: ${result.clips.length} cortes`
-      );
 
       return res.json({
         ok: true,
@@ -3447,17 +2538,9 @@ app.post(
 
           points:
             user.points,
-
-          analyses:
-            user.analyses,
         },
       });
     } catch (error) {
-      /*
-       * IMPORTANTE:
-       * não incrementar geminiFailures aqui,
-       * porque analisarComGemini já faz isso.
-       */
       metrics.analysisFailures++;
 
       console.error(
@@ -3482,7 +2565,7 @@ app.post(
 );
 
 /* ============================================================
-   DOWNLOAD / GERAR CORTE
+   DOWNLOAD / RENDER
    ============================================================ */
 
 app.post(
@@ -3490,27 +2573,16 @@ app.post(
   async (req, res) => {
     metrics.downloads++;
 
-    let user =
-      resolveRequestUser(
-        req
+    const user =
+      resolveRequestUser(req) ||
+      getOrCreateUser(
+        randomId("user_")
       );
 
-    if (!user) {
-      user =
-        getOrCreateUser(
-          randomId("user_")
-        );
-    }
-
-    const body =
-      req.body || {};
-
     const rawUrl =
-      body.url ||
-      body.youtubeUrl ||
-      body.youtube_url ||
-      body.videoUrl ||
-      body.video_url;
+      req.body?.url ||
+      req.body?.youtubeUrl ||
+      req.body?.videoUrl;
 
     const normalized =
       normalizeYouTubeUrl(
@@ -3525,96 +2597,54 @@ app.post(
 
         error:
           "URL do YouTube inválida.",
-
-        code:
-          "INVALID_YOUTUBE_URL",
       });
     }
 
     const start =
       clampNumber(
-        body.start ??
-          body.startTime ??
-          body.inicio,
+        req.body?.start ??
+        req.body?.inicio,
+
         0,
         86400,
         0
       );
 
-    const end =
-      Number(
-        body.end ??
-          body.endTime ??
-          body.fim
-      );
-
-    let duration;
-
-    if (
-      Number.isFinite(end) &&
-      end > start
-    ) {
-      duration =
-        end - start;
-    } else {
-      duration =
-        clampNumber(
-          body.duration,
-          1,
-          180,
-          60
-        );
-    }
-
-    duration =
+    const duration =
       clampNumber(
-        duration,
+        req.body?.duration ??
+        req.body?.duracao,
+
         1,
         180,
         60
       );
 
-    console.log(
-      `[Download] Usuário: ${user.id}`
-    );
+    let original =
+      null;
 
-    console.log(
-      `[Download] Vídeo: ${normalized.videoId}`
-    );
-
-    console.log(
-      `[Download] Início: ${start}s`
-    );
-
-    console.log(
-      `[Download] Duração: ${duration}s`
-    );
-
-    let original = null;
-
-    let clipPath = null;
+    let clipPath =
+      null;
 
     try {
       original =
-        await downloadOriginalVideo(
-          {
-            youtubeUrl:
-              normalized.url,
+        await downloadOriginalVideo({
+          youtubeUrl:
+            normalized.url,
 
-            videoId:
-              normalized.videoId,
-          }
-        );
+          videoId:
+            normalized.videoId,
+        });
+
+      console.log(
+        `[Download] Método: ${original.method}`
+      );
 
       const probe =
         await probeVideo(
           original.path
         );
 
-      /*
-       * Evita solicitar um trecho
-       * além do tamanho real.
-       */
       let actualDuration =
         duration;
 
@@ -3628,7 +2658,7 @@ app.post(
           probe.duration
         ) {
           throw new Error(
-            "O tempo inicial está além da duração do vídeo."
+            "O tempo inicial solicitado está além da duração total do vídeo."
           );
         }
 
@@ -3640,15 +2670,6 @@ app.post(
           );
       }
 
-      if (
-        actualDuration <=
-        0
-      ) {
-        throw new Error(
-          "Duração do corte inválida."
-        );
-      }
-
       const filename =
         `clip-${normalized.videoId}-${Date.now()}.mp4`;
 
@@ -3658,31 +2679,26 @@ app.post(
           filename
         );
 
-      await renderClip(
-        {
-          inputPath:
-            original.path,
+      await renderClip({
+        inputPath:
+          original.path,
 
-          outputPath:
-            clipPath,
+        outputPath:
+          clipPath,
 
-          start,
+        start,
 
-          duration:
-            actualDuration,
-        }
-      );
+        duration:
+          actualDuration,
+      });
 
       user.downloads++;
+
       user.lastDownloadAt =
         new Date().toISOString();
 
       metrics.downloadSuccess++;
 
-      /*
-       * Express envia arquivo e
-       * remove após terminar.
-       */
       return res.download(
         clipPath,
         filename,
@@ -3691,9 +2707,11 @@ app.post(
             clipPath
           );
 
-          await safeRemove(
-            original.path
-          );
+          if (original) {
+            await safeRemove(
+              original.path
+            );
+          }
 
           if (error) {
             console.error(
@@ -3706,10 +2724,6 @@ app.post(
     } catch (error) {
       metrics.downloadFailures++;
 
-      console.error(
-        `[Download] Erro: ${error.message}`
-      );
-
       await safeRemove(
         clipPath
       );
@@ -3720,12 +2734,16 @@ app.post(
         );
       }
 
+      console.error(
+        `[Download] Erro: ${error.message}`
+      );
+
       return res.status(500).json({
         ok: false,
 
         error:
           error.message ||
-          "Falha ao gerar o corte.",
+          "Falha ao renderizar o corte.",
 
         code:
           "DOWNLOAD_FAILED",
@@ -3738,16 +2756,14 @@ app.post(
 );
 
 /* ============================================================
-   CRIAR PIX
+   MERCADO PAGO - CRIAR PIX
    ============================================================ */
 
 app.post(
   "/api/pix/criar",
   async (req, res) => {
     const user =
-      resolveRequestUser(
-        req
-      ) ||
+      resolveRequestUser(req) ||
       getOrCreateUser(
         randomId("user_")
       );
@@ -3757,85 +2773,156 @@ app.post(
         ok: false,
 
         error:
-          "Mercado Pago não configurado no servidor.",
+          "Mercado Pago não configurado.",
       });
     }
 
-    const body =
-      req.body || {};
-
     const amount =
-      body.amount ??
-      body.valor ??
-      body.price ??
-      19.90;
+      Number(
+        req.body?.amount ??
+        req.body?.valor ??
+        19.90
+      );
 
-    const description =
-      body.description ||
-      body.descricao ||
-      "ClipForge Pro VIP";
+    if (
+      !Number.isFinite(
+        amount
+      ) ||
+      amount <= 0
+    ) {
+      return res.status(400).json({
+        ok: false,
+
+        error:
+          "Valor inválido.",
+      });
+    }
 
     try {
-      const payment =
-        await createPixPayment(
+      const externalReference =
+        `clipforge-${user.id}-${randomId()}`;
+
+      /*
+       * CORRIGIDO:
+       * URL original estava quebrada.
+       */
+
+      const mpRes =
+        await fetch(
+          "https://api.mercadopago.com/v1/payments",
           {
-            user,
+            method: "POST",
 
-            amount,
+            headers: {
+              Authorization:
+                `Bearer ${MP_ACCESS_TOKEN}`,
 
-            description,
+              "Content-Type":
+                "application/json",
+
+              "X-Idempotency-Key":
+                randomId("mp_"),
+            },
+
+            body:
+              JSON.stringify({
+                transaction_amount:
+                  Number(
+                    amount.toFixed(
+                      2
+                    )
+                  ),
+
+                description:
+                  "ClipForge Pro VIP",
+
+                payment_method_id:
+                  "pix",
+
+                external_reference:
+                  externalReference,
+
+                payer: {
+                  email:
+                    `user-${user.id}@clipforge.local`,
+                },
+              }),
           }
         );
 
-      /*
-       * Compatibilidade com
-       * frontends que usam qr_code.
-       */
+      const data =
+        await mpRes.json();
+
+      if (!mpRes.ok) {
+        throw new Error(
+          data.message ||
+          "Erro Mercado Pago."
+        );
+      }
+
+      const transactionData =
+        data
+          .point_of_interaction
+          ?.transaction_data ||
+        {};
+
+      const paymentId =
+        String(
+          data.id
+        );
+
+      payments.set(
+        paymentId,
+        {
+          id:
+            paymentId,
+
+          userId:
+            user.id,
+
+          status:
+            data.status,
+
+          externalReference,
+        }
+      );
+
+      metrics.pixCreated++;
+
       return res.json({
         ok: true,
 
         id:
-          payment.id,
+          paymentId,
 
-        paymentId:
-          payment.id,
+        paymentId,
 
         status:
-          payment.status,
-
-        amount:
-          payment.amount,
-
-        qrCode:
-          payment.qrCode,
+          data.status,
 
         qr_code:
-          payment.qrCode,
+          transactionData.qr_code,
 
-        qrCodeBase64:
-          payment.qrCodeBase64,
+        qrCode:
+          transactionData.qr_code,
 
         qr_code_base64:
-          payment.qrCodeBase64,
+          transactionData.qr_code_base64,
 
-        ticketUrl:
-          payment.ticketUrl,
+        qrCodeBase64:
+          transactionData.qr_code_base64,
 
         ticket_url:
-          payment.ticketUrl,
+          transactionData.ticket_url,
 
-        externalReference:
-          payment.externalReference,
-
-        external_reference:
-          payment.externalReference,
+        ticketUrl:
+          transactionData.ticket_url,
       });
     } catch (error) {
       metrics.pixRejected++;
 
       console.error(
-        "[PIX] Erro:",
-        error.message
+        `[Mercado Pago] ${error.message}`
       );
 
       return res.status(500).json({
@@ -3843,139 +2930,111 @@ app.post(
 
         error:
           error.message ||
-          "Não foi possível criar o pagamento Pix.",
+          "Erro ao criar pagamento PIX.",
       });
     }
   }
 );
 
 /* ============================================================
-   STATUS PIX
+   MERCADO PAGO - STATUS
    ============================================================ */
 
 app.get(
   "/api/pix/status/:id",
   async (req, res) => {
-    const paymentId =
-      req.params.id;
-
-    if (!paymentId) {
-      return res.status(400).json({
+    if (!MP_ACCESS_TOKEN) {
+      return res.status(503).json({
         ok: false,
 
         error:
-          "ID do pagamento não informado.",
+          "Mercado Pago não configurado.",
       });
     }
 
+    const paymentId =
+      encodeURIComponent(
+        req.params.id
+      );
+
     try {
-      const payment =
-        await refreshPayment(
-          paymentId
+      /*
+       * CORRIGIDO:
+       * URL original estava quebrada.
+       */
+
+      const response =
+        await fetch(
+          `https://api.mercadopago.com/v1/payments/${paymentId}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${MP_ACCESS_TOKEN}`,
+            },
+          }
         );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+          `Mercado Pago HTTP ${response.status}`
+        );
+      }
+
+      if (
+        data.status ===
+        "approved"
+      ) {
+        const payment =
+          payments.get(
+            String(
+              req.params.id
+            )
+          );
+
+        if (
+          payment?.userId
+        ) {
+          const user =
+            users.get(
+              payment.userId
+            );
+
+          if (user) {
+            if (!user.vip) {
+              metrics.pixApproved++;
+            }
+
+            user.vip = true;
+          }
+        }
+      }
 
       return res.json({
         ok: true,
 
         id:
-          payment.id,
-
-        paymentId:
-          payment.id,
+          data.id,
 
         status:
-          payment.status,
+          data.status,
 
         approved:
-          payment.status ===
+          data.status ===
           "approved",
-
-        amount:
-          payment.amount,
-
-        userId:
-          payment.userId,
       });
     } catch (error) {
-      console.error(
-        "[PIX] Status:",
-        error.message
-      );
-
       return res.status(500).json({
         ok: false,
 
         error:
           error.message ||
-          "Não foi possível consultar o pagamento.",
+          "Erro ao consultar pagamento.",
       });
     }
-  }
-);
-
-/* ============================================================
-   WEBHOOK MERCADO PAGO
-   ============================================================ */
-
-app.post(
-  "/api/pix/webhook",
-  async (req, res) => {
-    /*
-     * O Mercado Pago pode enviar
-     * diferentes estruturas de
-     * notificação.
-     */
-    const body =
-      req.body || {};
-
-    console.log(
-      "[Mercado Pago] Webhook recebido:",
-      JSON.stringify(
-        body
-      ).slice(
-        0,
-        3000
-      )
-    );
-
-    /*
-     * Não bloquear webhook apenas
-     * porque a aplicação não possui
-     * segredo configurado.
-     *
-     * O segredo pode ser validado
-     * posteriormente conforme a
-     * configuração da conta.
-     */
-
-    const paymentId =
-      body.data &&
-      body.data.id
-        ? body.data.id
-        : body.id ||
-          body.payment_id ||
-          null;
-
-    if (
-      paymentId
-    ) {
-      try {
-        await refreshPayment(
-          String(
-            paymentId
-          )
-        );
-      } catch (error) {
-        console.error(
-          "[Mercado Pago] Falha ao atualizar webhook:",
-          error.message
-        );
-      }
-    }
-
-    return res.status(200).json({
-      ok: true,
-    });
   }
 );
 
@@ -3991,24 +3050,15 @@ app.post(
         ok: false,
 
         error:
-          "ADMIN_PASSWORD não configurada no Render.",
+          "ADMIN_PASSWORD não definida.",
       });
     }
 
-    const body =
+    const {
+      username,
+      password,
+    } =
       req.body || {};
-
-    const username =
-      safeString(
-        body.username ||
-          body.user ||
-          body.email
-      );
-
-    const password =
-      safeString(
-        body.password
-      );
 
     if (
       username !==
@@ -4020,7 +3070,7 @@ app.post(
         ok: false,
 
         error:
-          "Usuário ou senha inválidos.",
+          "Credenciais inválidas.",
       });
     }
 
@@ -4046,17 +3096,7 @@ app.get(
   "/api/admin/dashboard",
   requireAdmin,
   (req, res) => {
-    const userList =
-      Array.from(
-        users.values()
-      );
-
-    const paymentList =
-      Array.from(
-        payments.values()
-      );
-
-    return res.json({
+    res.json({
       ok: true,
 
       version:
@@ -4069,199 +3109,23 @@ app.get(
         node:
           process.version,
 
-        startedAt:
-          metrics.startedAt,
-      },
+        platform:
+          process.platform,
 
-      users: {
-        total:
-          userList.length,
-
-        vip:
-          userList.filter(
-            (user) =>
-              user.vip
-          ).length,
-
-        analyses:
-          userList.reduce(
-            (
-              total,
-              user
-            ) =>
-              total +
-              user.analyses,
-            0
-          ),
-
-        downloads:
-          userList.reduce(
-            (
-              total,
-              user
-            ) =>
-              total +
-              user.downloads,
-            0
-          ),
-      },
-
-      payments: {
-        total:
-          paymentList.length,
-
-        approved:
-          paymentList.filter(
-            (payment) =>
-              payment.status ===
-              "approved"
-          ).length,
-
-        pending:
-          paymentList.filter(
-            (payment) =>
-              payment.status ===
-              "pending"
-          ).length,
+        memory:
+          process.memoryUsage(),
       },
 
       metrics,
 
-      configuration: {
-        geminiConfigured:
-          Boolean(
-            GEMINI_API_KEY
-          ),
+      usersCount:
+        users.size,
 
-        geminiModel:
-          GEMINI_MODEL,
+      sessionsCount:
+        sessions.size,
 
-        rapidApiConfigured:
-          Boolean(
-            RAPIDAPI_KEY
-          ),
-
-        externalDownloader:
-          Boolean(
-            EXTERNAL_DOWNLOAD_URL
-          ),
-
-        mercadoPagoConfigured:
-          Boolean(
-            MP_ACCESS_TOKEN
-          ),
-
-        ytdlp:
-          YTDLP_PATH,
-
-        ffmpeg:
-          FFMPEG_PATH,
-
-        ffprobe:
-          FFPROBE_PATH,
-      },
-    });
-  }
-);
-
-/* ============================================================
-   ADMIN USERS
-   ============================================================ */
-
-app.get(
-  "/api/admin/users",
-  requireAdmin,
-  (req, res) => {
-    const list =
-      Array.from(
-        users.values()
-      ).map(
-        (user) => ({
-          id:
-            user.id,
-
-          vip:
-            user.vip,
-
-          points:
-            user.points,
-
-          analyses:
-            user.analyses,
-
-          downloads:
-            user.downloads,
-
-          createdAt:
-            user.createdAt,
-
-          lastAnalysisAt:
-            user.lastAnalysisAt,
-
-          lastDownloadAt:
-            user.lastDownloadAt,
-        })
-      );
-
-    res.json({
-      ok: true,
-
-      total:
-        list.length,
-
-      users:
-        list,
-    });
-  }
-);
-
-/* ============================================================
-   ADMIN MÉTRICAS
-   ============================================================ */
-
-app.get(
-  "/api/admin/metrics",
-  requireAdmin,
-  (req, res) => {
-    res.json({
-      ok: true,
-
-      version:
-        APP_VERSION,
-
-      metrics,
-    });
-  }
-);
-
-/* ============================================================
-   LOGOUT
-   ============================================================ */
-
-app.post(
-  "/api/auth/logout",
-  (req, res) => {
-    const auth =
-      req.headers.authorization ||
-      "";
-
-    if (
-      auth.startsWith(
-        "Bearer "
-      )
-    ) {
-      const token =
-        auth.slice(
-          7
-        ).trim();
-
-      sessions.delete(
-        token
-      );
-    }
-
-    res.json({
-      ok: true,
+      paymentsCount:
+        payments.size,
     });
   }
 );
@@ -4280,9 +3144,6 @@ app.use(
 
       path:
         req.originalUrl,
-
-      version:
-        APP_VERSION,
     });
   }
 );
@@ -4308,23 +3169,15 @@ app.use(
     if (
       res.headersSent
     ) {
-      return next(
-        error
-      );
+      return next(error);
     }
 
-    res.status(
-      error.status ||
-        500
-    ).json({
+    res.status(500).json({
       ok: false,
 
       error:
         error.message ||
         "Erro interno do servidor.",
-
-      version:
-        APP_VERSION,
     });
   }
 );
@@ -4336,14 +3189,8 @@ app.use(
 async function startServer() {
   await ensureDirectories();
 
-  /*
-   * Limpeza inicial.
-   */
   await cleanupOldFiles();
 
-  /*
-   * Limpeza periódica.
-   */
   setInterval(
     () => {
       cleanupOldFiles()
@@ -4359,12 +3206,15 @@ async function startServer() {
     HOST,
     () => {
       console.log("");
+
       console.log(
         "===================================================="
       );
+
       console.log(
         `CLIPFORGE PRO ${APP_VERSION}`
       );
+
       console.log(
         "===================================================="
       );
@@ -4394,7 +3244,11 @@ async function startServer() {
       );
 
       console.log(
-        `Gemini Endpoint: Interactions API`
+        `Gemini Endpoint: ${GEMINI_ENDPOINT}`
+      );
+
+      console.log(
+        "Gemini API: Interactions API"
       );
 
       console.log(
@@ -4406,7 +3260,13 @@ async function startServer() {
       );
 
       console.log(
-        `yt-dlp: ${YTDLP_PATH}`
+        `yt-dlp: ${
+          fs.existsSync(
+            YTDLP_PATH
+          )
+            ? YTDLP_PATH
+            : "NÃO ENCONTRADO"
+        }`
       );
 
       console.log(
@@ -4434,89 +3294,22 @@ async function startServer() {
       );
 
       console.log(
-        `Frontend CORS: ${
-          ALLOWED_ORIGINS.join(
-            ", "
-          ) || "Netlify permitido"
-        }`
-      );
-
-      console.log(
         "===================================================="
       );
 
-      console.log(
-        "[Gemini] Análise direta de URLs públicas do YouTube ativa."
-      );
-
-      console.log(
-        "[Download] Externo + RapidAPI + FFmpeg + yt-dlp fallback ativo."
-      );
-
-      console.log(
-        "===================================================="
-      );
       console.log("");
     }
   );
 }
 
-/* ============================================================
-   TRATAMENTO DE ENCERRAMENTO
-   ============================================================ */
-
-process.on(
-  "SIGTERM",
-  () => {
-    console.log(
-      "[Server] SIGTERM recebido."
-    );
-
-    process.exit(0);
-  }
-);
-
-process.on(
-  "SIGINT",
-  () => {
-    console.log(
-      "[Server] SIGINT recebido."
-    );
-
-    process.exit(0);
-  }
-);
-
-process.on(
-  "unhandledRejection",
-  (reason) => {
-    console.error(
-      "[Process] Unhandled Rejection:",
-      reason
-    );
-  }
-);
-
-process.on(
-  "uncaughtException",
-  (error) => {
-    console.error(
-      "[Process] Uncaught Exception:",
-      error
-    );
-  }
-);
-
-/* ============================================================
-   START
-   ============================================================ */
-
 startServer()
-  .catch((error) => {
-    console.error(
-      "[FATAL] Não foi possível iniciar o ClipForge:",
-      error
-    );
+  .catch(
+    (error) => {
+      console.error(
+        "[FATAL] Erro ao iniciar servidor:",
+        error
+      );
 
-    process.exit(1);
-  });
+      process.exit(1);
+    }
+  );
