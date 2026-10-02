@@ -1,7 +1,8 @@
 // ============================================================
 // CLIPFORGE PRO - BACKEND
-// VERSION 12.6.2
-// RAPIDAPI VIDEO + AUDIO + FFMPEG
+// VERSION 12.7.0
+// BASE: VERSION 12.6.2
+// DOWNLOAD: YT-API /dl + FFMPEG
 // ============================================================
 
 const express = require('express');
@@ -27,7 +28,7 @@ const RAPIDAPI_KEY =
 
 const RAPIDAPI_HOST =
   process.env.RAPIDAPI_HOST ||
-  'youtube-video-and-audio-downloader.p.rapidapi.com';
+  'yt-api.p.rapidapi.com';
 
 const MP_ACCESS_TOKEN =
   process.env.MP_ACCESS_TOKEN;
@@ -91,26 +92,18 @@ function extrairVideoId(input) {
   let valor =
     String(input).trim();
 
-  // Remove aspas
   valor =
     valor.replace(
       /^["']|["']$/g,
       ''
     );
 
-  // ==========================================================
-  // ID DIRETO
-  // ==========================================================
-
+  // ID direto
   if (
     /^[a-zA-Z0-9_-]{11}$/.test(valor)
   ) {
     return valor;
   }
-
-  // ==========================================================
-  // URL
-  // ==========================================================
 
   try {
 
@@ -143,18 +136,13 @@ function extrairVideoId(input) {
     const hostname =
       url.hostname.toLowerCase();
 
-    // ========================================================
-    // YOUTUBE.COM
-    // ========================================================
-
+    // youtube.com
     if (
       hostname.includes('youtube.com') ||
       hostname.includes(
         'youtube-nocookie.com'
       )
     ) {
-
-      // /watch?v=ID
 
       const v =
         url.searchParams.get('v');
@@ -172,10 +160,6 @@ function extrairVideoId(input) {
         url.pathname
           .split('/')
           .filter(Boolean);
-
-      // /shorts/ID
-      // /embed/ID
-      // /live/ID
 
       if (
         (
@@ -203,10 +187,7 @@ function extrairVideoId(input) {
 
     }
 
-    // ========================================================
-    // YOUTU.BE
-    // ========================================================
-
+    // youtu.be
     if (
       hostname === 'youtu.be' ||
       hostname === 'www.youtu.be'
@@ -228,14 +209,8 @@ function extrairVideoId(input) {
     }
 
   } catch (erro) {
-
     // Continua para regex
-
   }
-
-  // ==========================================================
-  // ÚLTIMA TENTATIVA
-  // ==========================================================
 
   const encontrado =
     valor.match(
@@ -264,9 +239,7 @@ function numeroSeguro(
   if (
     !Number.isFinite(n)
   ) {
-
     return padrao;
-
   }
 
   return n;
@@ -318,13 +291,13 @@ app.get(
         'ClipForge Pro API',
 
       version:
-        '12.6.2',
+        '12.7.0',
 
       status:
         'online',
 
       download:
-        'RapidAPI Video + Audio + FFmpeg'
+        'YT-API Download/Stream + FFmpeg'
 
     });
 
@@ -340,7 +313,7 @@ app.get(
       online: true,
 
       version:
-        '12.6.2',
+        '12.7.0',
 
       rapidapi:
         Boolean(
@@ -352,7 +325,11 @@ app.get(
           MP_ACCESS_TOKEN
         ),
 
-      ffmpeg: true
+      ffmpeg: true,
+
+      ytapi:
+        RAPIDAPI_HOST ===
+        'yt-api.p.rapidapi.com'
 
     });
 
@@ -421,7 +398,6 @@ app.get(
 
       },
 
-      // Compatibilidade com versões
       metricas: {
 
         analises:
@@ -441,7 +417,7 @@ app.get(
       system: {
 
         version:
-          '12.6.2',
+          '12.7.0',
 
         rapidapi:
           Boolean(
@@ -451,14 +427,17 @@ app.get(
         mercadopago:
           Boolean(
             MP_ACCESS_TOKEN
-          )
+          ),
+
+        ytapi:
+          true
 
       },
 
       servidor: {
 
         version:
-          '12.6.2',
+          '12.7.0',
 
         rapidapi:
           Boolean(
@@ -468,7 +447,10 @@ app.get(
         mercadopago:
           Boolean(
             MP_ACCESS_TOKEN
-          )
+          ),
+
+        ytapi:
+          true
 
       }
 
@@ -501,10 +483,6 @@ app.post(
         quantity
       } = req.body || {};
 
-      // ======================================================
-      // ACEITA VÁRIOS NOMES DE CAMPO
-      // ======================================================
-
       let entrada =
         id ||
         videoId ||
@@ -516,7 +494,6 @@ app.post(
         youtube ||
         v;
 
-      // Se vier somente o ID no campo v
       if (
         v &&
         /^[a-zA-Z0-9_-]{11}$/.test(
@@ -538,10 +515,6 @@ app.post(
             )
           : 'nenhuma'
       );
-
-      // ======================================================
-      // EXTRAIR ID
-      // ======================================================
 
       const youtubeId =
         extrairVideoId(
@@ -566,10 +539,6 @@ app.post(
 
       metrics.analises++;
 
-      // ======================================================
-      // QUANTIDADE
-      // ======================================================
-
       const quantidade =
         limitarNumero(
           Math.floor(
@@ -581,10 +550,6 @@ app.post(
           1,
           10
         );
-
-      // ======================================================
-      // DURAÇÃO
-      // ======================================================
 
       const duracaoSolicitada =
         limitarNumero(
@@ -608,16 +573,12 @@ app.post(
         `[Análise] Duração solicitada: ${duracaoSolicitada}s`
       );
 
-      // ======================================================
-      // THUMBNAIL
-      // ======================================================
-
       const thumbnail =
         `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
 
-      // ======================================================
-      // CLIPS
-      // ======================================================
+      // Mantido exatamente como no 12.6.2
+      // para não alterar o funcionamento atual
+      // da análise.
 
       const clipsBase = [
 
@@ -692,10 +653,6 @@ app.post(
           quantidade
         );
 
-      // ======================================================
-      // RESPOSTA
-      // ======================================================
-
       return res.json({
 
         success: true,
@@ -735,13 +692,22 @@ app.post(
 );
 
 // ============================================================
-// RAPIDAPI DOWNLOAD
+// YT-API DOWNLOAD / STREAM
+// ============================================================
+//
+// Endpoint utilizado:
+//
+// GET https://yt-api.p.rapidapi.com/dl
+//
+// Parâmetros:
+// id    = ID do YouTube
+// cgeo  = BR
+//
+// O retorno contém URLs diretas do GoogleVideo.
 // ============================================================
 
-async function rapidApiDownload(
-  videoId,
-  quality,
-  filter
+async function ytApiDownload(
+  videoId
 ) {
 
   if (!RAPIDAPI_KEY) {
@@ -753,13 +719,26 @@ async function rapidApiDownload(
   }
 
   const url =
-    `https://${RAPIDAPI_HOST}/download` +
-    `?id=${encodeURIComponent(videoId)}` +
-    `&quality=${encodeURIComponent(quality)}` +
-    `&filter=${encodeURIComponent(filter)}`;
+    new URL(
+      `https://${RAPIDAPI_HOST}/dl`
+    );
+
+  url.searchParams.set(
+    'id',
+    videoId
+  );
+
+  url.searchParams.set(
+    'cgeo',
+    'BR'
+  );
 
   console.log(
-    `[RapidAPI] Buscando ${filter} para ${videoId}...`
+    `[YT-API] Buscando Download/Stream para ${videoId}...`
+  );
+
+  console.log(
+    `[YT-API] Endpoint: ${url.origin}${url.pathname}`
   );
 
   const response =
@@ -807,42 +786,20 @@ async function rapidApiDownload(
   if (!response.ok) {
 
     console.error(
-      `[RapidAPI ${filter}] HTTP ${response.status}`
+      `[YT-API] HTTP ${response.status}`
     );
 
     console.error(
-      '[RapidAPI Error Body]:',
+      '[YT-API Error Body]:',
       JSON.stringify(data)
         .slice(
           0,
-          2000
+          3000
         )
     );
 
     throw new Error(
-      `RapidAPI retornou HTTP ${response.status}`
-    );
-
-  }
-
-  if (
-    data?.error ||
-    data?.status === 'error'
-  ) {
-
-    console.error(
-      `[RapidAPI ${filter} Error]:`,
-      JSON.stringify(data)
-        .slice(
-          0,
-          2000
-        )
-    );
-
-    throw new Error(
-      data?.message ||
-      data?.error?.message ||
-      `Erro ao obter ${filter}`
+      `YT-API retornou HTTP ${response.status}`
     );
 
   }
@@ -852,387 +809,317 @@ async function rapidApiDownload(
 }
 
 // ============================================================
-// FORMATOS
+// COLETAR TODAS AS URLS DO RETORNO
 // ============================================================
 
-function obterFormatos(data) {
-
-  if (!data) {
-    return [];
-  }
-
-  if (
-    Array.isArray(
-      data.formats
-    )
-  ) {
-
-    return data.formats;
-
-  }
+function coletarUrls(
+  objeto,
+  caminho = '',
+  resultado = []
+) {
 
   if (
-    Array.isArray(
-      data.data
-    )
-  ) {
-
-    return data.data;
-
-  }
-
-  if (
-    Array.isArray(
-      data.result
-    )
-  ) {
-
-    return data.result;
-
-  }
-
-  if (
-    Array.isArray(
-      data.links
-    )
-  ) {
-
-    return data.links;
-
-  }
-
-  if (
-    Array.isArray(
-      data.results
-    )
-  ) {
-
-    return data.results;
-
-  }
-
-  if (
-    data.url ||
-    data.download_url ||
-    data.downloadUrl
-  ) {
-
-    return [data];
-
-  }
-
-  if (
-    data.result &&
-    typeof data.result === 'object'
-  ) {
-
-    return [
-      data.result
-    ];
-
-  }
-
-  if (
-    data.data &&
-    typeof data.data === 'object'
-  ) {
-
-    return [
-      data.data
-    ];
-
-  }
-
-  return [];
-
-}
-
-// ============================================================
-// URL DO FORMATO
-// ============================================================
-
-function obterUrlFormato(item) {
-
-  if (
-    !item ||
-    typeof item !== 'object'
-  ) {
-
-    return null;
-
-  }
-
-  const possiveis = [
-
-    item.url,
-
-    item.download_url,
-
-    item.downloadUrl,
-
-    item.direct_url,
-
-    item.directUrl,
-
-    item.link
-
-  ];
-
-  for (
-    const url of possiveis
+    typeof objeto ===
+    'string'
   ) {
 
     if (
-      typeof url === 'string' &&
-      /^https?:\/\//i.test(url)
+      /^https?:\/\//i.test(
+        objeto
+      )
     ) {
 
-      return url;
-
-    }
-
-  }
-
-  return null;
-
-}
-
-// ============================================================
-// TEM VÍDEO
-// ============================================================
-
-function formatoTemVideo(item) {
-
-  if (!item) {
-    return false;
-  }
-
-  if (
-    item.hasVideo === true
-  ) {
-
-    return true;
-
-  }
-
-  if (
-    item.hasVideo === false
-  ) {
-
-    return false;
-
-  }
-
-  const texto = [
-
-    item.vcodec,
-
-    item.videoCodec,
-
-    item.video_ext,
-
-    item.videoExt,
-
-    item.mimeType,
-
-    item.mime,
-
-    item.type
-
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  if (
-    texto.includes('video') ||
-    texto.includes('avc') ||
-    texto.includes('av01') ||
-    texto.includes('vp9') ||
-    texto.includes('h264') ||
-    texto.includes('mp4')
-  ) {
-
-    return true;
-
-  }
-
-  return (
-
-    Number(item.height) > 0 ||
-    Number(item.width) > 0 ||
-    Number(item.fps) > 0
-
-  );
-
-}
-
-// ============================================================
-// TEM ÁUDIO
-// ============================================================
-
-function formatoTemAudio(item) {
-
-  if (!item) {
-    return false;
-  }
-
-  if (
-    item.hasAudio === true
-  ) {
-
-    return true;
-
-  }
-
-  if (
-    item.hasAudio === false
-  ) {
-
-    return false;
-
-  }
-
-  const texto = [
-
-    item.acodec,
-
-    item.audioCodec,
-
-    item.audio_ext,
-
-    item.audioExt,
-
-    item.mimeType,
-
-    item.mime,
-
-    item.type
-
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  if (
-    texto.includes('audio') ||
-    texto.includes('mp4a') ||
-    texto.includes('aac') ||
-    texto.includes('opus') ||
-    texto.includes('vorbis') ||
-    texto.includes('m4a')
-  ) {
-
-    return true;
-
-  }
-
-  return (
-
-    Number(item.abr) > 0 &&
-    !Number(item.height)
-
-  );
-
-}
-
-// ============================================================
-// ESCOLHER VÍDEO
-// ============================================================
-
-function escolherVideo(data) {
-
-  const formatos =
-    obterFormatos(data);
-
-  const candidatos =
-    formatos
-
-      .map(item => ({
-
-        item,
+      resultado.push({
 
         url:
-          obterUrlFormato(item)
+          objeto,
 
-      }))
-
-      .filter(x => {
-
-        if (!x.url) {
-          return false;
-        }
-
-        return formatoTemVideo(
-          x.item
-        );
+        caminho
 
       });
 
-  if (!candidatos.length) {
+    }
 
-    throw new Error(
-      'A RapidAPI não retornou nenhum formato de vídeo.'
+    return resultado;
+
+  }
+
+  if (
+    Array.isArray(
+      objeto
+    )
+  ) {
+
+    objeto.forEach(
+      (item, index) => {
+
+        coletarUrls(
+          item,
+          `${caminho}.${index}`,
+          resultado
+        );
+
+      }
+    );
+
+    return resultado;
+
+  }
+
+  if (
+    objeto &&
+    typeof objeto ===
+    'object'
+  ) {
+
+    Object.entries(
+      objeto
+    ).forEach(
+      ([chave, valor]) => {
+
+        coletarUrls(
+          valor,
+          caminho
+            ? `${caminho}.${chave}`
+            : chave,
+          resultado
+        );
+
+      }
     );
 
   }
 
-  const videoOnly =
-    candidatos.filter(x => {
+  return resultado;
 
-      return (
+}
 
-        x.item.hasAudio === false ||
+// ============================================================
+// ANALISAR TIPO DA URL
+// ============================================================
 
-        x.item.acodec === 'none' ||
+function analisarStream(
+  item
+) {
 
-        x.item.audio_ext === 'none'
+  const texto =
+    `${item.caminho} ${item.url}`
+      .toLowerCase();
 
+  const video =
+    texto.includes(
+      'mime=video'
+    ) ||
+    texto.includes(
+      'mime%3dvideo'
+    ) ||
+    texto.includes(
+      'video/mp4'
+    ) ||
+    texto.includes(
+      'video%2fmp4'
+    ) ||
+    texto.includes(
+      'videoplayback'
+    ) &&
+    !texto.includes(
+      'mime=audio'
+    );
+
+  const audio =
+    texto.includes(
+      'mime=audio'
+    ) ||
+    texto.includes(
+      'mime%3daudio'
+    ) ||
+    texto.includes(
+      'audio/mp4'
+    ) ||
+    texto.includes(
+      'audio%2fmp4'
+    ) ||
+    texto.includes(
+      'audio/webm'
+    ) ||
+    texto.includes(
+      'audio%2fwebm'
+    );
+
+  let largura = 0;
+  let altura = 0;
+  let bitrate = 0;
+  let itag = 0;
+
+  try {
+
+    const url =
+      new URL(
+        item.url
       );
 
-    });
-
-  const lista =
-    videoOnly.length
-      ? videoOnly
-      : candidatos;
-
-  const ate720 =
-    lista.filter(x => {
-
-      const altura =
-        Number(
-          x.item.height || 0
-        );
-
-      return (
-        altura > 0 &&
-        altura <= 720
+    largura =
+      Number(
+        url.searchParams.get(
+          'width'
+        ) || 0
       );
 
-    });
+    altura =
+      Number(
+        url.searchParams.get(
+          'height'
+        ) || 0
+      );
 
-  const finalistas =
-    ate720.length
-      ? ate720
-      : lista;
+    bitrate =
+      Number(
+        url.searchParams.get(
+          'bitrate'
+        ) || 0
+      );
 
-  finalistas.sort(
-    (a, b) => {
+    itag =
+      Number(
+        url.searchParams.get(
+          'itag'
+        ) || 0
+      );
 
-      const alturaA =
-        Number(
-          a.item.height || 0
+  } catch {}
+
+  return {
+
+    ...item,
+
+    video,
+
+    audio,
+
+    largura,
+
+    altura,
+
+    bitrate,
+
+    itag
+
+  };
+
+}
+
+// ============================================================
+// ENCONTRAR STREAMS
+// ============================================================
+
+function encontrarStreams(
+  data
+) {
+
+  const urls =
+    coletarUrls(
+      data
+    );
+
+  const streams =
+    urls.map(
+      analisarStream
+    );
+
+  console.log(
+    `[YT-API] URLs encontradas: ${streams.length}`
+  );
+
+  streams
+    .slice(0, 10)
+    .forEach(
+      (stream, index) => {
+
+        console.log(
+          `[YT-API] Stream ${index + 1}:`,
+          {
+            video:
+              stream.video,
+
+            audio:
+              stream.audio,
+
+            altura:
+              stream.altura,
+
+            itag:
+              stream.itag
+          }
         );
 
-      const alturaB =
-        Number(
-          b.item.height || 0
-        );
+      }
+    );
 
-      if (
-        alturaA !== alturaB
-      ) {
+  // ==========================================================
+  // VÍDEO
+  // ==========================================================
+
+  const videos =
+    streams.filter(
+      stream =>
+        stream.video &&
+        !stream.audio
+    );
+
+  // Caso a API retorne uma URL combinada
+  const combinados =
+    streams.filter(
+      stream =>
+        stream.video &&
+        stream.audio
+    );
+
+  // ==========================================================
+  // ÁUDIO
+  // ==========================================================
+
+  const audios =
+    streams.filter(
+      stream =>
+        stream.audio &&
+        !stream.video
+    );
+
+  // ==========================================================
+  // ESCOLHER VÍDEO
+  // ==========================================================
+
+  let videoEscolhido =
+    null;
+
+  if (
+    videos.length
+  ) {
+
+    const ate720 =
+      videos.filter(
+        stream =>
+          !stream.altura ||
+          stream.altura <= 720
+      );
+
+    const lista =
+      ate720.length
+        ? ate720
+        : videos;
+
+    lista.sort(
+      (a, b) => {
+
+        const alturaA =
+          Number(
+            a.altura || 0
+          );
+
+        const alturaB =
+          Number(
+            b.altura || 0
+          );
 
         return (
           alturaB -
@@ -1240,178 +1127,132 @@ function escolherVideo(data) {
         );
 
       }
+    );
 
-      return (
+    videoEscolhido =
+      lista[0];
 
-        Number(
-          b.item.width || 0
-        ) -
+  }
 
-        Number(
-          a.item.width || 0
-        )
+  // ==========================================================
+  // ESCOLHER ÁUDIO
+  // ==========================================================
 
-      );
+  let audioEscolhido =
+    null;
 
-    }
-  );
+  if (
+    audios.length
+  ) {
 
-  const escolhido =
-    finalistas[0];
+    audios.sort(
+      (a, b) => {
 
-  console.log(
-    `[Download] Vídeo escolhido: ` +
-    `${escolhido.item.height || '?'}p ` +
-    `${escolhido.item.ext || 'unknown'}`
-  );
+        return (
+          Number(
+            b.bitrate || 0
+          ) -
+          Number(
+            a.bitrate || 0
+          )
+        );
 
-  return escolhido.url;
+      }
+    );
+
+    audioEscolhido =
+      audios[0];
+
+  }
+
+  // ==========================================================
+  // FALLBACK COMBINADO
+  // ==========================================================
+
+  let combinadoEscolhido =
+    null;
+
+  if (
+    combinados.length
+  ) {
+
+    combinadoEscolhido =
+      combinados[0];
+
+  }
+
+  return {
+
+    video:
+      videoEscolhido,
+
+    audio:
+      audioEscolhido,
+
+    combinado:
+      combinadoEscolhido,
+
+    total:
+      streams.length
+
+  };
 
 }
 
 // ============================================================
-// ESCOLHER ÁUDIO
+// DOWNLOAD DE STREAM REMOTA
 // ============================================================
 
-function escolherAudio(data) {
+async function baixarStream(
+  url
+) {
 
-  const formatos =
-    obterFormatos(data);
+  console.log(
+    '[YT-API] Baixando stream remoto...'
+  );
 
-  const candidatos =
-    formatos
+  const response =
+    await fetch(
+      url,
+      {
 
-      .map(item => ({
+        headers: {
 
-        item,
+          'User-Agent':
+            'Mozilla/5.0 ClipForge/12.7',
 
-        url:
-          obterUrlFormato(item)
+          'Accept':
+            '*/*'
 
-      }))
-
-      .filter(x => {
-
-        if (!x.url) {
-          return false;
         }
 
-        return formatoTemAudio(
-          x.item
-        );
+      }
+    );
 
-      });
-
-  if (!candidatos.length) {
+  if (
+    !response.ok
+  ) {
 
     throw new Error(
-      'A RapidAPI não retornou nenhum formato de áudio.'
+      `Falha ao acessar stream: HTTP ${response.status}`
     );
 
   }
 
-  const audioOnly =
-    candidatos.filter(x => {
+  const arrayBuffer =
+    await response.arrayBuffer();
 
-      return (
-
-        x.item.hasVideo === false ||
-
-        x.item.vcodec === 'none' ||
-
-        x.item.video_ext === 'none'
-
-      );
-
-    });
-
-  const lista =
-    audioOnly.length
-      ? audioOnly
-      : candidatos;
-
-  lista.sort(
-    (a, b) => {
-
-      function pontuacao(x) {
-
-        let pontos = 0;
-
-        const ext =
-          String(
-            x.item.ext ||
-            x.item.audio_ext ||
-            ''
-          ).toLowerCase();
-
-        const codec =
-          String(
-            x.item.acodec ||
-            x.item.audioCodec ||
-            ''
-          ).toLowerCase();
-
-        if (
-          ext === 'm4a'
-        ) {
-
-          pontos += 1000;
-
-        }
-
-        if (
-          codec.includes('mp4a')
-        ) {
-
-          pontos += 500;
-
-        }
-
-        if (
-          codec.includes('aac')
-        ) {
-
-          pontos += 400;
-
-        }
-
-        pontos += Number(
-          x.item.abr ||
-          x.item.audioBitrate ||
-          0
-        );
-
-        return pontos;
-
-      }
-
-      return (
-        pontuacao(b) -
-        pontuacao(a)
-      );
-
-    }
+  return Buffer.from(
+    arrayBuffer
   );
-
-  const escolhido =
-    lista[0];
-
-  console.log(
-    `[Download] Áudio escolhido: ` +
-    `${escolhido.item.ext || 'unknown'} ` +
-    `${escolhido.item.acodec || ''} ` +
-    `${escolhido.item.abr || ''}kbps`
-  );
-
-  return escolhido.url;
 
 }
 
 // ============================================================
-// FFMPEG
+// FFMPEG COM STREAMS DIRETAS
 // ============================================================
 
-function executarFfmpeg(
+async function executarFfmpegStreams(
   videoUrl,
   audioUrl,
   inicio,
@@ -1420,8 +1261,7 @@ function executarFfmpeg(
 ) {
 
   console.log(
-    `[FFmpeg] Gerando corte: ` +
-    `${inicio}s → ${inicio + duracao}s`
+    `[FFmpeg] Gerando corte: ${inicio}s → ${inicio + duracao}s`
   );
 
   const args = [
@@ -1547,13 +1387,219 @@ function executarFfmpeg(
         'error',
         erro => {
 
-          reject(erro);
+          reject(
+            erro
+          );
 
         }
       );
 
     }
   );
+
+}
+
+// ============================================================
+// FFMPEG USANDO ARQUIVOS TEMPORÁRIOS
+// ============================================================
+
+async function executarFfmpegArquivos(
+  videoBuffer,
+  audioBuffer,
+  inicio,
+  duracao,
+  res
+) {
+
+  const os =
+    require('os');
+
+  const fs =
+    require('fs');
+
+  const path =
+    require('path');
+
+  const pasta =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'clipforge-'
+      )
+    );
+
+  const videoFile =
+    path.join(
+      pasta,
+      'video'
+    );
+
+  const audioFile =
+    path.join(
+      pasta,
+      'audio'
+    );
+
+  try {
+
+    fs.writeFileSync(
+      videoFile,
+      videoBuffer
+    );
+
+    fs.writeFileSync(
+      audioFile,
+      audioBuffer
+    );
+
+    console.log(
+      '[FFmpeg] Arquivos temporários criados.'
+    );
+
+    const args = [
+
+      '-ss',
+      String(inicio),
+
+      '-i',
+      videoFile,
+
+      '-ss',
+      String(inicio),
+
+      '-i',
+      audioFile,
+
+      '-t',
+      String(duracao),
+
+      '-map',
+      '0:v:0',
+
+      '-map',
+      '1:a:0',
+
+      '-vf',
+      'scale=-2:360',
+
+      '-c:v',
+      'libx264',
+
+      '-preset',
+      'ultrafast',
+
+      '-crf',
+      '28',
+
+      '-pix_fmt',
+      'yuv420p',
+
+      '-c:a',
+      'aac',
+
+      '-b:a',
+      '96k',
+
+      '-ar',
+      '44100',
+
+      '-movflags',
+      'frag_keyframe+empty_moov',
+
+      '-f',
+      'mp4',
+
+      'pipe:1'
+
+    ];
+
+    await new Promise(
+      (resolve, reject) => {
+
+        const processo =
+          execFile(
+            'ffmpeg',
+            args,
+            {
+              maxBuffer:
+                1024 * 1024 * 10
+            },
+            error => {
+
+              if (error) {
+
+                console.error(
+                  '[FFmpeg Error]:',
+                  error.message
+                );
+
+                reject(
+                  new Error(
+                    'FFmpeg não conseguiu gerar o corte.'
+                  )
+                );
+
+                return;
+
+              }
+
+              resolve();
+
+            }
+          );
+
+        processo.stdout.pipe(
+          res
+        );
+
+        processo.stderr.on(
+          'data',
+          chunk => {
+
+            const texto =
+              chunk.toString();
+
+            if (
+              texto.includes(
+                'frame='
+              ) ||
+              texto.includes(
+                'time='
+              )
+            ) {
+
+              process.stdout.write(
+                `[FFmpeg] ${texto.trim()}\n`
+              );
+
+            }
+
+          }
+        );
+
+        processo.on(
+          'error',
+          reject
+        );
+
+      }
+    );
+
+  } finally {
+
+    try {
+      fs.rmSync(
+        pasta,
+        {
+          recursive:
+            true,
+          force:
+            true
+        }
+      );
+    } catch {}
+
+  }
 
 }
 
@@ -1647,21 +1693,27 @@ app.get(
         );
 
       console.log('');
+
       console.log(
         '================================================'
       );
+
       console.log(
         '[Download] NOVO DOWNLOAD'
       );
+
       console.log(
         `[Download] ID: ${videoId}`
       );
+
       console.log(
         `[Download] Início: ${inicio}s`
       );
+
       console.log(
         `[Download] Duração: ${duracao}s`
       );
+
       console.log(
         '================================================'
       );
@@ -1676,93 +1728,262 @@ app.get(
 
       }
 
+      // ========================================================
+      // BUSCAR URLs REAIS NO YT-API
+      // ========================================================
+
       console.log(
-        '[Download] Buscando vídeo e áudio...'
+        '[Download] Consultando YT-API...'
       );
 
-      const [
-        videoData,
-        audioData
-      ] = await Promise.all([
-
-        rapidApiDownload(
-          videoId,
-          'lowest',
-          'video'
-        ),
-
-        rapidApiDownload(
-          videoId,
-          'lowestaudio',
-          'audio'
-        )
-
-      ]);
-
-      const videoStream =
-        escolherVideo(
-          videoData
+      const dados =
+        await ytApiDownload(
+          videoId
         );
 
-      const audioStream =
-        escolherAudio(
-          audioData
+      // ========================================================
+      // LOCALIZAR STREAMS
+      // ========================================================
+
+      const streams =
+        encontrarStreams(
+          dados
         );
 
-      if (!videoStream) {
+      console.log(
+        `[Download] Streams encontradas: ${streams.total}`
+      );
 
-        throw new Error(
-          'Stream de vídeo não encontrado.'
+      // ========================================================
+      // CASO TENHA VÍDEO + ÁUDIO SEPARADOS
+      // ========================================================
+
+      if (
+        streams.video &&
+        streams.audio
+      ) {
+
+        const videoStream =
+          streams.video.url;
+
+        const audioStream =
+          streams.audio.url;
+
+        console.log(
+          '[Download] Vídeo + áudio encontrados.'
         );
+
+        console.log(
+          `[Download] Vídeo: ${streams.video.altura || '?'}p`
+        );
+
+        console.log(
+          `[Download] Áudio encontrado.`
+        );
+
+        res.statusCode =
+          200;
+
+        res.setHeader(
+          'Content-Type',
+          'video/mp4'
+        );
+
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="clip-${videoId}-${Math.floor(inicio)}.mp4"`
+        );
+
+        res.setHeader(
+          'Cache-Control',
+          'no-cache'
+        );
+
+        res.setHeader(
+          'Transfer-Encoding',
+          'chunked'
+        );
+
+        await executarFfmpegStreams(
+          videoStream,
+          audioStream,
+          inicio,
+          duracao,
+          res
+        );
+
+        metrics.downloads++;
+
+        console.log(
+          '[Download] Finalizado com sucesso.'
+        );
+
+        return;
 
       }
 
-      if (!audioStream) {
+      // ========================================================
+      // CASO TENHA STREAM COMBINADA
+      // ========================================================
 
-        throw new Error(
-          'Stream de áudio não encontrado.'
+      if (
+        streams.combinado
+      ) {
+
+        console.log(
+          '[Download] Stream combinada encontrada.'
         );
+
+        const combinedUrl =
+          streams.combinado.url;
+
+        res.statusCode =
+          200;
+
+        res.setHeader(
+          'Content-Type',
+          'video/mp4'
+        );
+
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="clip-${videoId}-${Math.floor(inicio)}.mp4"`
+        );
+
+        res.setHeader(
+          'Cache-Control',
+          'no-cache'
+        );
+
+        res.setHeader(
+          'Transfer-Encoding',
+          'chunked'
+        );
+
+        const args = [
+
+          '-ss',
+          String(inicio),
+
+          '-i',
+          combinedUrl,
+
+          '-t',
+          String(duracao),
+
+          '-vf',
+          'scale=-2:360',
+
+          '-c:v',
+          'libx264',
+
+          '-preset',
+          'ultrafast',
+
+          '-crf',
+          '28',
+
+          '-pix_fmt',
+          'yuv420p',
+
+          '-c:a',
+          'aac',
+
+          '-b:a',
+          '96k',
+
+          '-ar',
+          '44100',
+
+          '-movflags',
+          'frag_keyframe+empty_moov',
+
+          '-f',
+          'mp4',
+
+          'pipe:1'
+
+        ];
+
+        await new Promise(
+          (resolve, reject) => {
+
+            const processo =
+              execFile(
+                'ffmpeg',
+                args,
+                {
+                  maxBuffer:
+                    1024 * 1024 * 10
+                },
+                error => {
+
+                  if (error) {
+
+                    reject(
+                      new Error(
+                        'FFmpeg não conseguiu gerar o corte.'
+                      )
+                    );
+
+                    return;
+
+                  }
+
+                  resolve();
+
+                }
+              );
+
+            processo.stdout.pipe(
+              res
+            );
+
+            processo.stderr.on(
+              'data',
+              chunk => {
+
+                const texto =
+                  chunk.toString();
+
+                if (
+                  texto.includes(
+                    'frame='
+                  ) ||
+                  texto.includes(
+                    'time='
+                  )
+                ) {
+
+                  process.stdout.write(
+                    `[FFmpeg] ${texto.trim()}\n`
+                  );
+
+                }
+
+              }
+            );
+
+            processo.on(
+              'error',
+              reject
+            );
+
+          }
+        );
+
+        metrics.downloads++;
+
+        console.log(
+          '[Download] Finalizado com sucesso.'
+        );
+
+        return;
 
       }
 
-      console.log(
-        '[Download] Vídeo + áudio encontrados.'
-      );
-
-      res.statusCode = 200;
-
-      res.setHeader(
-        'Content-Type',
-        'video/mp4'
-      );
-
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="clip-${videoId}-${Math.floor(inicio)}.mp4"`
-      );
-
-      res.setHeader(
-        'Cache-Control',
-        'no-cache'
-      );
-
-      res.setHeader(
-        'Transfer-Encoding',
-        'chunked'
-      );
-
-      await executarFfmpeg(
-        videoStream,
-        audioStream,
-        inicio,
-        duracao,
-        res
-      );
-
-      metrics.downloads++;
-
-      console.log(
-        '[Download] Finalizado com sucesso.'
+      throw new Error(
+        'O YT-API não retornou um stream de vídeo e áudio utilizável.'
       );
 
     } catch (erro) {
@@ -2117,7 +2338,7 @@ app.listen(
     );
 
     console.log(
-      '          VERSION 12.6.2'
+      '          VERSION 12.7.0'
     );
 
     console.log(
@@ -2129,7 +2350,7 @@ app.listen(
     );
 
     console.log(
-      `[RapidAPI] ${
+      `[YT-API] ${
         RAPIDAPI_KEY
           ? 'Configurada'
           : 'NÃO CONFIGURADA'
@@ -2145,7 +2366,7 @@ app.listen(
     );
 
     console.log(
-      '[Download] RapidAPI Video + Audio + FFmpeg ativo.'
+      '[Download] YT-API /dl + FFmpeg ativo.'
     );
 
     console.log(
