@@ -6,7 +6,7 @@
 
     <title>ClipForge Pro — Cortes com IA</title>
 
-    <meta name="description" content="Crie cortes profissionais de vídeos do YouTube usando inteligência artificial.">
+    <meta name="description" content="Crie cortes profissionais enviando arquivos MP4 ou via YouTube com inteligência artificial.">
     <meta name="theme-color" content="#08090d">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -21,14 +21,8 @@
     >
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
             font-family: "Inter", sans-serif;
@@ -39,26 +33,11 @@
             min-height: 100vh;
         }
 
-        ::selection {
-            background: rgba(255,255,255,.18);
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #08090d;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #292b32;
-            border-radius: 999px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3b3e47;
-        }
+        ::selection { background: rgba(255,255,255,.18); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #08090d; }
+        ::-webkit-scrollbar-thumb { background: #292b32; border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b3e47; }
 
         .glass {
             background: rgba(18, 19, 25, .78);
@@ -90,9 +69,7 @@
             transform: translateY(-1px);
         }
 
-        .btn-main:active {
-            transform: translateY(0);
-        }
+        .btn-main:active { transform: translateY(0); }
 
         .btn-dark {
             background: rgba(255,255,255,.06);
@@ -119,9 +96,7 @@
             box-shadow: 0 0 0 3px rgba(255,255,255,.025);
         }
 
-        .input-dark::placeholder {
-            color: #71717a;
-        }
+        .input-dark::placeholder { color: #71717a; }
 
         .card {
             background: linear-gradient(
@@ -168,9 +143,7 @@
             animation: spin .7s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .pulse-dot {
             width: 7px;
@@ -186,28 +159,19 @@
             100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
         }
 
-        .fade-in {
-            animation: fadeIn .35s ease both;
-        }
-
+        .fade-in { animation: fadeIn .35s ease both; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .slide-up {
-            animation: slideUp .3s ease both;
-        }
-
+        .slide-up { animation: slideUp .3s ease both; }
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .toast {
-            animation: toastIn .25s ease both;
-        }
-
+        .toast { animation: toastIn .25s ease both; }
         @keyframes toastIn {
             from { opacity: 0; transform: translateY(12px) scale(.97); }
             to { opacity: 1; transform: translateY(0) scale(1); }
@@ -224,11 +188,6 @@
             background: #fff;
             border-radius: 18px;
             padding: 14px;
-        }
-
-        .status-success {
-            border-color: rgba(255,255,255,.2);
-            background: rgba(255,255,255,.055);
         }
 
         .status-error {
@@ -331,11 +290,11 @@
                 <div class="absolute left-1/2 -translate-x-1/2 -top-40 w-[650px] h-[650px] rounded-full bg-white/[.025] blur-3xl"></div>
             </div>
 
-            <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-12">
+            <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12">
                 <div class="text-center">
                     <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[.08] bg-white/[.025] text-[11px] font-semibold text-zinc-400 mb-6">
                         <span class="pulse-dot"></span>
-                        Inteligência artificial para seus vídeos
+                        Cortes automáticos com inteligência artificial
                     </div>
 
                     <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-.045em] leading-[.98]">
@@ -344,15 +303,56 @@
                     </h1>
 
                     <p class="max-w-2xl mx-auto mt-6 text-zinc-400 text-sm sm:text-base leading-7">
-                        Cole o link de um vídeo do YouTube e deixe a IA encontrar
-                        automaticamente os melhores momentos para você.
+                        Envie um arquivo MP4 diretamente do seu computador/celular ou insira o link de um vídeo do YouTube.
                     </p>
                 </div>
 
-                <!-- INPUT -->
+                <!-- TABS DE MODO -->
                 <div class="max-w-3xl mx-auto mt-10">
-                    <div class="glass rounded-2xl p-2 sm:p-3 shadow-2xl">
-                        <div class="flex flex-col sm:flex-row gap-2">
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <button
+                            id="tabUpload"
+                            onclick="alternarModo('upload')"
+                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg"
+                        >
+                            <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Enviar MP4 (Sem bloqueios)
+                        </button>
+                        <button
+                            id="tabYoutube"
+                            onclick="alternarModo('youtube')"
+                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light"
+                        >
+                            <i class="fa-brands fa-youtube mr-1.5"></i> Link do YouTube
+                        </button>
+                    </div>
+
+                    <div class="glass rounded-2xl p-3 sm:p-4 shadow-2xl">
+                        <!-- MODO 1: UPLOAD LOCAL -->
+                        <div
+                            id="modoUploadArea"
+                            class="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-xl p-8 text-center transition cursor-pointer"
+                            onclick="$('fileInput').click()"
+                        >
+                            <input
+                                id="fileInput"
+                                type="file"
+                                accept="video/mp4"
+                                class="hidden"
+                                onchange="selecionarArquivo(event)"
+                            >
+                            <div class="w-14 h-14 rounded-2xl bg-white/[.05] flex items-center justify-center mb-3 text-zinc-300">
+                                <i class="fa-solid fa-file-video text-2xl"></i>
+                            </div>
+                            <div id="uploadFileLabel" class="text-sm font-bold">Clique ou arraste um vídeo MP4 aqui</div>
+                            <div class="text-xs text-zinc-500 mt-1">Limite de 150 MB • Formato MP4</div>
+
+                            <button class="btn-main mt-4 px-6 py-2.5 rounded-xl font-bold text-xs pointer-events-none">
+                                <i class="fa-solid fa-arrow-up-from-bracket mr-1.5"></i> Selecionar Vídeo
+                            </button>
+                        </div>
+
+                        <!-- MODO 2: YOUTUBE -->
+                        <div id="modoYoutubeArea" class="hidden flex flex-col sm:flex-row gap-2">
                             <div class="relative flex-1">
                                 <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
                                 <input
@@ -362,13 +362,13 @@
                                     spellcheck="false"
                                     placeholder="Cole aqui o link do YouTube..."
                                     class="input-dark w-full rounded-xl h-14 pl-11 pr-4 text-sm"
-                                    onkeydown="if(event.key==='Enter') gerarCortes()"
+                                    onkeydown="if(event.key==='Enter') gerarCortesYoutube()"
                                 >
                             </div>
 
                             <button
-                                id="btnGerar"
-                                onclick="gerarCortes()"
+                                id="btnGerarYoutube"
+                                onclick="gerarCortesYoutube()"
                                 class="btn-main h-14 px-7 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
                             >
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
@@ -378,9 +378,9 @@
                     </div>
 
                     <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise com IA</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise Gemini</span>
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cortes automáticos</span>
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> MP4</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> Exportação em MP4</span>
                     </div>
                 </div>
             </div>
@@ -390,8 +390,8 @@
         <section id="loadingArea" class="hidden max-w-3xl mx-auto px-4 pb-10">
             <div class="glass rounded-2xl p-6 text-center">
                 <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
-                <h3 class="font-bold text-base">A IA está analisando o vídeo</h3>
-                <p id="loadingText" class="text-sm text-zinc-500 mt-2">Procurando os melhores momentos...</p>
+                <h3 id="loadingTitle" class="font-bold text-base">Processando seu vídeo</h3>
+                <p id="loadingText" class="text-sm text-zinc-500 mt-2">Aguarde enquanto a IA analisa o conteúdo...</p>
                 <div class="w-full h-1 rounded-full bg-white/[.05] mt-5 overflow-hidden">
                     <div id="loadingBar" class="h-full bg-white rounded-full" style="width: 15%; transition: width 1s ease"></div>
                 </div>
@@ -439,18 +439,18 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="card rounded-2xl p-6">
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-brain text-sm"></i></div>
-                    <h3 class="font-bold">IA que entende o vídeo</h3>
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">A inteligência artificial analisa o conteúdo e identifica momentos com maior potencial de retenção.</p>
+                    <h3 class="font-bold">Análise Estruturada</h3>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">O motor de IA identifica ganchos de retenção e momentos ideais para Reels, Shorts e TikTok.</p>
                 </div>
                 <div class="card rounded-2xl p-6">
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-scissors text-sm"></i></div>
-                    <h3 class="font-bold">Corte automático</h3>
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">Escolha o momento e gere seu arquivo MP4 diretamente pelo ClipForge.</p>
+                    <h3 class="font-bold">Renderização Local</h3>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">Cortes processados com FFmpeg nativo, preservando resolução e sincronia de áudio.</p>
                 </div>
                 <div class="card rounded-2xl p-6">
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-crown text-sm"></i></div>
                     <h3 class="font-bold">Plano VIP</h3>
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">Mais liberdade para gerar e baixar seus cortes sem limite de pontos.</p>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">Downloads ilimitados e processamento sem consumo de pontos da conta.</p>
                 </div>
             </div>
         </section>
@@ -464,7 +464,7 @@
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v13.0.7</span>
+                    <span>v13.2.2</span>
                 </div>
             </div>
         </div>
@@ -612,7 +612,7 @@
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V13.0.7 — FRONTEND INTEGRADO
+   CLIPFORGE PRO V13.2.2 — FRONTEND TOTALMENTE INTEGRADO
 ========================================================= */
 
 const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
@@ -629,6 +629,8 @@ let usuario = {
     isVip: false
 };
 
+let modoAtual = "upload";
+let uploadIdAtual = null;
 let videoAtualId = "";
 let videoAtualUrl = "";
 let clipsAtuais = [];
@@ -702,7 +704,318 @@ async function fetchJson(url, options = {}) {
 }
 
 /* =========================================================
-   GERENCIAMENTO DE SESSÃO
+   CONTROLE DE MODOS (UPLOAD VS YOUTUBE)
+========================================================= */
+
+function alternarModo(modo) {
+    modoAtual = modo;
+    fecharErro();
+    if (modo === "upload") {
+        $("tabUpload").className = "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
+        $("tabYoutube").className = "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
+        $("modoUploadArea").classList.remove("hidden");
+        $("modoYoutubeArea").classList.add("hidden");
+    } else {
+        $("tabYoutube").className = "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
+        $("tabUpload").className = "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
+        $("modoUploadArea").classList.add("hidden");
+        $("modoYoutubeArea").classList.remove("hidden");
+    }
+}
+
+/* =========================================================
+   FLUXO 1: UPLOAD DIRETO DE MP4 (SEM ANTI-BOT)
+========================================================= */
+
+async function selecionarArquivo(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".mp4")) {
+        mostrarErro("Apenas vídeos no formato MP4 são aceitos.");
+        return;
+    }
+
+    if (file.size > 150 * 1024 * 1024) {
+        mostrarErro("O arquivo ultrapassa o limite permitido de 150 MB.");
+        return;
+    }
+
+    fecharErro();
+    $("resultados").classList.add("hidden");
+    $("loadingArea").classList.remove("hidden");
+    $("loadingTitle").textContent = "Enviando arquivo ao servidor";
+    $("loadingText").textContent = `Carregando ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
+    $("loadingBar").style.width = "25%";
+
+    try {
+        const formData = new FormData();
+        formData.append("video", file);
+
+        const uploadRes = await fetch(`${BACKEND_URL}/api/upload`, {
+            method: "POST",
+            headers: { ...authHeaders() },
+            body: formData
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+            throw new Error(uploadData?.error || "Falha no envio do vídeo.");
+        }
+
+        uploadIdAtual = uploadData.uploadId;
+        $("uploadFileLabel").textContent = `Arquivo carregado: ${file.name}`;
+        mostrarToast("Upload concluído! Analisando vídeo...", "success");
+
+        $("loadingTitle").textContent = "A IA está analisando os melhores momentos";
+        $("loadingText").textContent = "Processando timeline e ganchos narrativos com Gemini...";
+        $("loadingBar").style.width = "70%";
+
+        const analiseData = await fetchJson(`${BACKEND_URL}/api/analisar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uploadId: uploadIdAtual })
+        });
+
+        if (!analiseData?.clips || !analiseData.clips.length) {
+            throw new Error("A IA não encontrou cortes com os parâmetros informados.");
+        }
+
+        clipsAtuais = analiseData.clips;
+        videoAtualId = "";
+        videoAtualUrl = "";
+        renderizarCortes(clipsAtuais);
+        mostrarToast(`${clipsAtuais.length} cortes gerados com sucesso!`, "success");
+    } catch (err) {
+        console.error("Erro no processamento:", err);
+        mostrarErro(err.message || "Erro durante o processamento do vídeo.");
+    } finally {
+        $("loadingArea").classList.add("hidden");
+        $("fileInput").value = "";
+    }
+}
+
+/* =========================================================
+   FLUXO 2: YOUTUBE
+========================================================= */
+
+function extrairYouTubeId(url) {
+    if (!url) return null;
+    const value = String(url).trim();
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i,
+        /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i,
+        /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i,
+        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i,
+        /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i
+    ];
+    for (const p of patterns) {
+        const match = value.match(p);
+        if (match) return match[1];
+    }
+    return null;
+}
+
+async function gerarCortesYoutube() {
+    const input = $("videoUrl");
+    const url = input.value.trim();
+    fecharErro();
+
+    if (!url) {
+        mostrarErro("Cole o link de um vídeo do YouTube.");
+        input.focus();
+        return;
+    }
+
+    const videoId = extrairYouTubeId(url);
+    if (!videoId) {
+        mostrarErro("O link informado não parece ser um link válido do YouTube.");
+        input.focus();
+        return;
+    }
+
+    uploadIdAtual = null;
+    videoAtualId = videoId;
+    videoAtualUrl = url;
+
+    $("resultados").classList.add("hidden");
+    $("loadingArea").classList.remove("hidden");
+    $("loadingTitle").textContent = "A IA está analisando o YouTube";
+    $("loadingText").textContent = "Identificando trechos de impacto com a Interactions API...";
+    $("btnGerarYoutube").disabled = true;
+
+    try {
+        const data = await fetchJson(`${BACKEND_URL}/api/analisar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: url })
+        });
+
+        if (!data?.clips || !data.clips.length) {
+            throw new Error("A IA não encontrou cortes com o critério solicitado.");
+        }
+
+        clipsAtuais = data.clips;
+        renderizarCortes(clipsAtuais);
+        mostrarToast(`${clipsAtuais.length} cortes encontrados!`, "success");
+    } catch (error) {
+        console.error("Erro na análise do YouTube:", error);
+        mostrarErro(error.message || "Não foi possível analisar o vídeo.");
+    } finally {
+        $("loadingArea").classList.add("hidden");
+        $("btnGerarYoutube").disabled = false;
+    }
+}
+
+/* =========================================================
+   RENDERIZAÇÃO DOS CARDS DE CORTE
+========================================================= */
+
+function renderizarCortes(clips) {
+    const container = $("cardsContainer");
+    container.innerHTML = "";
+    $("resultadoSubtitulo").textContent = `${clips.length} cortes encontrados pela IA.`;
+
+    clips.forEach((clip, index) => {
+        const rawStart = Number(clip.start) || 0;
+        const start = Math.max(0, rawStart);
+
+        let duration = Number(clip.duration);
+        if (!Number.isFinite(duration) || duration <= 0) {
+            const rawEnd = Number(clip.end) || 0;
+            duration = rawEnd > start ? (rawEnd - start) : 50;
+        }
+        duration = Math.min(90, Math.max(10, Math.round(duration)));
+        const end = Number((start + duration).toFixed(2));
+
+        const title = clip.title || `Corte #${index + 1}`;
+        const description = clip.description || "Destaque do vídeo";
+        const score = clip.score ?? 85;
+
+        const thumbSrc = videoAtualId
+            ? `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`
+            : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' fill='%23111217'><rect width='640' height='360'/><text x='50%' y='50%' fill='%23666' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'>Vídeo MP4 Carregado</text></svg>";
+
+        const card = document.createElement("article");
+        card.className = "card rounded-2xl overflow-hidden fade-in";
+        card.style.animationDelay = `${index * 70}ms`;
+
+        card.innerHTML = `
+            <div class="relative aspect-video bg-black">
+                <img src="${thumbSrc}" alt="" class="w-full h-full object-cover opacity-70" loading="lazy">
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+                <div class="absolute top-3 left-3">
+                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">CORTE ${index + 1}</span>
+                </div>
+                <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
+                    <div>
+                        <div class="text-xs text-zinc-400">${formatarTempo(start)} → ${formatarTempo(end)}</div>
+                        <div class="text-sm font-bold mt-1 line-clamp-2">${escapeHtml(title)}</div>
+                    </div>
+                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">${escapeHtml(score)}</div>
+                </div>
+            </div>
+            <div class="p-5">
+                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">${escapeHtml(description)}</p>
+                <div class="grid ${videoAtualId ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mt-5">
+                    ${videoAtualId ? `
+                    <button onclick="abrirYouTube(${start})" class="btn-dark h-11 rounded-xl text-xs font-semibold">
+                        <i class="fa-brands fa-youtube mr-1.5"></i> Assistir
+                    </button>` : ''}
+                    <button id="btnDl_${index}" onclick="baixarCorte(${start}, ${duration}, ${index})" class="btn-main h-11 rounded-xl text-xs font-bold">
+                        <i class="fa-solid fa-download mr-1.5"></i> Baixar Corte
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
+                    <span>Duração: ${Math.round(duration)}s</span>
+                    <span>${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    $("resultados").classList.remove("hidden");
+    $("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function abrirYouTube(start) {
+    if (!videoAtualId) return;
+    window.open(`https://www.youtube.com/watch?v=${videoAtualId}&t=${Math.floor(start)}s`, "_blank");
+}
+
+/* =========================================================
+   DOWNLOAD DO CORTE (RENDERIZAÇÃO LOCAL FFMPEG)
+========================================================= */
+
+async function baixarCorte(start, duration, index) {
+    if (!usuario.isVip && usuario.pontos < 50) {
+        mostrarToast("Você não possui saldo de pontos suficiente (50 necessários). Ative o VIP!", "error");
+        abrirPlanos();
+        return;
+    }
+
+    const btn = $(`btnDl_${index}`);
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<div class="loader"></div>`;
+
+    mostrarToast("Renderizando corte via FFmpeg... Aguarde.", "normal");
+
+    try {
+        const payload = {
+            start: start,
+            duration: duration
+        };
+
+        if (uploadIdAtual) {
+            payload.uploadId = uploadIdAtual;
+        } else {
+            payload.url = videoAtualUrl || `https://www.youtube.com/watch?v=${videoAtualId}`;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/api/download`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeaders()
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errJson = null;
+            try { errJson = await response.json(); } catch {}
+            throw new Error(errJson?.error || `Falha no download (${response.status})`);
+        }
+
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            throw new Error("O servidor retornou um arquivo de vídeo vazio.");
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `clipforge_${uploadIdAtual ? 'corte' : videoAtualId}_${Math.floor(start)}s.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+        mostrarToast("Download concluído com sucesso!", "success");
+        await atualizarUsuario();
+    } catch (err) {
+        console.error("Erro no download:", err);
+        mostrarToast(err.message || "Erro ao renderizar o vídeo.", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/* =========================================================
+   GERENCIAMENTO DE SESSÃO & USUÁRIO
 ========================================================= */
 
 async function iniciarSessao() {
@@ -731,7 +1044,6 @@ async function iniciarSessao() {
         atualizarInterfaceUsuario();
     } catch (error) {
         console.warn("Aviso na conexão com o servidor:", error.message);
-        // Fallback gracioso para manter interface utilizável
         atualizarInterfaceUsuario();
     }
 }
@@ -773,252 +1085,11 @@ function atualizarInterfaceUsuario() {
 }
 
 /* =========================================================
-   ANALISAR VÍDEO (GEMINI)
+   PAGAMENTO PIX & MODAIS
 ========================================================= */
 
-function extrairYouTubeId(url) {
-    if (!url) return null;
-    const value = String(url).trim();
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i
-    ];
-    for (const p of patterns) {
-        const match = value.match(p);
-        if (match) return match[1];
-    }
-    return null;
-}
-
-async function gerarCortes() {
-    const input = $("videoUrl");
-    const url = input.value.trim();
-    fecharErro();
-
-    if (!url) {
-        mostrarErro("Cole o link de um vídeo do YouTube.");
-        input.focus();
-        return;
-    }
-
-    const videoId = extrairYouTubeId(url);
-    if (!videoId) {
-        mostrarErro("O link informado não parece ser um link válido do YouTube.");
-        input.focus();
-        return;
-    }
-
-    videoAtualId = videoId;
-    videoAtualUrl = url;
-
-    $("resultados").classList.add("hidden");
-    $("loadingArea").classList.remove("hidden");
-    $("btnGerar").disabled = true;
-    $("btnGerar").innerHTML = `<div class="loader"></div><span>Analisando com IA...</span>`;
-
-    iniciarAnimacaoLoading();
-
-    try {
-        const data = await fetchJson(`${BACKEND_URL}/api/analisar`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                url: url,
-                maxClips: 5,
-                minDuration: 20,
-                maxDuration: 60
-            })
-        });
-
-        if (!data?.clips || !data.clips.length) {
-            throw new Error("A IA não encontrou cortes com o critério solicitado.");
-        }
-
-        clipsAtuais = data.clips;
-        renderizarCortes(clipsAtuais);
-        mostrarToast(`${clipsAtuais.length} cortes encontrados!`, "success");
-
-        if (data.user) {
-            usuario.pontos = data.user.points ?? usuario.pontos;
-            atualizarInterfaceUsuario();
-        }
-    } catch (error) {
-        console.error("Erro na análise:", error);
-        mostrarErro(error.message || "Não foi possível analisar o vídeo.");
-    } finally {
-        pararAnimacaoLoading();
-        $("loadingArea").classList.add("hidden");
-        $("btnGerar").disabled = false;
-        $("btnGerar").innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gerar cortes</span>`;
-    }
-}
-
-function iniciarAnimacaoLoading() {
-    let progress = 15;
-    $("loadingBar").style.width = `${progress}%`;
-    const mensagens = [
-        "Carregando vídeo e elementos visuais...",
-        "Avaliando falas e ganchos narrativos com Gemini 3.8 Flash...",
-        "Identificando melhores picos de retenção...",
-        "Estruturando os melhores cortes virais..."
-    ];
-    let index = 0;
-    $("loadingText").textContent = mensagens[0];
-
-    loadingTimer = setInterval(() => {
-        progress = Math.min(92, progress + Math.random() * 12);
-        $("loadingBar").style.width = `${progress}%`;
-        index = Math.min(mensagens.length - 1, index + 1);
-        $("loadingText").textContent = mensagens[index];
-    }, 3500);
-}
-
-function pararAnimacaoLoading() {
-    if (loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
-    $("loadingBar").style.width = "100%";
-}
-
-function renderizarCortes(clips) {
-    const container = $("cardsContainer");
-    container.innerHTML = "";
-    $("resultadoSubtitulo").textContent = `${clips.length} cortes encontrados pela IA.`;
-
-    clips.forEach((clip, index) => {
-        const start = Number(clip.start || 0);
-        const duration = Number(clip.duration || (clip.end - start) || 50);
-        const end = Number(clip.end || (start + duration));
-        const title = clip.title || `Corte #${index + 1}`;
-        const description = clip.description || clip.reason || "Destaque do vídeo";
-        const score = clip.score ?? 85;
-
-        const card = document.createElement("article");
-        card.className = "card rounded-2xl overflow-hidden fade-in";
-        card.style.animationDelay = `${index * 70}ms`;
-
-        card.innerHTML = `
-            <div class="relative aspect-video bg-black">
-                <img src="https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg" alt="" class="w-full h-full object-cover opacity-70" loading="lazy">
-                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-                <div class="absolute top-3 left-3">
-                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">CORTE ${index + 1}</span>
-                </div>
-                <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
-                    <div>
-                        <div class="text-xs text-zinc-400">${formatarTempo(start)} → ${formatarTempo(end)}</div>
-                        <div class="text-sm font-bold mt-1 line-clamp-2">${escapeHtml(title)}</div>
-                    </div>
-                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">${escapeHtml(score)}</div>
-                </div>
-            </div>
-            <div class="p-5">
-                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">${escapeHtml(description)}</p>
-                <div class="grid grid-cols-2 gap-2 mt-5">
-                    <button onclick="abrirYouTube(${start})" class="btn-dark h-11 rounded-xl text-xs font-semibold">
-                        <i class="fa-brands fa-youtube mr-1.5"></i> Assistir
-                    </button>
-                    <button id="btnDl_${index}" onclick="baixarCorte(${start}, ${duration}, ${index})" class="btn-main h-11 rounded-xl text-xs font-bold">
-                        <i class="fa-solid fa-download mr-1.5"></i> Baixar
-                    </button>
-                </div>
-                <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
-                    <span>Duração: ${Math.round(duration)}s</span>
-                    <span>${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}</span>
-                </div>
-            </div>
-        `;
-        container.appendChild(card);
-    });
-
-    $("resultados").classList.remove("hidden");
-    $("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function abrirYouTube(start) {
-    if (!videoAtualId) return;
-    window.open(`https://www.youtube.com/watch?v=${videoAtualId}&t=${Math.floor(start)}s`, "_blank");
-}
-
-/* =========================================================
-   DOWNLOAD DO CORTE (POST COMPATÍVEL COM 13.0.7)
-========================================================= */
-
-async function baixarCorte(start, duration, index) {
-    if (!usuario.isVip && usuario.pontos < 50) {
-        mostrarToast("Você não tem pontos suficientes (necessário 50). Ative o VIP!", "error");
-        abrirPlanos();
-        return;
-    }
-
-    const btn = $(`btnDl_${index}`);
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<div class="loader"></div>`;
-
-    mostrarToast("Renderizando seu corte com FFmpeg... Isso pode levar alguns segundos.", "normal");
-
-    try {
-        // Envio estruturado via POST compatível com o endpoint do server.js 13.0.7
-        const response = await fetch(`${BACKEND_URL}/api/download`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeaders()
-            },
-            body: JSON.stringify({
-                url: videoAtualUrl || `https://www.youtube.com/watch?v=${videoAtualId}`,
-                start: start,
-                duration: duration,
-                userId: usuario.userId
-            })
-        });
-
-        if (!response.ok) {
-            let errJson = null;
-            try { errJson = await response.json(); } catch {}
-            throw new Error(errJson?.error || `Falha no download (${response.status})`);
-        }
-
-        const blob = await response.blob();
-        if (!blob || blob.size === 0) {
-            throw new Error("O servidor devolveu um arquivo vazio.");
-        }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `clipforge_${videoAtualId}_${Math.floor(start)}s.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-        mostrarToast("Download concluído com sucesso!", "success");
-        await atualizarUsuario();
-    } catch (err) {
-        console.error("Erro no download:", err);
-        mostrarToast(err.message || "Erro ao renderizar o vídeo.", "error");
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-/* =========================================================
-   MODAL PLANOS & PIX
-========================================================= */
-
-function abrirPlanos() {
-    $("planModal").classList.remove("hidden");
-    document.body.classList.add("overflow-hidden");
-}
-
-function fecharPlanos() {
-    $("planModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
-}
+function abrirPlanos() { $("planModal").classList.remove("hidden"); document.body.classList.add("overflow-hidden"); }
+function fecharPlanos() { $("planModal").classList.add("hidden"); document.body.classList.remove("overflow-hidden"); }
 
 async function criarPagamento() {
     fecharPlanos();
@@ -1103,27 +1174,18 @@ function abrirAdmin() {
     }
 }
 
-function fecharAdmin() {
-    $("adminModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
-}
-
-function toggleAdminPassword() {
-    const input = $("adminPassword");
-    input.type = input.type === "password" ? "text" : "password";
-}
+function fecharAdmin() { $("adminModal").classList.add("hidden"); document.body.classList.remove("overflow-hidden"); }
+function toggleAdminPassword() { const input = $("adminPassword"); input.type = input.type === "password" ? "text" : "password"; }
 
 async function fazerLoginAdmin() {
     const password = $("adminPassword").value.trim();
     if (!password) return;
-
     try {
         const data = await fetchJson(`${BACKEND_URL}/api/admin/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password, username: "admin" })
+            body: JSON.stringify({ password })
         });
-
         adminToken = data.token;
         localStorage.setItem(ADMIN_STORAGE_KEY, adminToken);
         $("adminLoginArea").classList.add("hidden");
@@ -1149,16 +1211,16 @@ async function carregarDashboard() {
                 <div class="text-xl font-black mt-1">${m.requests || 0}</div>
             </div>
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] text-zinc-500">Uploads MP4</div>
+                <div class="text-xl font-black mt-1">${m.uploads || 0}</div>
+            </div>
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
                 <div class="text-[10px] text-zinc-500">Análises IA</div>
                 <div class="text-xl font-black mt-1">${m.analyses || 0}</div>
             </div>
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
                 <div class="text-[10px] text-zinc-500">Downloads</div>
                 <div class="text-xl font-black mt-1">${m.downloads || 0}</div>
-            </div>
-            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] text-zinc-500">Pix Aprovados</div>
-                <div class="text-xl font-black mt-1">${m.pixApproved || 0}</div>
             </div>
         `;
     } catch {
@@ -1176,8 +1238,11 @@ function logoutAdmin() {
 function novoVideo() {
     $("resultados").classList.add("hidden");
     $("cardsContainer").innerHTML = "";
+    uploadIdAtual = null;
+    videoAtualId = "";
+    videoAtualUrl = "";
+    $("uploadFileLabel").textContent = "Clique ou arraste um vídeo MP4 aqui";
     $("videoUrl").value = "";
-    $("videoUrl").focus();
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1190,7 +1255,7 @@ function mostrarErro(m) {
 function fecharErro() { $("errorArea").classList.add("hidden"); }
 
 /* =========================================================
-   INICIALIZAÇÃO DO APP
+   INICIALIZAÇÃO
 ========================================================= */
 
 async function inicializar() {
