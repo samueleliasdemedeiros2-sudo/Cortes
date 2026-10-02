@@ -21,7 +21,7 @@
 
   <div
     id="toast"
-    class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl px-4 py-3 flex items-center gap-3"
+    class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 bg-slate-900 border border-slate-700 shadow-2xl rounded-xl px-4 py-3 flex items-center gap-3 max-w-sm"
   >
     <div
       id="toastIcon"
@@ -31,17 +31,11 @@
     </div>
 
     <div>
-      <h4
-        id="toastTitulo"
-        class="text-xs font-bold text-white"
-      >
+      <h4 id="toastTitulo" class="text-xs font-bold text-white">
         Notificação
       </h4>
 
-      <p
-        id="toastMsg"
-        class="text-[11px] text-slate-400"
-      >
+      <p id="toastMsg" class="text-[11px] text-slate-400">
         Mensagem do sistema
       </p>
     </div>
@@ -75,7 +69,7 @@
           <span
             class="hidden sm:inline-block ml-1 text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-mono"
           >
-            v3.2
+            v3.3
           </span>
 
         </div>
@@ -91,10 +85,7 @@
         >
           <i class="fa-solid fa-user text-purple-400"></i>
 
-          <span
-            id="planoNome"
-            class="font-medium"
-          >
+          <span id="planoNome" class="font-medium">
             Plano Free
           </span>
         </div>
@@ -180,7 +171,6 @@
         class="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold uppercase tracking-wider mb-3"
       >
         <i class="fa-solid fa-bolt text-amber-400"></i>
-
         Inteligência Artificial Viral
       </div>
 
@@ -199,15 +189,15 @@
 
 
       <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
-
         Cole um vídeo do YouTube e deixe a IA encontrar os melhores momentos.
-
       </p>
 
     </div>
 
 
+    <!-- ======================================================= -->
     <!-- INPUT -->
+    <!-- ======================================================= -->
 
     <div
       class="bg-slate-900 border border-slate-800 p-2 sm:p-3 rounded-2xl shadow-xl shadow-purple-950/20 mb-8"
@@ -253,26 +243,18 @@
     <!-- LOADING -->
     <!-- ======================================================= -->
 
-    <div
-      id="loading"
-      class="hidden text-center py-12"
-    >
+    <div id="loading" class="hidden text-center py-12">
 
       <div
         class="inline-block w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"
       ></div>
 
-      <p
-        id="loadingText"
-        class="text-sm text-slate-400"
-      >
+      <p id="loadingText" class="text-sm text-slate-400">
         Preparando análise...
       </p>
 
-      <p
-        class="text-[11px] text-slate-600 mt-2"
-      >
-        Isso pode levar alguns minutos.
+      <p class="text-[11px] text-slate-600 mt-2">
+        O download e a análise pela IA podem levar alguns minutos.
       </p>
 
     </div>
@@ -282,21 +264,15 @@
     <!-- CORTES -->
     <!-- ======================================================= -->
 
-    <div
-      id="cortesArea"
-      class="hidden"
-    >
+    <div id="cortesArea" class="hidden">
 
       <div class="flex items-center justify-between mb-4 gap-3">
 
         <h2
           class="text-lg font-bold text-white flex items-center gap-2"
         >
-
           <i class="fa-solid fa-scissors text-purple-400"></i>
-
           Melhores Cortes Identificados
-
         </h2>
 
 
@@ -378,7 +354,7 @@
           </div>
 
           <span class="text-slate-400">
-            360p Fluido
+            360p
           </span>
 
         </div>
@@ -714,7 +690,7 @@
   >
 
     <p>
-      ClipForge Pro • v3.2 Oficial • Plataforma de Clipes Inteligentes
+      ClipForge Pro • v3.3 Oficial • Plataforma de Clipes Inteligentes
     </p>
 
   </footer>
@@ -743,21 +719,16 @@
 
     pontos:
       parseInt(
-        localStorage.getItem(
-          'cf_pontos'
-        ) || '200',
+        localStorage.getItem('cf_pontos') || '200',
         10
       ),
 
     isVip:
-      localStorage.getItem(
-        'cf_vip'
-      ) === 'true',
+      localStorage.getItem('cf_vip') === 'true',
 
     ultimoBonus:
-      localStorage.getItem(
-        'cf_ultimo_bonus'
-      ) || ''
+      localStorage.getItem('cf_ultimo_bonus') || ''
+
   };
 
 
@@ -772,25 +743,16 @@
   ) {
 
     const toast =
-      document.getElementById(
-        'toast'
-      );
+      document.getElementById('toast');
 
     const icon =
-      document.getElementById(
-        'toastIcon'
-      );
+      document.getElementById('toastIcon');
 
 
-    document.getElementById(
-      'toastTitulo'
-    ).innerText =
+    document.getElementById('toastTitulo').innerText =
       titulo;
 
-
-    document.getElementById(
-      'toastMsg'
-    ).innerText =
+    document.getElementById('toastMsg').innerText =
       mensagem;
 
 
@@ -808,4 +770,1708 @@
     } else {
 
       icon.className =
-        "w-8 h-
+        "w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/20 text-purple-400";
+
+      icon.innerHTML =
+        `<i class="fa-solid fa-coins"></i>`;
+    }
+
+
+    toast.classList.remove(
+      'translate-y-[-150%]'
+    );
+
+
+    setTimeout(() => {
+
+      toast.classList.add(
+        'translate-y-[-150%]'
+      );
+
+    }, 3500);
+
+  }
+
+
+  // ==========================================================
+  // PONTOS & BÔNUS
+  // ==========================================================
+
+  function atualizarInterfacePontos() {
+
+    const saldoSpan =
+      document.getElementById('pontosSaldo');
+
+    const planoSpan =
+      document.getElementById('planoNome');
+
+
+    if (usuario.isVip) {
+
+      saldoSpan.innerText = '∞';
+
+      planoSpan.innerHTML =
+        '<span class="text-amber-400 font-bold"><i class="fa-solid fa-crown mr-1"></i>VIP Pro</span>';
+
+    } else {
+
+      saldoSpan.innerText =
+        usuario.pontos;
+
+      planoSpan.innerText =
+        'Plano Free';
+    }
+
+
+    localStorage.setItem(
+      'cf_pontos',
+      usuario.pontos
+    );
+
+    localStorage.setItem(
+      'cf_vip',
+      usuario.isVip
+    );
+
+  }
+
+
+  function resgatarBonusDiario() {
+
+    const hoje =
+      new Date().toDateString();
+
+
+    if (
+      usuario.ultimoBonus === hoje
+    ) {
+
+      mostrarToast(
+        'Bônus Diário',
+        'Já resgatou o bônus de hoje! Volte amanhã para mais +50 pts.',
+        'aviso'
+      );
+
+      return;
+    }
+
+
+    usuario.pontos += 50;
+
+    usuario.ultimoBonus =
+      hoje;
+
+
+    localStorage.setItem(
+      'cf_ultimo_bonus',
+      hoje
+    );
+
+
+    atualizarInterfacePontos();
+
+
+    mostrarToast(
+      'Bônus Resgatado!',
+      '+50 pontos foram adicionados à sua conta.'
+    );
+
+  }
+
+
+  // ==========================================================
+  // AUXILIARES
+  // ==========================================================
+
+  function extrairVideoId(url) {
+
+    if (!url) return null;
+
+    const limpo =
+      url.trim();
+
+
+    const regExp =
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/;
+
+
+    const match =
+      limpo.match(regExp);
+
+
+    return (
+      match &&
+      match[1]
+    )
+      ? match[1]
+      : null;
+
+  }
+
+
+  function formatarTempo(segundos) {
+
+    const total =
+      Math.max(
+        0,
+        Math.floor(
+          Number(segundos) || 0
+        )
+      );
+
+
+    const minutos =
+      Math.floor(
+        total / 60
+      );
+
+
+    const seg =
+      total % 60;
+
+
+    return `${String(minutos).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+
+  }
+
+
+  function escaparHtml(valor) {
+
+    return String(
+      valor ?? ''
+    )
+      .replace(
+        /&/g,
+        '&amp;'
+      )
+      .replace(
+        /</g,
+        '&lt;'
+      )
+      .replace(
+        />/g,
+        '&gt;'
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      )
+      .replace(
+        /'/g,
+        '&#039;'
+      );
+
+  }
+
+
+  function setGerando(estado) {
+
+    const btn =
+      document.getElementById('btnGerar');
+
+
+    if (estado) {
+
+      btn.disabled = true;
+
+      btn.classList.add(
+        'opacity-70',
+        'pointer-events-none'
+      );
+
+      btn.innerHTML =
+        `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Analisando...</span>`;
+
+    } else {
+
+      btn.disabled = false;
+
+      btn.classList.remove(
+        'opacity-70',
+        'pointer-events-none'
+      );
+
+      btn.innerHTML =
+        `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gerar Cortes</span>`;
+    }
+
+  }
+
+
+  // ==========================================================
+  // TEXTO DE LOADING
+  // ==========================================================
+
+  function iniciarMensagensLoading() {
+
+    const loadingText =
+      document.getElementById('loadingText');
+
+
+    const mensagens = [
+
+      'Preparando o vídeo...',
+
+      'Baixando o vídeo temporariamente...',
+
+      'Enviando o vídeo para a IA...',
+
+      'Gemini está assistindo ao vídeo...',
+
+      'Procurando os melhores momentos...',
+
+      'Analisando ganchos e retenção...',
+
+      'Selecionando os cortes mais interessantes...',
+
+      'Finalizando análise...'
+
+    ];
+
+
+    let indice = 0;
+
+    loadingText.innerText =
+      mensagens[0];
+
+
+    if (loadingInterval) {
+      clearInterval(
+        loadingInterval
+      );
+    }
+
+
+    loadingInterval =
+      setInterval(() => {
+
+        indice =
+          (indice + 1) %
+          mensagens.length;
+
+        loadingText.innerText =
+          mensagens[indice];
+
+      }, 5000);
+
+  }
+
+
+  function pararMensagensLoading() {
+
+    if (loadingInterval) {
+
+      clearInterval(
+        loadingInterval
+      );
+
+      loadingInterval = null;
+
+    }
+
+  }
+
+
+  // ==========================================================
+  // GERAÇÃO DE CORTES
+  // ==========================================================
+
+  async function gerarCortes() {
+
+    const input =
+      document.getElementById(
+        'videoUrl'
+      );
+
+
+    const url =
+      input.value.trim();
+
+
+    const id =
+      extrairVideoId(url);
+
+
+    if (!id) {
+
+      mostrarToast(
+        'Atenção',
+        'Insira um link válido do YouTube para continuar.',
+        'aviso'
+      );
+
+      return;
+    }
+
+
+    videoAtualId =
+      id;
+
+
+    document
+      .getElementById('cortesArea')
+      .classList.add('hidden');
+
+
+    document
+      .getElementById('cardsContainer')
+      .innerHTML = '';
+
+
+    document
+      .getElementById('loading')
+      .classList.remove('hidden');
+
+
+    setGerando(true);
+
+    iniciarMensagensLoading();
+
+
+    /*
+      O backend precisa baixar o vídeo e depois
+      enviar para o Gemini.
+
+      Por isso 7 segundos era muito pouco.
+
+      Agora o frontend aguarda até 10 minutos.
+    */
+
+    const controller =
+      new AbortController();
+
+
+    const timeoutId =
+      setTimeout(() => {
+
+        controller.abort();
+
+      }, 600000);
+
+
+    try {
+
+      const resposta =
+        await fetch(
+          `${BACKEND_URL}/api/analisar`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              youtubeUrl: url,
+              duration: 60,
+              quantity: 3
+            }),
+
+            signal:
+              controller.signal
+          }
+        );
+
+
+      clearTimeout(
+        timeoutId
+      );
+
+
+      const data =
+        await resposta
+          .json()
+          .catch(
+            () => ({})
+          );
+
+
+      if (!resposta.ok) {
+
+        throw new Error(
+          data.error ||
+          data.message ||
+          `O servidor respondeu com erro ${resposta.status}.`
+        );
+
+      }
+
+
+      if (
+        !Array.isArray(data.clips) ||
+        data.clips.length === 0
+      ) {
+
+        throw new Error(
+          data.error ||
+          'A IA não encontrou cortes neste vídeo.'
+        );
+
+      }
+
+
+      finalizarGeracao(
+        data.clips
+      );
+
+
+    } catch (erro) {
+
+      clearTimeout(
+        timeoutId
+      );
+
+
+      console.error(
+        '[ClipForge] Erro na análise:',
+        erro
+      );
+
+
+      document
+        .getElementById('loading')
+        .classList.add('hidden');
+
+
+      pararMensagensLoading();
+
+      setGerando(false);
+
+
+      let mensagem =
+        erro?.message ||
+        'Não foi possível analisar o vídeo.';
+
+
+      if (
+        erro?.name === 'AbortError'
+      ) {
+
+        mensagem =
+          'A análise demorou mais de 10 minutos. Verifique o servidor e tente novamente.';
+
+      }
+
+
+      mostrarToast(
+        'Erro na análise',
+        mensagem,
+        'erro'
+      );
+
+    }
+
+  }
+
+
+  // ==========================================================
+  // FINALIZAR GERAÇÃO
+  // ==========================================================
+
+  function finalizarGeracao(
+    clips
+  ) {
+
+    document
+      .getElementById('loading')
+      .classList.add('hidden');
+
+
+    pararMensagensLoading();
+
+    setGerando(false);
+
+
+    const normalizados =
+      normalizarClips(
+        clips
+      );
+
+
+    if (
+      !normalizados.length
+    ) {
+
+      mostrarToast(
+        'Nenhum corte encontrado',
+        'A IA não retornou cortes válidos.',
+        'aviso'
+      );
+
+      return;
+    }
+
+
+    renderizarCards(
+      normalizados
+    );
+
+
+    document
+      .getElementById('cortesArea')
+      .classList.remove('hidden');
+
+
+    document
+      .getElementById('cortesArea')
+      .scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+
+
+    mostrarToast(
+      'Cortes Prontos!',
+      `${normalizados.length} cortes identificados pela IA.`
+    );
+
+  }
+
+
+  // ==========================================================
+  // NORMALIZAR CORTES
+  // ==========================================================
+
+  function normalizarClips(
+    clips
+  ) {
+
+    if (
+      !Array.isArray(clips)
+    ) {
+      return [];
+    }
+
+
+    return clips.map(
+      (clip, index) => {
+
+        const start =
+          Number(
+            clip.start ??
+            clip.inicio ??
+            0
+          );
+
+
+        const duration =
+          Number(
+            clip.duration ??
+            clip.duracao ??
+            55
+          );
+
+
+        const end =
+          Number(
+            clip.end ??
+            clip.fim ??
+            (
+              start +
+              duration
+            )
+          );
+
+
+        return {
+
+          id:
+            clip.id ||
+            index + 1,
+
+          inicio:
+            formatarTempo(
+              start
+            ),
+
+          fim:
+            formatarTempo(
+              end
+            ),
+
+          startSeg:
+            Math.max(
+              0,
+              start
+            ),
+
+          duracao:
+            Math.max(
+              1,
+              Math.round(
+                duration
+              )
+            ),
+
+          score:
+            Number(
+              clip.score ?? 80
+            ),
+
+          title:
+            clip.title ||
+            `Corte #${index + 1}`,
+
+          reason:
+            clip.reason ||
+            clip.description ||
+            '',
+
+          thumbnail:
+            clip.thumbnail ||
+            `https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg`
+
+        };
+
+      }
+    );
+
+  }
+
+
+  // ==========================================================
+  // RENDERIZAR CARDS
+  // ==========================================================
+
+  function renderizarCards(
+    cortes
+  ) {
+
+    const container =
+      document.getElementById(
+        'cardsContainer'
+      );
+
+
+    container.innerHTML = '';
+
+
+    cortes.forEach(
+      (corte) => {
+
+        const card =
+          document.createElement(
+            'div'
+          );
+
+
+        const score =
+          `${Math.round(
+            Number(
+              corte.score
+            )
+          )}%`;
+
+
+        const titulo =
+          escaparHtml(
+            corte.title
+          );
+
+
+        const motivo =
+          escaparHtml(
+            corte.reason
+          );
+
+
+        const thumb =
+          escaparHtml(
+            corte.thumbnail
+          );
+
+
+        card.className =
+          "bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-purple-500/40 transition";
+
+
+        card.innerHTML = `
+
+          <div>
+
+            <div class="flex items-center justify-between text-xs mb-3 gap-2">
+
+              <span
+                class="font-semibold text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-lg border border-purple-500/20 truncate"
+              >
+                ${titulo}
+              </span>
+
+              <span
+                class="text-emerald-400 font-medium whitespace-nowrap"
+              >
+                ${score} IA
+              </span>
+
+            </div>
+
+
+            <div
+              class="aspect-[9/16] bg-slate-950 rounded-xl overflow-hidden relative mb-4 border border-slate-800 flex items-center justify-center"
+            >
+
+              <img
+                src="${thumb}"
+                class="w-full h-full object-cover opacity-60"
+                onerror="this.src='https://img.youtube.com/vi/${videoAtualId}/hqdefault.jpg'"
+              >
+
+
+              <div
+                class="absolute inset-0 flex items-center justify-center"
+              >
+
+                <div
+                  class="w-12 h-12 rounded-full bg-purple-600/90 flex items-center justify-center shadow-xl"
+                >
+                  <i class="fa-solid fa-play text-white ml-0.5"></i>
+                </div>
+
+              </div>
+
+
+              <span
+                class="absolute bottom-2 left-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
+              >
+                ${corte.duracao}s • ${
+                  usuario.isVip
+                    ? 'VIP'
+                    : '360p'
+                }
+              </span>
+
+
+              <span
+                class="absolute bottom-2 right-2 text-xs bg-black/75 px-2 py-1 rounded text-slate-300"
+              >
+                ${escaparHtml(
+                  corte.inicio
+                )}
+                →
+                ${escaparHtml(
+                  corte.fim
+                )}
+              </span>
+
+            </div>
+
+
+            ${
+              motivo
+                ? `
+                  <p
+                    class="text-[11px] text-slate-500 mb-4 line-clamp-3"
+                  >
+                    ${motivo}
+                  </p>
+                `
+                : ''
+            }
+
+          </div>
+
+
+          <button
+            onclick="baixarCorte(${Number(corte.startSeg)}, ${Number(corte.duracao)}, this)"
+            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium py-3 rounded-xl text-sm transition shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 active:scale-95"
+          >
+
+            <i class="fa-solid fa-download"></i>
+
+            <span>
+              ${
+                usuario.isVip
+                  ? 'Baixar Vídeo (VIP)'
+                  : 'Baixar (-50 Pontos)'
+              }
+            </span>
+
+          </button>
+
+        `;
+
+
+        container.appendChild(
+          card
+        );
+
+      }
+    );
+
+  }
+
+
+  // ==========================================================
+  // DOWNLOAD
+  // ==========================================================
+
+  function baixarCorte(
+    start,
+    duration,
+    btn
+  ) {
+
+    if (!videoAtualId) {
+
+      mostrarToast(
+        'Erro',
+        'Vídeo não identificado.',
+        'erro'
+      );
+
+      return;
+    }
+
+
+    if (!usuario.isVip) {
+
+      if (
+        usuario.pontos < 50
+      ) {
+
+        mostrarToast(
+          'Pontos Insuficientes',
+          'Os seus pontos acabaram! Torne-se VIP para downloads infinitos.',
+          'aviso'
+        );
+
+        abrirPlanosModal();
+
+        return;
+      }
+
+    }
+
+
+    const textoOriginal =
+      btn.innerHTML;
+
+
+    btn.innerHTML =
+      `<i class="fa-solid fa-circle-notch animate-spin"></i><span>Preparando...</span>`;
+
+
+    btn.classList.add(
+      'pointer-events-none',
+      'opacity-70'
+    );
+
+
+    mostrarToast(
+      'Download Iniciado',
+      'O servidor está preparando seu corte.'
+    );
+
+
+    const url =
+      `${BACKEND_URL}/api/download?id=${encodeURIComponent(videoAtualId)}&start=${encodeURIComponent(start)}&duration=${encodeURIComponent(duration)}`;
+
+
+    /*
+      Não descontamos os pontos antes do usuário
+      conseguir iniciar o download.
+
+      O endpoint será aberto pelo navegador.
+    */
+
+    if (!usuario.isVip) {
+
+      usuario.pontos -= 50;
+
+      atualizarInterfacePontos();
+
+    }
+
+
+    window.location.assign(
+      url
+    );
+
+
+    setTimeout(() => {
+
+      btn.innerHTML =
+        `<i class="fa-solid fa-check text-emerald-400"></i><span>Download iniciado</span>`;
+
+
+      setTimeout(() => {
+
+        btn.innerHTML =
+          textoOriginal;
+
+        btn.classList.remove(
+          'pointer-events-none',
+          'opacity-70'
+        );
+
+      }, 2500);
+
+    }, 1500);
+
+  }
+
+
+  // ==========================================================
+  // MODAIS
+  // ==========================================================
+
+  function abrirPlanosModal() {
+
+    document
+      .getElementById(
+        'modalPlanos'
+      )
+      .classList.remove(
+        'hidden'
+      );
+
+  }
+
+
+  function fecharPlanosModal() {
+
+    document
+      .getElementById(
+        'modalPlanos'
+      )
+      .classList.add(
+        'hidden'
+      );
+
+  }
+
+
+  // ==========================================================
+  // PIX
+  // ==========================================================
+
+  async function assinarVipPix() {
+
+    fecharPlanosModal();
+
+
+    document
+      .getElementById(
+        'modalPix'
+      )
+      .classList.remove(
+        'hidden'
+      );
+
+
+    document
+      .getElementById(
+        'pixCopiaCola'
+      )
+      .value = '';
+
+
+    document
+      .getElementById(
+        'pixQrContainer'
+      )
+      .innerHTML =
+        `
+          <i class="fa-solid fa-circle-notch fa-spin text-slate-800 text-4xl"></i>
+        `;
+
+
+    document
+      .getElementById(
+        'pixStatusText'
+      )
+      .innerHTML =
+        `
+          <div class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></div>
+          <span>Gerando pagamento Pix...</span>
+        `;
+
+
+    try {
+
+      const res =
+        await fetch(
+          `${BACKEND_URL}/api/pix/criar`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              userId:
+                'user_123',
+
+              valor:
+                19.90,
+
+              plano:
+                'VIP'
+            })
+          }
+        );
+
+
+      const data =
+        await res
+          .json()
+          .catch(
+            () => ({})
+          );
+
+
+      if (!res.ok) {
+
+        throw new Error(
+          data.error ||
+          data.message ||
+          `Erro ${res.status} ao criar pagamento.`
+        );
+
+      }
+
+
+      if (
+        !data.qr_code
+      ) {
+
+        throw new Error(
+          data.error ||
+          'O Mercado Pago não retornou o código Pix.'
+        );
+
+      }
+
+
+      document
+        .getElementById(
+          'pixCopiaCola'
+        )
+        .value =
+          data.qr_code;
+
+
+      document
+        .getElementById(
+          'pixQrContainer'
+        )
+        .innerHTML =
+          `
+            <img
+              src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.qr_code)}"
+              class="w-36 h-36 rounded-lg"
+              alt="QR Code Pix"
+            >
+          `;
+
+
+      document
+        .getElementById(
+          'pixStatusText'
+        )
+        .innerHTML =
+          `
+            <div class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+            <span>Aguardando confirmação do banco...</span>
+          `;
+
+
+      monitorarPagamentoVip(
+        data.id
+      );
+
+
+    } catch (err) {
+
+      console.error(
+        '[Pix]',
+        err
+      );
+
+
+      document
+        .getElementById(
+          'pixQrContainer'
+        )
+        .innerHTML =
+          `
+            <i class="fa-solid fa-triangle-exclamation text-red-400 text-4xl"></i>
+          `;
+
+
+      document
+        .getElementById(
+          'pixStatusText'
+        )
+        .innerHTML =
+          `
+            <span class="text-red-400">
+              Não foi possível gerar o Pix.
+            </span>
+          `;
+
+
+      mostrarToast(
+        'Erro no Pix',
+        err.message ||
+          'Não foi possível gerar o pagamento.',
+        'erro'
+      );
+
+    }
+
+  }
+
+
+  // ==========================================================
+  // MONITORAR PAGAMENTO
+  // ==========================================================
+
+  function monitorarPagamentoVip(
+    paymentId
+  ) {
+
+    if (
+      pollingInterval
+    ) {
+
+      clearInterval(
+        pollingInterval
+      );
+
+    }
+
+
+    pollingInterval =
+      setInterval(
+        async () => {
+
+          try {
+
+            const res =
+              await fetch(
+                `${BACKEND_URL}/api/pix/status/${encodeURIComponent(paymentId)}`
+              );
+
+
+            const d =
+              await res
+                .json()
+                .catch(
+                  () => ({})
+                );
+
+
+            if (
+              !res.ok
+            ) {
+
+              console.warn(
+                '[Pix Status]',
+                d
+              );
+
+              return;
+            }
+
+
+            if (
+              d.status ===
+              'approved'
+            ) {
+
+              clearInterval(
+                pollingInterval
+              );
+
+              pollingInterval =
+                null;
+
+
+              ativarVip();
+
+            }
+
+          } catch (e) {
+
+            console.warn(
+              '[Pix] Falha ao consultar:',
+              e
+            );
+
+          }
+
+        },
+        3000
+      );
+
+  }
+
+
+  // ==========================================================
+  // ATIVAR VIP
+  // ==========================================================
+
+  function ativarVip() {
+
+    usuario.isVip =
+      true;
+
+
+    atualizarInterfacePontos();
+
+
+    fecharPixModal();
+
+
+    mostrarToast(
+      '👑 Bem-vindo ao VIP!',
+      'Downloads infinitos ativados.'
+    );
+
+
+    document
+      .querySelectorAll(
+        '#cardsContainer button span'
+      )
+      .forEach(
+        span => {
+
+          span.innerText =
+            'Baixar Vídeo (VIP)';
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        '#cardsContainer .text-slate-300'
+      )
+      .forEach(
+        el => {
+
+          if (
+            el.innerText.includes('360p')
+          ) {
+
+            el.innerText =
+              el.innerText.replace(
+                '360p',
+                'VIP'
+              );
+
+          }
+
+        }
+      );
+
+  }
+
+
+  function fecharPixModal() {
+
+    if (
+      pollingInterval
+    ) {
+
+      clearInterval(
+        pollingInterval
+      );
+
+      pollingInterval =
+        null;
+
+    }
+
+
+    document
+      .getElementById(
+        'modalPix'
+      )
+      .classList.add(
+        'hidden'
+      );
+
+  }
+
+
+  function copiarPix() {
+
+    const input =
+      document.getElementById(
+        'pixCopiaCola'
+      );
+
+
+    if (
+      !input.value
+    ) {
+
+      mostrarToast(
+        'Atenção',
+        'Ainda não existe um código Pix para copiar.',
+        'aviso'
+      );
+
+      return;
+    }
+
+
+    if (
+      navigator.clipboard &&
+      navigator.clipboard.writeText
+    ) {
+
+      navigator.clipboard
+        .writeText(
+          input.value
+        )
+        .then(() => {
+
+          mostrarToast(
+            'Pix Copiado!',
+            'Cole no seu aplicativo do banco.'
+          );
+
+        })
+        .catch(() => {
+
+          input.select();
+
+          document.execCommand(
+            'copy'
+          );
+
+          mostrarToast(
+            'Pix Copiado!',
+            'Cole no seu aplicativo do banco.'
+          );
+
+        });
+
+    } else {
+
+      input.select();
+
+      document.execCommand(
+        'copy'
+      );
+
+      mostrarToast(
+        'Pix Copiado!',
+        'Cole no seu aplicativo do banco.'
+      );
+
+    }
+
+  }
+
+
+  // ==========================================================
+  // ADMIN
+  // ==========================================================
+
+  function abrirAdminModal() {
+
+    document
+      .getElementById(
+        'modalAdmin'
+      )
+      .classList.remove(
+        'hidden'
+      );
+
+  }
+
+
+  function fecharAdminModal() {
+
+    document
+      .getElementById(
+        'modalAdmin'
+      )
+      .classList.add(
+        'hidden'
+      );
+
+  }
+
+
+  async function entrarAdmin() {
+
+    const pass =
+      document
+        .getElementById(
+          'adminPass'
+        )
+        .value
+        .trim();
+
+
+    if (!pass) {
+
+      mostrarToast(
+        'Atenção',
+        'Digite a senha do administrador.',
+        'aviso'
+      );
+
+      return;
+    }
+
+
+    try {
+
+      const res =
+        await fetch(
+          `${BACKEND_URL}/api/admin/login`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body:
+              JSON.stringify({
+                password:
+                  pass
+              })
+          }
+        );
+
+
+      const loginData =
+        await res
+          .json()
+          .catch(
+            () => ({})
+          );
+
+
+      if (!res.ok) {
+
+        throw new Error(
+          loginData.error ||
+          'Senha incorreta.'
+        );
+
+      }
+
+
+      adminTokenSalvo =
+        pass;
+
+
+      document
+        .getElementById(
+          'adminLogin'
+        )
+        .classList.add(
+          'hidden'
+        );
+
+
+      document
+        .getElementById(
+          'adminPainel'
+        )
+        .classList.remove(
+          'hidden'
+        );
+
+
+      const dashboardRes =
+        await fetch(
+          `${BACKEND_URL}/api/admin/dashboard`,
+          {
+            headers: {
+              'Authorization':
+                pass
+            }
+          }
+        );
+
+
+      const d =
+        await dashboardRes
+          .json()
+          .catch(
+            () => ({})
+          );
+
+
+      if (
+        !dashboardRes.ok
+      ) {
+
+        throw new Error(
+          d.error ||
+          'Não foi possível carregar o painel.'
+        );
+
+      }
+
+
+      const faturamento =
+        d.metricas?.valorArrecadado ??
+        0;
+
+
+      document
+        .getElementById(
+          'admFaturamento'
+        )
+        .innerText =
+          `R$ ${Number(
+            faturamento
+          ).toFixed(2).replace(
+            '.',
+            ','
+          )}`;
+
+
+      document
+        .getElementById(
+          'admVendas'
+        )
+        .innerText =
+          d.metricas?.totalVendas ??
+          0;
+
+
+      document
+        .getElementById(
+          'admDownloads'
+        )
+        .innerText =
+          d.metricas?.totalDownloads ??
+          0;
+
+
+      document
+        .getElementById(
+          'admRam'
+        )
+        .innerText =
+          `${d.servidor?.memoriaMB ?? d.memoriaUsadaMb ?? 0} MB`;
+
+
+    } catch (err) {
+
+      console.error(
+        '[Admin]',
+        err
+      );
+
+
+      mostrarToast(
+        'Erro',
+        err.message ||
+          'Não foi possível entrar no painel.',
+        'aviso'
+      );
+
+    }
+
+  }
+
+
+  // ==========================================================
+  // FECHAR MODAIS CLICANDO FORA
+  // ==========================================================
+
+  document.addEventListener(
+    'click',
+    function(event) {
+
+      const planos =
+        document.getElementById(
+          'modalPlanos'
+        );
+
+      const pix =
+        document.getElementById(
+          'modalPix'
+        );
+
+      const admin =
+        document.getElementById(
+          'modalAdmin'
+        );
+
+
+      if (
+        event.target ===
+        planos
+      ) {
+
+        fecharPlanosModal();
+
+      }
+
+
+      if (
+        event.target ===
+        pix
+      ) {
+
+        fecharPixModal();
+
+      }
+
+
+      if (
+        event.target ===
+        admin
+      ) {
+
+        fecharAdminModal();
+
+      }
+
+    }
+  );
+
+
+  // ==========================================================
+  // ESC PARA FECHAR MODAIS
+  // ==========================================================
+
+  document.addEventListener(
+    'keydown',
+    function(event) {
+
+      if (
+        event.key !==
+        'Escape'
+      ) {
+        return;
+      }
+
+
+      fecharPlanosModal();
+
+      fecharPixModal();
+
+      fecharAdminModal();
+
+    }
+  );
+
+
+  // ==========================================================
+  // INICIALIZAÇÃO
+  // ==========================================================
+
+  atualizarInterfacePontos();
+
+</script>
+
+</body>
+</html>
