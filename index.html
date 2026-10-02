@@ -79,13 +79,6 @@
             color: transparent;
         }
 
-        .premium-text {
-            background: linear-gradient(90deg, #ffffff, #c8c8c8);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
         .btn-main {
             background: #ffffff;
             color: #090a0e;
@@ -176,9 +169,7 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
         .pulse-dot {
@@ -191,12 +182,8 @@
         }
 
         @keyframes pulse {
-            70% {
-                box-shadow: 0 0 0 7px rgba(255,255,255,0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(255,255,255,0);
-            }
+            70% { box-shadow: 0 0 0 7px rgba(255,255,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
         }
 
         .fade-in {
@@ -204,14 +191,8 @@
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .slide-up {
@@ -219,14 +200,8 @@
         }
 
         @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .toast {
@@ -234,14 +209,8 @@
         }
 
         @keyframes toastIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px) scale(.97);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            from { opacity: 0; transform: translateY(12px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .line-clamp-2 {
@@ -276,10 +245,7 @@
 
 <body>
 
-    <!-- ================================
-         HEADER
-    ================================= -->
-
+    <!-- HEADER -->
     <header class="sticky top-0 z-40 border-b border-white/[.06] bg-[#08090d]/85 backdrop-blur-xl">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="h-[72px] flex items-center justify-between gap-4">
@@ -311,17 +277,8 @@
                         class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl glass-light"
                     >
                         <i class="fa-solid fa-bolt text-zinc-300 text-xs"></i>
-
-                        <span
-                            id="pointsValue"
-                            class="text-sm font-bold"
-                        >
-                            200
-                        </span>
-
-                        <span class="text-xs text-zinc-500">
-                            pontos
-                        </span>
+                        <span id="pointsValue" class="text-sm font-bold">200</span>
+                        <span class="text-xs text-zinc-500">pontos</span>
                     </div>
 
                     <!-- Plano -->
@@ -331,10 +288,7 @@
                         class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-white/[.08] bg-white/[.035] hover:bg-white/[.07] transition"
                     >
                         <i id="planIcon" class="fa-regular fa-star text-xs"></i>
-
-                        <span id="planText" class="text-xs font-semibold">
-                            FREE
-                        </span>
+                        <span id="planText" class="text-xs font-semibold">FREE</span>
                     </button>
 
                     <!-- Mobile pontos -->
@@ -343,13 +297,7 @@
                         class="sm:hidden flex items-center gap-1.5 px-2.5 py-2 rounded-xl glass-light"
                     >
                         <i class="fa-solid fa-bolt text-xs"></i>
-
-                        <span
-                            id="mobilePointsValue"
-                            class="text-xs font-bold"
-                        >
-                            200
-                        </span>
+                        <span id="mobilePointsValue" class="text-xs font-bold">200</span>
                     </div>
 
                     <!-- VIP -->
@@ -376,23 +324,15 @@
         </div>
     </header>
 
-
-    <!-- ================================
-         HERO
-    ================================= -->
-
+    <!-- HERO -->
     <main>
-
         <section class="relative overflow-hidden">
-
             <div class="absolute inset-0 pointer-events-none">
                 <div class="absolute left-1/2 -translate-x-1/2 -top-40 w-[650px] h-[650px] rounded-full bg-white/[.025] blur-3xl"></div>
             </div>
 
             <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-12">
-
                 <div class="text-center">
-
                     <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[.08] bg-white/[.025] text-[11px] font-semibold text-zinc-400 mb-6">
                         <span class="pulse-dot"></span>
                         Inteligência artificial para seus vídeos
@@ -400,33 +340,21 @@
 
                     <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-.045em] leading-[.98]">
                         Transforme vídeos em
-                        <span class="gradient-text">
-                            cortes virais.
-                        </span>
+                        <span class="gradient-text">cortes virais.</span>
                     </h1>
 
                     <p class="max-w-2xl mx-auto mt-6 text-zinc-400 text-sm sm:text-base leading-7">
                         Cole o link de um vídeo do YouTube e deixe a IA encontrar
                         automaticamente os melhores momentos para você.
                     </p>
-
                 </div>
 
-
-                <!-- ================================
-                     INPUT
-                ================================= -->
-
+                <!-- INPUT -->
                 <div class="max-w-3xl mx-auto mt-10">
-
                     <div class="glass rounded-2xl p-2 sm:p-3 shadow-2xl">
-
                         <div class="flex flex-col sm:flex-row gap-2">
-
                             <div class="relative flex-1">
-
                                 <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-
                                 <input
                                     id="videoUrl"
                                     type="url"
@@ -436,7 +364,6 @@
                                     class="input-dark w-full rounded-xl h-14 pl-11 pr-4 text-sm"
                                     onkeydown="if(event.key==='Enter') gerarCortes()"
                                 >
-
                             </div>
 
                             <button
@@ -447,713 +374,269 @@
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                                 <span>Gerar cortes</span>
                             </button>
-
                         </div>
-
                     </div>
 
                     <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bolt"></i>
-                            Análise com IA
-                        </span>
-
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-scissors"></i>
-                            Cortes automáticos
-                        </span>
-
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-download"></i>
-                            MP4
-                        </span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise com IA</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cortes automáticos</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> MP4</span>
                     </div>
-
                 </div>
-
             </div>
         </section>
 
-
-        <!-- ================================
-             LOADING
-        ================================= -->
-
-        <section
-            id="loadingArea"
-            class="hidden max-w-3xl mx-auto px-4 pb-10"
-        >
-
+        <!-- LOADING -->
+        <section id="loadingArea" class="hidden max-w-3xl mx-auto px-4 pb-10">
             <div class="glass rounded-2xl p-6 text-center">
-
-                <div class="flex justify-center mb-4">
-                    <div class="loader-light"></div>
-                </div>
-
-                <h3 class="font-bold text-base">
-                    A IA está analisando o vídeo
-                </h3>
-
-                <p
-                    id="loadingText"
-                    class="text-sm text-zinc-500 mt-2"
-                >
-                    Procurando os melhores momentos...
-                </p>
-
+                <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
+                <h3 class="font-bold text-base">A IA está analisando o vídeo</h3>
+                <p id="loadingText" class="text-sm text-zinc-500 mt-2">Procurando os melhores momentos...</p>
                 <div class="w-full h-1 rounded-full bg-white/[.05] mt-5 overflow-hidden">
-                    <div
-                        id="loadingBar"
-                        class="h-full bg-white rounded-full"
-                        style="width: 15%; transition: width 1s ease"
-                    ></div>
+                    <div id="loadingBar" class="h-full bg-white rounded-full" style="width: 15%; transition: width 1s ease"></div>
                 </div>
-
             </div>
-
         </section>
 
-
-        <!-- ================================
-             ERROR
-        ================================= -->
-
-        <section
-            id="errorArea"
-            class="hidden max-w-3xl mx-auto px-4 pb-10"
-        >
+        <!-- ERROR -->
+        <section id="errorArea" class="hidden max-w-3xl mx-auto px-4 pb-10">
             <div class="rounded-2xl border status-error p-5">
-
                 <div class="flex gap-4">
-
                     <div class="w-10 h-10 shrink-0 rounded-xl bg-white/[.04] flex items-center justify-center">
                         <i class="fa-solid fa-triangle-exclamation text-zinc-300"></i>
                     </div>
-
                     <div class="min-w-0">
-                        <h3 class="font-bold text-sm">
-                            Não foi possível concluir
-                        </h3>
-
-                        <p
-                            id="errorText"
-                            class="text-sm text-zinc-500 mt-1 leading-6"
-                        >
-                            Ocorreu um erro.
-                        </p>
-
-                        <button
-                            onclick="fecharErro()"
-                            class="mt-3 text-xs font-semibold text-white hover:underline"
-                        >
-                            Tentar novamente
-                        </button>
+                        <h3 class="font-bold text-sm">Não foi possível concluir</h3>
+                        <p id="errorText" class="text-sm text-zinc-500 mt-1 leading-6">Ocorreu um erro.</p>
+                        <button onclick="fecharErro()" class="mt-3 text-xs font-semibold text-white hover:underline">Tentar novamente</button>
                     </div>
-
                 </div>
-
             </div>
         </section>
 
-
-        <!-- ================================
-             RESULTADOS
-        ================================= -->
-
-        <section
-            id="resultados"
-            class="hidden max-w-6xl mx-auto px-4 sm:px-6 pb-20"
-        >
-
+        <!-- RESULTADOS -->
+        <section id="resultados" class="hidden max-w-6xl mx-auto px-4 sm:px-6 pb-20">
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-
                 <div>
                     <div class="flex items-center gap-2 mb-2">
                         <span class="w-2 h-2 rounded-full bg-white"></span>
-
-                        <span class="text-[11px] uppercase tracking-[.18em] text-zinc-500 font-bold">
-                            Resultado da análise
-                        </span>
+                        <span class="text-[11px] uppercase tracking-[.18em] text-zinc-500 font-bold">Resultado da análise</span>
                     </div>
-
-                    <h2 class="text-2xl font-black tracking-tight">
-                        Seus melhores cortes
-                    </h2>
-
-                    <p
-                        id="resultadoSubtitulo"
-                        class="text-sm text-zinc-500 mt-1"
-                    >
-                        A IA encontrou estes momentos.
-                    </p>
+                    <h2 class="text-2xl font-black tracking-tight">Seus melhores cortes</h2>
+                    <p id="resultadoSubtitulo" class="text-sm text-zinc-500 mt-1">A IA encontrou estes momentos.</p>
                 </div>
 
-                <button
-                    onclick="novoVideo()"
-                    class="btn-dark rounded-xl px-4 py-2.5 text-xs font-semibold self-start sm:self-auto"
-                >
-                    <i class="fa-solid fa-plus mr-1.5"></i>
-                    Novo vídeo
+                <button onclick="novoVideo()" class="btn-dark rounded-xl px-4 py-2.5 text-xs font-semibold self-start sm:self-auto">
+                    <i class="fa-solid fa-plus mr-1.5"></i> Novo vídeo
                 </button>
-
             </div>
 
-            <div
-                id="cardsContainer"
-                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            ></div>
-
+            <div id="cardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </section>
 
-
-        <!-- ================================
-             FEATURES
-        ================================= -->
-
+        <!-- FEATURES -->
         <section class="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
                 <div class="card rounded-2xl p-6">
-                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
-                        <i class="fa-solid fa-brain text-sm"></i>
-                    </div>
-
-                    <h3 class="font-bold">
-                        IA que entende o vídeo
-                    </h3>
-
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">
-                        A inteligência artificial analisa o conteúdo e identifica
-                        momentos com maior potencial de retenção.
-                    </p>
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-brain text-sm"></i></div>
+                    <h3 class="font-bold">IA que entende o vídeo</h3>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">A inteligência artificial analisa o conteúdo e identifica momentos com maior potencial de retenção.</p>
                 </div>
-
                 <div class="card rounded-2xl p-6">
-                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
-                        <i class="fa-solid fa-scissors text-sm"></i>
-                    </div>
-
-                    <h3 class="font-bold">
-                        Corte automático
-                    </h3>
-
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">
-                        Escolha o momento e gere seu arquivo MP4 diretamente pelo
-                        ClipForge.
-                    </p>
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-scissors text-sm"></i></div>
+                    <h3 class="font-bold">Corte automático</h3>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">Escolha o momento e gere seu arquivo MP4 diretamente pelo ClipForge.</p>
                 </div>
-
                 <div class="card rounded-2xl p-6">
-                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
-                        <i class="fa-solid fa-crown text-sm"></i>
-                    </div>
-
-                    <h3 class="font-bold">
-                        Plano VIP
-                    </h3>
-
-                    <p class="text-sm text-zinc-500 leading-6 mt-2">
-                        Mais liberdade para gerar e baixar seus cortes.
-                    </p>
+                    <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5"><i class="fa-solid fa-crown text-sm"></i></div>
+                    <h3 class="font-bold">Plano VIP</h3>
+                    <p class="text-sm text-zinc-500 leading-6 mt-2">Mais liberdade para gerar e baixar seus cortes sem limite de pontos.</p>
                 </div>
-
             </div>
-
         </section>
-
     </main>
 
-
-    <!-- ================================
-         FOOTER
-    ================================= -->
-
+    <!-- FOOTER -->
     <footer class="border-t border-white/[.06]">
-
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-
             <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-
-                <div class="text-xs text-zinc-600">
-                    © <span id="anoAtual"></span> ClipForge Pro
-                </div>
-
+                <div class="text-xs text-zinc-600">© <span id="anoAtual"></span> ClipForge Pro</div>
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v4.0</span>
+                    <span>v13.0.7</span>
                 </div>
-
             </div>
-
         </div>
-
     </footer>
 
-
-    <!-- ================================
-         MODAL PLANOS
-    ================================= -->
-
-    <div
-        id="planModal"
-        class="hidden fixed inset-0 z-50 modal-backdrop p-4 overflow-y-auto"
-    >
-
+    <!-- MODAL PLANOS -->
+    <div id="planModal" class="hidden fixed inset-0 z-50 modal-backdrop p-4 overflow-y-auto">
         <div class="min-h-full flex items-center justify-center">
-
             <div class="modal rounded-3xl w-full max-w-3xl p-5 sm:p-7 slide-up">
-
                 <div class="flex items-start justify-between gap-4 mb-6">
-
                     <div>
-                        <div class="text-[10px] uppercase tracking-[.2em] text-zinc-500 font-bold">
-                            ClipForge Pro
-                        </div>
-
-                        <h2 class="text-2xl font-black mt-1">
-                            Escolha seu plano
-                        </h2>
-
-                        <p class="text-sm text-zinc-500 mt-1">
-                            Tenha mais liberdade para criar seus cortes.
-                        </p>
+                        <div class="text-[10px] uppercase tracking-[.2em] text-zinc-500 font-bold">ClipForge Pro</div>
+                        <h2 class="text-2xl font-black mt-1">Escolha seu plano</h2>
+                        <p class="text-sm text-zinc-500 mt-1">Tenha mais liberdade para criar seus cortes.</p>
                     </div>
-
-                    <button
-                        onclick="fecharPlanos()"
-                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center text-zinc-400"
-                    >
+                    <button onclick="fecharPlanos()" class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center text-zinc-400">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-
                 </div>
-
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                    <!-- FREE -->
                     <div class="rounded-2xl border border-white/[.08] bg-white/[.025] p-6">
-
                         <div class="flex items-center justify-between">
-                            <h3 class="font-bold">
-                                Free
-                            </h3>
-
-                            <span class="text-[10px] uppercase tracking-widest text-zinc-500">
-                                Atual
-                            </span>
+                            <h3 class="font-bold">Free</h3>
+                            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Atual</span>
                         </div>
-
                         <div class="mt-5">
-                            <span class="text-4xl font-black">
-                                200
-                            </span>
-
-                            <span class="text-sm text-zinc-500">
-                                pontos iniciais
-                            </span>
+                            <span class="text-4xl font-black">200</span>
+                            <span class="text-sm text-zinc-500">pontos</span>
                         </div>
-
-                        <div class="text-xs text-zinc-500 mt-2">
-                            +50 pontos diariamente
-                        </div>
-
+                        <div class="text-xs text-zinc-500 mt-2">+50 pontos diariamente</div>
                         <div class="space-y-3 mt-6 text-sm text-zinc-400">
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                Análise com inteligência artificial
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                Geração de cortes
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                50 pontos por download
-                            </div>
-
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> Análise com IA</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> Geração de cortes</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> 50 pontos por download</div>
                         </div>
-
                     </div>
 
-
-                    <!-- VIP -->
                     <div class="rounded-2xl border border-white/[.14] bg-white/[.045] p-6 relative overflow-hidden">
-
-                        <div class="absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl bg-white text-black text-[10px] font-black uppercase tracking-wider">
-                            VIP
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-crown text-sm"></i>
-
-                            <h3 class="font-bold">
-                                ClipForge VIP
-                            </h3>
-                        </div>
-
+                        <div class="absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl bg-white text-black text-[10px] font-black uppercase tracking-wider">VIP</div>
+                        <div class="flex items-center gap-2"><i class="fa-solid fa-crown text-sm"></i><h3 class="font-bold">ClipForge VIP</h3></div>
                         <div class="mt-5">
-                            <span class="text-4xl font-black">
-                                R$ 19,90
-                            </span>
-
-                            <span class="text-sm text-zinc-500">
-                                / mês
-                            </span>
+                            <span class="text-4xl font-black">R$ 19,90</span>
+                            <span class="text-sm text-zinc-500">/ mês</span>
                         </div>
-
                         <div class="space-y-3 mt-6 text-sm text-zinc-400">
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Downloads sem descontar pontos
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Acesso VIP validado pelo servidor
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Experiência sem limites de pontos
-                            </div>
-
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Downloads sem descontar pontos</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Acesso VIP validado pelo servidor</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Experiência sem limites de pontos</div>
                         </div>
-
-                        <button
-                            id="btnComprarVip"
-                            onclick="criarPagamento()"
-                            class="btn-main w-full h-12 rounded-xl font-bold text-sm mt-7"
-                        >
-                            <i class="fa-solid fa-bolt mr-2"></i>
-                            Ativar VIP
+                        <button id="btnComprarVip" onclick="criarPagamento()" class="btn-main w-full h-12 rounded-xl font-bold text-sm mt-7">
+                            <i class="fa-solid fa-bolt mr-2"></i> Ativar VIP
                         </button>
-
                     </div>
-
                 </div>
-
-                <p class="text-[10px] text-zinc-600 text-center mt-5">
-                    O pagamento é processado pelo Mercado Pago.
-                </p>
-
             </div>
-
         </div>
     </div>
 
-
-    <!-- ================================
-         MODAL PIX
-    ================================= -->
-
-    <div
-        id="pixModal"
-        class="hidden fixed inset-0 z-[60] modal-backdrop p-4 overflow-y-auto"
-    >
-
+    <!-- MODAL PIX -->
+    <div id="pixModal" class="hidden fixed inset-0 z-[60] modal-backdrop p-4 overflow-y-auto">
         <div class="min-h-full flex items-center justify-center">
-
             <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
-
                 <div class="flex items-center justify-between mb-6">
-
                     <div>
-                        <h2 class="font-black text-xl">
-                            Pagamento Pix
-                        </h2>
-
-                        <p class="text-xs text-zinc-500 mt-1">
-                            Ative seu plano ClipForge VIP.
-                        </p>
+                        <h2 class="font-black text-xl">Pagamento Pix</h2>
+                        <p class="text-xs text-zinc-500 mt-1">Ative seu plano ClipForge VIP.</p>
                     </div>
-
-                    <button
-                        onclick="fecharPix()"
-                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
-                    >
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-
+                    <button onclick="fecharPix()" class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-
 
                 <div class="text-center">
-
-                    <div
-                        id="pixLoading"
-                        class="py-10"
-                    >
-                        <div class="flex justify-center mb-4">
-                            <div class="loader-light"></div>
-                        </div>
-
-                        <p class="text-sm text-zinc-400">
-                            Gerando seu Pix...
-                        </p>
+                    <div id="pixLoading" class="py-10">
+                        <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
+                        <p class="text-sm text-zinc-400">Gerando seu Pix...</p>
                     </div>
 
-
-                    <div
-                        id="pixContent"
-                        class="hidden"
-                    >
-
-                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[.05] border border-white/[.08] text-xs text-zinc-400 mb-5">
-                            <i class="fa-solid fa-shield-halved"></i>
-                            Pagamento seguro
-                        </div>
-
+                    <div id="pixContent" class="hidden">
                         <div class="qr-box inline-block">
-                            <img
-                                id="pixQrImage"
-                                src=""
-                                alt="QR Code Pix"
-                                class="w-52 h-52 sm:w-56 sm:h-56 object-contain"
-                            >
+                            <img id="pixQrImage" src="" alt="QR Code Pix" class="w-52 h-52 sm:w-56 sm:h-56 object-contain">
                         </div>
-
                         <div class="mt-5">
-
-                            <div class="text-xs text-zinc-500">
-                                Valor
-                            </div>
-
-                            <div class="text-2xl font-black mt-1">
-                                R$ 19,90
-                            </div>
-
+                            <div class="text-xs text-zinc-500">Valor</div>
+                            <div class="text-2xl font-black mt-1">R$ 19,90</div>
                         </div>
-
-                        <button
-                            onclick="copiarPix()"
-                            class="btn-dark w-full h-12 rounded-xl mt-5 text-sm font-semibold"
-                        >
-                            <i class="fa-regular fa-copy mr-2"></i>
-                            Copiar código Pix
+                        <button onclick="copiarPix()" class="btn-dark w-full h-12 rounded-xl mt-5 text-sm font-semibold">
+                            <i class="fa-regular fa-copy mr-2"></i> Copiar código Pix
                         </button>
-
-                        <a
-                            id="pixTicketLink"
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="block text-xs text-zinc-500 hover:text-white mt-4 transition"
-                        >
+                        <a id="pixTicketLink" href="#" target="_blank" rel="noopener noreferrer" class="block text-xs text-zinc-500 hover:text-white mt-4 transition">
                             Abrir pagamento no Mercado Pago
                         </a>
-
-                        <div
-                            id="pixStatus"
-                            class="status-loading rounded-xl border p-4 mt-5 text-left"
-                        >
-
+                        <div id="pixStatus" class="status-loading rounded-xl border p-4 mt-5 text-left">
                             <div class="flex items-center gap-3">
-
                                 <div class="loader-light"></div>
-
                                 <div>
-                                    <div class="text-sm font-semibold">
-                                        Aguardando pagamento
-                                    </div>
-
-                                    <div class="text-xs text-zinc-600 mt-0.5">
-                                        Esta tela será atualizada automaticamente.
-                                    </div>
+                                    <div class="text-sm font-semibold">Aguardando pagamento</div>
+                                    <div class="text-xs text-zinc-600 mt-0.5">Atualização automática após confirmação.</div>
                                 </div>
-
                             </div>
-
                         </div>
-
                     </div>
-
                 </div>
-
             </div>
-
         </div>
     </div>
 
-
-    <!-- ================================
-         MODAL ADMIN
-    ================================= -->
-
-    <div
-        id="adminModal"
-        class="hidden fixed inset-0 z-[70] modal-backdrop p-4 overflow-y-auto"
-    >
-
+    <!-- MODAL ADMIN -->
+    <div id="adminModal" class="hidden fixed inset-0 z-[70] modal-backdrop p-4 overflow-y-auto">
         <div class="min-h-full flex items-center justify-center">
-
             <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
-
                 <div class="flex items-start justify-between mb-6">
-
                     <div>
-                        <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-4">
-                            <i class="fa-solid fa-lock text-sm"></i>
-                        </div>
-
-                        <h2 class="font-black text-xl">
-                            Área administrativa
-                        </h2>
-
-                        <p class="text-xs text-zinc-500 mt-1">
-                            Acesso restrito ao administrador.
-                        </p>
+                        <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-4"><i class="fa-solid fa-lock text-sm"></i></div>
+                        <h2 class="font-black text-xl">Área administrativa</h2>
                     </div>
-
-                    <button
-                        onclick="fecharAdmin()"
-                        class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
-                    >
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-
+                    <button onclick="fecharAdmin()" class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-
 
                 <div id="adminLoginArea">
-
-                    <label class="text-xs text-zinc-500">
-                        Senha administrativa
-                    </label>
-
+                    <label class="text-xs text-zinc-500">Senha administrativa</label>
                     <div class="relative mt-2">
-
-                        <input
-                            id="adminPassword"
-                            type="password"
-                            class="input-dark w-full h-12 rounded-xl px-4 pr-12 text-sm"
-                            placeholder="Digite sua senha"
-                            onkeydown="if(event.key==='Enter') fazerLoginAdmin()"
-                        >
-
-                        <button
-                            onclick="toggleAdminPassword()"
-                            class="absolute right-0 top-0 h-12 w-12 text-zinc-500"
-                        >
-                            <i id="adminEye" class="fa-regular fa-eye"></i>
-                        </button>
-
+                        <input id="adminPassword" type="password" class="input-dark w-full h-12 rounded-xl px-4 pr-12 text-sm" placeholder="Digite sua senha" onkeydown="if(event.key==='Enter') fazerLoginAdmin()">
+                        <button onclick="toggleAdminPassword()" class="absolute right-0 top-0 h-12 w-12 text-zinc-500"><i id="adminEye" class="fa-regular fa-eye"></i></button>
                     </div>
-
-                    <button
-                        id="btnAdminLogin"
-                        onclick="fazerLoginAdmin()"
-                        class="btn-main w-full h-12 rounded-xl mt-4 text-sm font-bold"
-                    >
-                        Entrar
-                    </button>
-
-                    <p
-                        id="adminLoginError"
-                        class="hidden text-xs text-zinc-500 mt-3 text-center"
-                    ></p>
-
+                    <button id="btnAdminLogin" onclick="fazerLoginAdmin()" class="btn-main w-full h-12 rounded-xl mt-4 text-sm font-bold">Entrar</button>
+                    <p id="adminLoginError" class="hidden text-xs text-zinc-500 mt-3 text-center"></p>
                 </div>
 
-
-                <div
-                    id="adminDashboard"
-                    class="hidden"
-                >
-
+                <div id="adminDashboard" class="hidden">
                     <div class="flex items-center justify-between mb-5">
-
-                        <div>
-                            <div class="text-xs text-zinc-500">
-                                Dashboard
-                            </div>
-
-                            <div class="font-bold mt-1">
-                                Visão geral
-                            </div>
-                        </div>
-
-                        <button
-                            onclick="logoutAdmin()"
-                            class="text-xs text-zinc-500 hover:text-white"
-                        >
-                            Sair
-                        </button>
-
+                        <div class="font-bold">Visão geral</div>
+                        <button onclick="logoutAdmin()" class="text-xs text-zinc-500 hover:text-white">Sair</button>
                     </div>
-
-                    <div
-                        id="adminStats"
-                        class="grid grid-cols-2 gap-3"
-                    ></div>
-
-                    <button
-                        onclick="carregarDashboard()"
-                        class="btn-dark w-full h-11 rounded-xl mt-4 text-xs font-semibold"
-                    >
-                        <i class="fa-solid fa-rotate mr-2"></i>
-                        Atualizar dados
+                    <div id="adminStats" class="grid grid-cols-2 gap-3"></div>
+                    <button onclick="carregarDashboard()" class="btn-dark w-full h-11 rounded-xl mt-4 text-xs font-semibold">
+                        <i class="fa-solid fa-rotate mr-2"></i> Atualizar dados
                     </button>
-
                 </div>
-
             </div>
-
         </div>
     </div>
 
-
-    <!-- ================================
-         TOAST
-    ================================= -->
-
-    <div
-        id="toastContainer"
-        class="fixed bottom-5 right-5 z-[100] space-y-2 pointer-events-none max-w-[calc(100vw-40px)]"
-    ></div>
-
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] space-y-2 pointer-events-none max-w-[calc(100vw-40px)]"></div>
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V4.0
-   FRONTEND
+   CLIPFORGE PRO V13.0.7 — FRONTEND INTEGRADO
 ========================================================= */
 
 const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
 
-const SESSION_STORAGE_KEY = "clipforge_session_v4";
-const ADMIN_STORAGE_KEY = "clipforge_admin_session_v4";
+const SESSION_STORAGE_KEY = "clipforge_session_v13";
+const ADMIN_STORAGE_KEY = "clipforge_admin_session_v13";
 
 let sessionToken = localStorage.getItem(SESSION_STORAGE_KEY) || "";
 let adminToken = localStorage.getItem(ADMIN_STORAGE_KEY) || "";
 
 let usuario = {
-    userId: null,
-    pontos: 0,
+    userId: localStorage.getItem("clipforge_uid") || null,
+    pontos: 200,
     isVip: false
 };
 
 let videoAtualId = "";
+let videoAtualUrl = "";
 let clipsAtuais = [];
 let pagamentoAtual = null;
 let pollingPix = null;
 let loadingTimer = null;
 
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function $(id) {
-    return document.getElementById(id);
-}
-
+function $(id) { return document.getElementById(id); }
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -1164,2162 +647,558 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
-
 function formatarTempo(segundos) {
-
     segundos = Number(segundos) || 0;
-
     const minutos = Math.floor(segundos / 60);
     const secs = Math.floor(segundos % 60);
-
     return `${String(minutos).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-
-function normalizarNumero(value, fallback = 0) {
-
-    const n = Number(value);
-
-    return Number.isFinite(n) ? n : fallback;
-}
-
-
 function mostrarToast(mensagem, tipo = "normal") {
-
     const container = $("toastContainer");
-
     const toast = document.createElement("div");
-
     let icon = "fa-circle-info";
+    if (tipo === "success") icon = "fa-circle-check";
+    if (tipo === "error") icon = "fa-circle-exclamation";
 
-    if (tipo === "success") {
-        icon = "fa-circle-check";
-    }
-
-    if (tipo === "error") {
-        icon = "fa-circle-exclamation";
-    }
-
-    toast.className =
-        "toast pointer-events-auto glass rounded-xl px-4 py-3 flex items-center gap-3 text-sm shadow-2xl";
-
-    toast.innerHTML = `
-        <i class="fa-solid ${icon} text-zinc-300"></i>
-        <span class="text-zinc-300">${escapeHtml(mensagem)}</span>
-    `;
-
+    toast.className = "toast pointer-events-auto glass rounded-xl px-4 py-3 flex items-center gap-3 text-sm shadow-2xl";
+    toast.innerHTML = `<i class="fa-solid ${icon} text-zinc-300"></i><span class="text-zinc-300">${escapeHtml(mensagem)}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
-
         toast.style.opacity = "0";
         toast.style.transform = "translateY(8px)";
-
         setTimeout(() => toast.remove(), 250);
-
     }, 3200);
 }
 
+function authHeaders() {
+    const headers = {};
+    if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
+    if (usuario.userId) headers["X-User-Id"] = usuario.userId;
+    return headers;
+}
 
 async function fetchJson(url, options = {}) {
-
     const response = await fetch(url, {
         ...options,
         headers: {
-            ...(options.headers || {}),
-            "Accept": "application/json"
+            "Accept": "application/json",
+            ...authHeaders(),
+            ...(options.headers || {})
         }
     });
 
     let data = null;
-
-    try {
-        data = await response.json();
-    } catch {
-        data = null;
-    }
+    try { data = await response.json(); } catch { data = null; }
 
     if (!response.ok) {
-
-        const error = new Error(
-            data?.error ||
-            data?.message ||
-            `Erro HTTP ${response.status}`
-        );
-
+        const error = new Error(data?.error || data?.message || `Erro HTTP ${response.status}`);
         error.status = response.status;
         error.data = data;
-
         throw error;
     }
-
     return data;
 }
 
-
-function authHeaders() {
-
-    if (!sessionToken) {
-        return {};
-    }
-
-    return {
-        Authorization: `Bearer ${sessionToken}`
-    };
-}
-
-
 /* =========================================================
-   SESSÃO
+   GERENCIAMENTO DE SESSÃO
 ========================================================= */
 
 async function iniciarSessao() {
-
     try {
+        const payload = {};
+        if (usuario.userId) payload.userId = usuario.userId;
 
-        const headers = {
-            "Content-Type": "application/json"
-        };
-
-        if (sessionToken) {
-            headers.Authorization = `Bearer ${sessionToken}`;
-        }
-
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/session`,
-            {
-                method: "POST",
-                headers
-            }
-        );
+        const data = await fetchJson(`${BACKEND_URL}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
 
         if (data.token) {
             sessionToken = data.token;
-            localStorage.setItem(
-                SESSION_STORAGE_KEY,
-                sessionToken
-            );
+            localStorage.setItem(SESSION_STORAGE_KEY, sessionToken);
         }
 
-        aplicarUsuario(data);
+        if (data.user) {
+            usuario.userId = data.user.id;
+            localStorage.setItem("clipforge_uid", usuario.userId);
+            usuario.pontos = data.user.points ?? 200;
+            usuario.isVip = Boolean(data.user.vip);
+        }
 
-        await atualizarUsuario();
-
+        atualizarInterfaceUsuario();
     } catch (error) {
-
-        console.error("Erro ao iniciar sessão:", error);
-
-        sessionToken = "";
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-
-        try {
-
-            const data = await fetchJson(
-                `${BACKEND_URL}/api/session`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    }
-                }
-            );
-
-            if (data.token) {
-
-                sessionToken = data.token;
-
-                localStorage.setItem(
-                    SESSION_STORAGE_KEY,
-                    sessionToken
-                );
-            }
-
-            aplicarUsuario(data);
-
-        } catch (secondError) {
-
-            console.error(
-                "Não foi possível criar sessão:",
-                secondError
-            );
-
-            mostrarToast(
-                "Não foi possível conectar ao servidor.",
-                "error"
-            );
-        }
+        console.warn("Aviso na conexão com o servidor:", error.message);
+        // Fallback gracioso para manter interface utilizável
+        atualizarInterfaceUsuario();
     }
 }
-
-
-function aplicarUsuario(data) {
-
-    if (!data) return;
-
-    usuario.userId =
-        data.userId ??
-        data.user?.userId ??
-        usuario.userId;
-
-    usuario.pontos = normalizarNumero(
-        data.pontos ??
-        data.points ??
-        data.user?.pontos ??
-        data.user?.points ??
-        usuario.pontos,
-        usuario.pontos
-    );
-
-    usuario.isVip = Boolean(
-        data.isVip ??
-        data.vip ??
-        data.user?.isVip ??
-        data.user?.vip ??
-        usuario.isVip
-    );
-
-    atualizarInterfaceUsuario();
-}
-
 
 async function atualizarUsuario() {
-
     if (!sessionToken) return;
-
     try {
-
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/me`,
-            {
-                method: "GET",
-                headers: {
-                    ...authHeaders()
-                }
-            }
-        );
-
-        aplicarUsuario(data);
-
-    } catch (error) {
-
-        if (error.status === 401) {
-
-            localStorage.removeItem(SESSION_STORAGE_KEY);
-
-            sessionToken = "";
-
-            await iniciarSessao();
-
-            return;
+        const data = await fetchJson(`${BACKEND_URL}/api/auth/me`, { method: "GET" });
+        if (data.user) {
+            usuario.pontos = data.user.points ?? usuario.pontos;
+            usuario.isVip = Boolean(data.user.vip);
+            atualizarInterfaceUsuario();
         }
-
-        console.error(
-            "Erro ao atualizar usuário:",
-            error
-        );
+    } catch (e) {
+        if (e.status === 401) {
+            sessionToken = "";
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            await iniciarSessao();
+        }
     }
 }
 
-
-/* =========================================================
-   INTERFACE DO USUÁRIO
-========================================================= */
-
 function atualizarInterfaceUsuario() {
-
-    const pontos = Math.max(
-        0,
-        Math.floor(usuario.pontos || 0)
-    );
-
+    const pontos = Math.max(0, Math.floor(usuario.pontos || 0));
     $("pointsValue").textContent = pontos;
     $("mobilePointsValue").textContent = pontos;
 
     if (usuario.isVip) {
-
         $("planText").textContent = "VIP";
-
-        $("planIcon").className =
-            "fa-solid fa-crown text-xs";
-
-        $("vipHeaderButton").innerHTML = `
-            <i class="fa-solid fa-crown text-[11px]"></i>
-            VIP ativo
-        `;
-
-        $("vipHeaderButton").classList.add(
-            "opacity-70"
-        );
-
+        $("planIcon").className = "fa-solid fa-crown text-xs";
+        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> VIP ativo`;
+        $("vipHeaderButton").classList.add("opacity-70");
     } else {
-
         $("planText").textContent = "FREE";
-
-        $("planIcon").className =
-            "fa-regular fa-star text-xs";
-
-        $("vipHeaderButton").innerHTML = `
-            <i class="fa-solid fa-crown text-[11px]"></i>
-            Seja VIP
-        `;
-
-        $("vipHeaderButton").classList.remove(
-            "opacity-70"
-        );
+        $("planIcon").className = "fa-regular fa-star text-xs";
+        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> Seja VIP`;
+        $("vipHeaderButton").classList.remove("opacity-70");
     }
 }
-
 
 /* =========================================================
-   PLANOS
-========================================================= */
-
-function abrirPlanos() {
-
-    $("planModal").classList.remove("hidden");
-
-    document.body.classList.add("overflow-hidden");
-
-    if (usuario.isVip) {
-
-        $("btnComprarVip").disabled = true;
-
-        $("btnComprarVip").innerHTML = `
-            <i class="fa-solid fa-check mr-2"></i>
-            VIP já está ativo
-        `;
-
-        $("btnComprarVip").classList.add(
-            "opacity-60",
-            "cursor-not-allowed"
-        );
-
-    } else {
-
-        $("btnComprarVip").disabled = false;
-
-        $("btnComprarVip").innerHTML = `
-            <i class="fa-solid fa-bolt mr-2"></i>
-            Ativar VIP
-        `;
-
-        $("btnComprarVip").classList.remove(
-            "opacity-60",
-            "cursor-not-allowed"
-        );
-    }
-}
-
-
-function fecharPlanos() {
-
-    $("planModal").classList.add("hidden");
-
-    if (
-        $("pixModal").classList.contains("hidden") &&
-        $("adminModal").classList.contains("hidden")
-    ) {
-        document.body.classList.remove("overflow-hidden");
-    }
-}
-
-
-/* =========================================================
-   PIX
-========================================================= */
-
-async function criarPagamento() {
-
-    if (!sessionToken) {
-
-        mostrarToast(
-            "Sua sessão ainda não está pronta.",
-            "error"
-        );
-
-        await iniciarSessao();
-
-        if (!sessionToken) return;
-    }
-
-    if (usuario.isVip) {
-
-        mostrarToast(
-            "Seu VIP já está ativo.",
-            "success"
-        );
-
-        return;
-    }
-
-    $("planModal").classList.add("hidden");
-
-    $("pixModal").classList.remove("hidden");
-
-    document.body.classList.add("overflow-hidden");
-
-    $("pixLoading").classList.remove("hidden");
-    $("pixContent").classList.add("hidden");
-
-    try {
-
-        /*
-         * O backend agora define o preço e o plano.
-         * Não enviamos valor ou plano para evitar
-         * manipulação pelo navegador.
-         */
-
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/pix/criar`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...authHeaders()
-                },
-                body: JSON.stringify({})
-            }
-        );
-
-        pagamentoAtual = {
-            id:
-                data.id ??
-                data.paymentId ??
-                data.payment_id,
-
-            qrCode:
-                data.qr_code ??
-                data.qrCode ??
-                data.qr_code_text ??
-                data.qrCodeText ??
-                "",
-
-            qrCodeBase64:
-                data.qr_code_base64 ??
-                data.qrCodeBase64 ??
-                "",
-
-            ticketUrl:
-                data.ticket_url ??
-                data.ticketUrl ??
-                ""
-        };
-
-        if (!pagamentoAtual.id) {
-            throw new Error(
-                "O servidor não retornou o ID do pagamento."
-            );
-        }
-
-        renderizarPix();
-
-        iniciarPollingPix();
-
-    } catch (error) {
-
-        console.error(
-            "Erro ao criar Pix:",
-            error
-        );
-
-        $("pixLoading").innerHTML = `
-            <div class="w-12 h-12 rounded-2xl bg-white/[.05] flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-triangle-exclamation text-zinc-300"></i>
-            </div>
-
-            <div class="font-semibold">
-                Não foi possível gerar o Pix
-            </div>
-
-            <p class="text-xs text-zinc-600 mt-2">
-                ${escapeHtml(error.message)}
-            </p>
-
-            <button
-                onclick="criarPagamento()"
-                class="btn-dark rounded-xl px-5 py-2.5 text-xs font-semibold mt-5"
-            >
-                Tentar novamente
-            </button>
-        `;
-    }
-}
-
-
-function renderizarPix() {
-
-    $("pixLoading").classList.add("hidden");
-
-    $("pixContent").classList.remove("hidden");
-
-    const qrBase64 = pagamentoAtual.qrCodeBase64;
-
-    const qrCode = pagamentoAtual.qrCode;
-
-    if (qrBase64) {
-
-        let src = qrBase64;
-
-        if (
-            !qrBase64.startsWith("data:image") &&
-            !qrBase64.startsWith("http")
-        ) {
-            src = `data:image/png;base64,${qrBase64}`;
-        }
-
-        $("pixQrImage").src = src;
-
-    } else if (qrCode) {
-
-        $("pixQrImage").src =
-            `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
-
-    } else {
-
-        $("pixQrImage").alt =
-            "QR Code não disponível";
-
-        $("pixQrImage").src = "";
-    }
-
-    if (pagamentoAtual.ticketUrl) {
-
-        $("pixTicketLink").href =
-            pagamentoAtual.ticketUrl;
-
-        $("pixTicketLink").classList.remove(
-            "hidden"
-        );
-
-    } else {
-
-        $("pixTicketLink").classList.add(
-            "hidden"
-        );
-    }
-
-    atualizarStatusPix(
-        "Aguardando pagamento",
-        "Faça o pagamento via Pix. Esta tela será atualizada automaticamente.",
-        "loading"
-    );
-}
-
-
-async function copiarPix() {
-
-    const codigo = pagamentoAtual?.qrCode;
-
-    if (!codigo) {
-
-        mostrarToast(
-            "Código Pix indisponível.",
-            "error"
-        );
-
-        return;
-    }
-
-    try {
-
-        await navigator.clipboard.writeText(
-            codigo
-        );
-
-        mostrarToast(
-            "Código Pix copiado!",
-            "success"
-        );
-
-    } catch {
-
-        const textarea =
-            document.createElement("textarea");
-
-        textarea.value = codigo;
-
-        document.body.appendChild(textarea);
-
-        textarea.select();
-
-        document.execCommand("copy");
-
-        textarea.remove();
-
-        mostrarToast(
-            "Código Pix copiado!",
-            "success"
-        );
-    }
-}
-
-
-function iniciarPollingPix() {
-
-    if (pollingPix) {
-        clearInterval(pollingPix);
-    }
-
-    consultarStatusPix();
-
-    pollingPix = setInterval(
-        consultarStatusPix,
-        3500
-    );
-}
-
-
-async function consultarStatusPix() {
-
-    if (!pagamentoAtual?.id) return;
-
-    try {
-
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/pix/status/${encodeURIComponent(
-                pagamentoAtual.id
-            )}`,
-            {
-                method: "GET",
-                headers: {
-                    ...authHeaders()
-                }
-            }
-        );
-
-        const status = String(
-            data.status ??
-            data.payment?.status ??
-            ""
-        ).toLowerCase();
-
-        if (
-            status === "approved" ||
-            status === "aprovado"
-        ) {
-
-            if (pollingPix) {
-
-                clearInterval(
-                    pollingPix
-                );
-
-                pollingPix = null;
-            }
-
-            atualizarStatusPix(
-                "Pagamento aprovado!",
-                "Seu plano VIP foi ativado no servidor.",
-                "success"
-            );
-
-            aplicarUsuario({
-                ...data,
-                isVip: true,
-                vip: true
-            });
-
-            await atualizarUsuario();
-
-            mostrarToast(
-                "VIP ativado com sucesso!",
-                "success"
-            );
-
-            setTimeout(() => {
-
-                fecharPix();
-
-                abrirPlanos();
-
-            }, 1800);
-
-            return;
-        }
-
-        if (
-            status === "rejected" ||
-            status === "cancelled" ||
-            status === "cancelado"
-        ) {
-
-            atualizarStatusPix(
-                "Pagamento não aprovado",
-                "O pagamento foi recusado ou cancelado.",
-                "error"
-            );
-
-            if (pollingPix) {
-
-                clearInterval(
-                    pollingPix
-                );
-
-                pollingPix = null;
-            }
-
-            return;
-        }
-
-        atualizarStatusPix(
-            "Aguardando pagamento",
-            "Ainda não recebemos a confirmação do Mercado Pago.",
-            "loading"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro ao consultar Pix:",
-            error
-        );
-
-        if (error.status === 401) {
-
-            await iniciarSessao();
-
-        }
-    }
-}
-
-
-function atualizarStatusPix(
-    titulo,
-    descricao,
-    tipo
-) {
-
-    const box = $("pixStatus");
-
-    box.className =
-        "rounded-xl border p-4 mt-5 text-left";
-
-    if (tipo === "success") {
-
-        box.classList.add(
-            "status-success"
-        );
-
-        box.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-white/[.06] flex items-center justify-center">
-                    <i class="fa-solid fa-check"></i>
-                </div>
-
-                <div>
-                    <div class="text-sm font-semibold">
-                        ${escapeHtml(titulo)}
-                    </div>
-
-                    <div class="text-xs text-zinc-500 mt-0.5">
-                        ${escapeHtml(descricao)}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        return;
-    }
-
-    if (tipo === "error") {
-
-        box.classList.add(
-            "status-error"
-        );
-
-        box.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-white/[.06] flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </div>
-
-                <div>
-                    <div class="text-sm font-semibold">
-                        ${escapeHtml(titulo)}
-                    </div>
-
-                    <div class="text-xs text-zinc-500 mt-0.5">
-                        ${escapeHtml(descricao)}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        return;
-    }
-
-    box.classList.add(
-        "status-loading"
-    );
-
-    box.innerHTML = `
-        <div class="flex items-center gap-3">
-
-            <div class="loader-light"></div>
-
-            <div>
-                <div class="text-sm font-semibold">
-                    ${escapeHtml(titulo)}
-                </div>
-
-                <div class="text-xs text-zinc-600 mt-0.5">
-                    ${escapeHtml(descricao)}
-                </div>
-            </div>
-
-        </div>
-    `;
-}
-
-
-function fecharPix() {
-
-    if (pollingPix) {
-
-        clearInterval(
-            pollingPix
-        );
-
-        pollingPix = null;
-    }
-
-    $("pixModal").classList.add("hidden");
-
-    if (
-        $("planModal").classList.contains("hidden") &&
-        $("adminModal").classList.contains("hidden")
-    ) {
-        document.body.classList.remove("overflow-hidden");
-    }
-}
-
-
-/* =========================================================
-   YOUTUBE
+   ANALISAR VÍDEO (GEMINI)
 ========================================================= */
 
 function extrairYouTubeId(url) {
-
     if (!url) return null;
-
     const value = String(url).trim();
-
     const patterns = [
-
         /(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i,
-
         /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i,
-
         /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i,
-
         /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i,
-
         /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i
     ];
-
-    for (const pattern of patterns) {
-
-        const match = value.match(pattern);
-
-        if (match) {
-            return match[1];
-        }
+    for (const p of patterns) {
+        const match = value.match(p);
+        if (match) return match[1];
     }
-
-    try {
-
-        const parsed = new URL(value);
-
-        const id =
-            parsed.searchParams.get("v");
-
-        if (
-            id &&
-            /^[A-Za-z0-9_-]{11}$/.test(id)
-        ) {
-            return id;
-        }
-
-    } catch {}
-
     return null;
 }
 
-
-/* =========================================================
-   GERAR CORTES
-========================================================= */
-
 async function gerarCortes() {
-
     const input = $("videoUrl");
-
     const url = input.value.trim();
-
     fecharErro();
 
     if (!url) {
-
-        mostrarErro(
-            "Cole o link de um vídeo do YouTube."
-        );
-
+        mostrarErro("Cole o link de um vídeo do YouTube.");
         input.focus();
-
         return;
     }
 
-    const videoId =
-        extrairYouTubeId(url);
-
+    const videoId = extrairYouTubeId(url);
     if (!videoId) {
-
-        mostrarErro(
-            "O link informado não parece ser um link válido do YouTube."
-        );
-
+        mostrarErro("O link informado não parece ser um link válido do YouTube.");
         input.focus();
-
         return;
-    }
-
-    if (!sessionToken) {
-
-        await iniciarSessao();
-
-        if (!sessionToken) {
-            return;
-        }
     }
 
     videoAtualId = videoId;
+    videoAtualUrl = url;
 
     $("resultados").classList.add("hidden");
-
     $("loadingArea").classList.remove("hidden");
-
     $("btnGerar").disabled = true;
-
-    $("btnGerar").innerHTML = `
-        <div class="loader"></div>
-        <span>Analisando...</span>
-    `;
+    $("btnGerar").innerHTML = `<div class="loader"></div><span>Analisando com IA...</span>`;
 
     iniciarAnimacaoLoading();
 
     try {
-
-        const controller =
-            new AbortController();
-
-        const timeout =
-            setTimeout(
-                () => controller.abort(),
-                10 * 60 * 1000
-            );
-
-        let data;
-
-        try {
-
-            data = await fetchJson(
-                `${BACKEND_URL}/api/analisar`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...authHeaders()
-                    },
-                    body: JSON.stringify({
-                        youtubeUrl: url,
-                        videoId: videoId,
-                        duration: 60,
-                        quantity: 3
-                    }),
-                    signal: controller.signal
-                }
-            );
-
-        } finally {
-
-            clearTimeout(timeout);
-        }
-
-        if (!data?.clips) {
-
-            throw new Error(
-                "O servidor não retornou os cortes."
-            );
-        }
-
-        clipsAtuais =
-            Array.isArray(data.clips)
-                ? data.clips
-                : [];
-
-        if (!clipsAtuais.length) {
-
-            throw new Error(
-                "A IA não encontrou cortes para este vídeo."
-            );
-        }
-
-        renderizarCortes(
-            clipsAtuais,
-            data
-        );
-
-        mostrarToast(
-            `${clipsAtuais.length} cortes encontrados!`,
-            "success"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro na análise:",
-            error
-        );
-
-        let mensagem =
-            error.message ||
-            "Não foi possível analisar o vídeo.";
-
-        if (
-            error.name === "AbortError"
-        ) {
-            mensagem =
-                "A análise demorou mais que o esperado. Tente novamente.";
-        }
-
-        if (
-            error.status === 401
-        ) {
-
-            mensagem =
-                "Sua sessão expirou. Atualizando a sessão...";
-        }
-
-        mostrarErro(mensagem);
-
-        if (
-            error.status === 401
-        ) {
-
-            await iniciarSessao();
-        }
-
-    } finally {
-
-        pararAnimacaoLoading();
-
-        $("loadingArea").classList.add("hidden");
-
-        $("btnGerar").disabled = false;
-
-        $("btnGerar").innerHTML = `
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <span>Gerar cortes</span>
-        `;
-    }
-}
-
-
-/* =========================================================
-   LOADING
-========================================================= */
-
-function iniciarAnimacaoLoading() {
-
-    let progress = 15;
-
-    $("loadingBar").style.width =
-        `${progress}%`;
-
-    const mensagens = [
-        "Lendo o conteúdo do vídeo...",
-        "Analisando os momentos mais interessantes...",
-        "Identificando trechos com potencial...",
-        "Selecionando os melhores cortes...",
-        "Preparando os resultados..."
-    ];
-
-    let index = 0;
-
-    $("loadingText").textContent =
-        mensagens[0];
-
-    loadingTimer =
-        setInterval(() => {
-
-            progress =
-                Math.min(
-                    92,
-                    progress + Math.random() * 13
-                );
-
-            $("loadingBar").style.width =
-                `${progress}%`;
-
-            index =
-                Math.min(
-                    mensagens.length - 1,
-                    index + 1
-                );
-
-            $("loadingText").textContent =
-                mensagens[index];
-
-        }, 3500);
-}
-
-
-function pararAnimacaoLoading() {
-
-    if (loadingTimer) {
-
-        clearInterval(
-            loadingTimer
-        );
-
-        loadingTimer = null;
-    }
-
-    $("loadingBar").style.width =
-        "100%";
-}
-
-
-/* =========================================================
-   RENDER CORTES
-========================================================= */
-
-function renderizarCortes(
-    clips,
-    data
-) {
-
-    const container =
-        $("cardsContainer");
-
-    container.innerHTML = "";
-
-    $("resultadoSubtitulo").textContent =
-        `${clips.length} cortes encontrados pela IA.`;
-
-    clips.forEach(
-        (clip, index) => {
-
-            const card =
-                criarCardCorte(
-                    clip,
-                    index
-                );
-
-            container.appendChild(card);
-        }
-    );
-
-    $("resultados").classList.remove(
-        "hidden"
-    );
-
-    setTimeout(() => {
-
-        $("resultados").scrollIntoView({
-            behavior: "smooth",
-            block: "start"
+        const data = await fetchJson(`${BACKEND_URL}/api/analisar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                url: url,
+                maxClips: 5,
+                minDuration: 20,
+                maxDuration: 60
+            })
         });
 
-    }, 100);
+        if (!data?.clips || !data.clips.length) {
+            throw new Error("A IA não encontrou cortes com o critério solicitado.");
+        }
+
+        clipsAtuais = data.clips;
+        renderizarCortes(clipsAtuais);
+        mostrarToast(`${clipsAtuais.length} cortes encontrados!`, "success");
+
+        if (data.user) {
+            usuario.pontos = data.user.points ?? usuario.pontos;
+            atualizarInterfaceUsuario();
+        }
+    } catch (error) {
+        console.error("Erro na análise:", error);
+        mostrarErro(error.message || "Não foi possível analisar o vídeo.");
+    } finally {
+        pararAnimacaoLoading();
+        $("loadingArea").classList.add("hidden");
+        $("btnGerar").disabled = false;
+        $("btnGerar").innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gerar cortes</span>`;
+    }
 }
 
+function iniciarAnimacaoLoading() {
+    let progress = 15;
+    $("loadingBar").style.width = `${progress}%`;
+    const mensagens = [
+        "Carregando vídeo e elementos visuais...",
+        "Avaliando falas e ganchos narrativos com Gemini 3.8 Flash...",
+        "Identificando melhores picos de retenção...",
+        "Estruturando os melhores cortes virais..."
+    ];
+    let index = 0;
+    $("loadingText").textContent = mensagens[0];
 
-function obterInicioClip(clip) {
-
-    return normalizarNumero(
-        clip.start ??
-        clip.inicio ??
-        clip.startTime ??
-        clip.inicioSegundos ??
-        0
-    );
+    loadingTimer = setInterval(() => {
+        progress = Math.min(92, progress + Math.random() * 12);
+        $("loadingBar").style.width = `${progress}%`;
+        index = Math.min(mensagens.length - 1, index + 1);
+        $("loadingText").textContent = mensagens[index];
+    }, 3500);
 }
 
-
-function obterDuracaoClip(clip) {
-
-    return normalizarNumero(
-        clip.duration ??
-        clip.duracao ??
-        clip.length ??
-        55,
-        55
-    );
+function pararAnimacaoLoading() {
+    if (loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
+    $("loadingBar").style.width = "100%";
 }
 
+function renderizarCortes(clips) {
+    const container = $("cardsContainer");
+    container.innerHTML = "";
+    $("resultadoSubtitulo").textContent = `${clips.length} cortes encontrados pela IA.`;
 
-function obterTituloClip(clip, index) {
+    clips.forEach((clip, index) => {
+        const start = Number(clip.start || 0);
+        const duration = Number(clip.duration || (clip.end - start) || 50);
+        const end = Number(clip.end || (start + duration));
+        const title = clip.title || `Corte #${index + 1}`;
+        const description = clip.description || clip.reason || "Destaque do vídeo";
+        const score = clip.score ?? 85;
 
-    return (
-        clip.title ??
-        clip.titulo ??
-        clip.name ??
-        `Corte ${index + 1}`
-    );
-}
+        const card = document.createElement("article");
+        card.className = "card rounded-2xl overflow-hidden fade-in";
+        card.style.animationDelay = `${index * 70}ms`;
 
-
-function obterDescricaoClip(clip) {
-
-    return (
-        clip.description ??
-        clip.descricao ??
-        clip.reason ??
-        clip.motivo ??
-        "Momento selecionado pela inteligência artificial."
-    );
-}
-
-
-function criarCardCorte(
-    clip,
-    index
-) {
-
-    const start =
-        obterInicioClip(clip);
-
-    const duration =
-        obterDuracaoClip(clip);
-
-    const title =
-        obterTituloClip(
-            clip,
-            index
-        );
-
-    const description =
-        obterDescricaoClip(
-            clip
-        );
-
-    const score =
-        clip.score ??
-        clip.pontuacao ??
-        clip.viralScore ??
-        null;
-
-    const end =
-        start + duration;
-
-    const card =
-        document.createElement("article");
-
-    card.className =
-        "card rounded-2xl overflow-hidden fade-in";
-
-    card.style.animationDelay =
-        `${index * 70}ms`;
-
-    card.innerHTML = `
-
-        <div class="relative aspect-video bg-black">
-
-            <img
-                src="https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg"
-                alt=""
-                class="w-full h-full object-cover opacity-70"
-                loading="lazy"
-                onerror="this.style.display='none'"
-            >
-
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-
-            <div class="absolute top-3 left-3">
-
-                <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">
-                    CORTE ${index + 1}
-                </span>
-
-            </div>
-
-            <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
-
-                <div>
-
-                    <div class="text-xs text-zinc-400">
-                        ${formatarTempo(start)}
-                        →
-                        ${formatarTempo(end)}
-                    </div>
-
-                    <div class="text-sm font-bold mt-1 line-clamp-2">
-                        ${escapeHtml(title)}
-                    </div>
-
+        card.innerHTML = `
+            <div class="relative aspect-video bg-black">
+                <img src="https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg" alt="" class="w-full h-full object-cover opacity-70" loading="lazy">
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+                <div class="absolute top-3 left-3">
+                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">CORTE ${index + 1}</span>
                 </div>
-
-                ${
-                    score !== null
-                        ? `
-                            <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">
-                                ${escapeHtml(score)}
-                            </div>
-                        `
-                        : ""
-                }
-
+                <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
+                    <div>
+                        <div class="text-xs text-zinc-400">${formatarTempo(start)} → ${formatarTempo(end)}</div>
+                        <div class="text-sm font-bold mt-1 line-clamp-2">${escapeHtml(title)}</div>
+                    </div>
+                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">${escapeHtml(score)}</div>
+                </div>
             </div>
-
-        </div>
-
-
-        <div class="p-5">
-
-            <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">
-                ${escapeHtml(description)}
-            </p>
-
-            <div class="grid grid-cols-2 gap-2 mt-5">
-
-                <button
-                    onclick="abrirYouTube(${JSON.stringify(start)})"
-                    class="btn-dark h-11 rounded-xl text-xs font-semibold"
-                >
-                    <i class="fa-brands fa-youtube mr-1.5"></i>
-                    Assistir
-                </button>
-
-                <button
-                    onclick="baixarCorte(${JSON.stringify(start)}, ${JSON.stringify(duration)}, ${JSON.stringify(index)})"
-                    class="btn-main h-11 rounded-xl text-xs font-bold"
-                >
-                    <i class="fa-solid fa-download mr-1.5"></i>
-                    Baixar
-                </button>
-
+            <div class="p-5">
+                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">${escapeHtml(description)}</p>
+                <div class="grid grid-cols-2 gap-2 mt-5">
+                    <button onclick="abrirYouTube(${start})" class="btn-dark h-11 rounded-xl text-xs font-semibold">
+                        <i class="fa-brands fa-youtube mr-1.5"></i> Assistir
+                    </button>
+                    <button id="btnDl_${index}" onclick="baixarCorte(${start}, ${duration}, ${index})" class="btn-main h-11 rounded-xl text-xs font-bold">
+                        <i class="fa-solid fa-download mr-1.5"></i> Baixar
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
+                    <span>Duração: ${Math.round(duration)}s</span>
+                    <span>${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}</span>
+                </div>
             </div>
+        `;
+        container.appendChild(card);
+    });
 
-            <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
-
-                <span>
-                    Duração: ${Math.round(duration)}s
-                </span>
-
-                <span>
-                    ${
-                        usuario.isVip
-                            ? "VIP"
-                            : "50 pontos"
-                    }
-                </span>
-
-            </div>
-
-        </div>
-    `;
-
-    return card;
+    $("resultados").classList.remove("hidden");
+    $("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
-
-/* =========================================================
-   YOUTUBE
-========================================================= */
 
 function abrirYouTube(start) {
-
     if (!videoAtualId) return;
-
-    const url =
-        `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
-
-    window.open(
-        url,
-        "_blank",
-        "noopener,noreferrer"
-    );
+    window.open(`https://www.youtube.com/watch?v=${videoAtualId}&t=${Math.floor(start)}s`, "_blank");
 }
 
-
 /* =========================================================
-   DOWNLOAD
+   DOWNLOAD DO CORTE (POST COMPATÍVEL COM 13.0.7)
 ========================================================= */
 
-async function baixarCorte(
-    start,
-    duration,
-    index
-) {
-
-    if (!sessionToken) {
-
-        await iniciarSessao();
-
-        if (!sessionToken) return;
-    }
-
-    const pontosNecessarios =
-        usuario.isVip
-            ? 0
-            : 50;
-
-    if (
-        !usuario.isVip &&
-        usuario.pontos < pontosNecessarios
-    ) {
-
-        mostrarToast(
-            "Você não tem pontos suficientes. Ative o VIP para baixar sem descontar pontos.",
-            "error"
-        );
-
+async function baixarCorte(start, duration, index) {
+    if (!usuario.isVip && usuario.pontos < 50) {
+        mostrarToast("Você não tem pontos suficientes (necessário 50). Ative o VIP!", "error");
         abrirPlanos();
-
         return;
     }
 
+    const btn = $(`btnDl_${index}`);
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<div class="loader"></div>`;
 
-    const buttons =
-        document.querySelectorAll(
-            "#cardsContainer button"
-        );
-
-    /*
-     * Apenas feedback visual.
-     * O backend continua sendo responsável
-     * por descontar os pontos.
-     */
-
-    mostrarToast(
-        usuario.isVip
-            ? "Preparando seu corte..."
-            : "Preparando seu corte. 50 pontos serão utilizados se o download for concluído.",
-        "normal"
-    );
-
+    mostrarToast("Renderizando seu corte com FFmpeg... Isso pode levar alguns segundos.", "normal");
 
     try {
-
-        const params =
-            new URLSearchParams({
-                id: videoAtualId,
-                start: String(
-                    Math.max(
-                        0,
-                        Math.floor(start)
-                    )
-                ),
-                duration: String(
-                    Math.max(
-                        20,
-                        Math.min(
-                            60,
-                            Math.floor(duration)
-                        )
-                    )
-                )
-            });
-
-
-        const response =
-            await fetch(
-                `${BACKEND_URL}/api/download?${params.toString()}`,
-                {
-                    method: "GET",
-                    headers: {
-                        ...authHeaders()
-                    }
-                }
-            );
-
+        // Envio estruturado via POST compatível com o endpoint do server.js 13.0.7
+        const response = await fetch(`${BACKEND_URL}/api/download`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeaders()
+            },
+            body: JSON.stringify({
+                url: videoAtualUrl || `https://www.youtube.com/watch?v=${videoAtualId}`,
+                start: start,
+                duration: duration,
+                userId: usuario.userId
+            })
+        });
 
         if (!response.ok) {
-
-            let errorData = null;
-
-            try {
-                errorData =
-                    await response.json();
-            } catch {}
-
-            if (response.status === 401) {
-
-                await iniciarSessao();
-
-                throw new Error(
-                    "Sua sessão expirou. Tente o download novamente."
-                );
-            }
-
-            if (response.status === 402) {
-
-                await atualizarUsuario();
-
-                throw new Error(
-                    errorData?.error ||
-                    "Você não possui pontos suficientes para este download."
-                );
-            }
-
-            throw new Error(
-                errorData?.error ||
-                errorData?.message ||
-                `Falha no download (${response.status}).`
-            );
+            let errJson = null;
+            try { errJson = await response.json(); } catch {}
+            throw new Error(errJson?.error || `Falha no download (${response.status})`);
         }
 
-
-        const blob =
-            await response.blob();
-
-
-        if (
-            !blob ||
-            blob.size === 0
-        ) {
-            throw new Error(
-                "O servidor retornou um arquivo vazio."
-            );
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            throw new Error("O servidor devolveu um arquivo vazio.");
         }
 
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `clipforge_${videoAtualId}_${Math.floor(start)}s.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
 
-        let filename =
-            `clipforge-corte-${Number(index) + 1}.mp4`;
-
-        const disposition =
-            response.headers.get(
-                "Content-Disposition"
-            );
-
-        if (disposition) {
-
-            const match =
-                disposition.match(
-                    /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i
-                );
-
-            if (match?.[1]) {
-
-                try {
-
-                    filename =
-                        decodeURIComponent(
-                            match[1]
-                        );
-
-                } catch {
-
-                    filename =
-                        match[1];
-                }
-            }
-        }
-
-
-        const blobUrl =
-            URL.createObjectURL(blob);
-
-        const link =
-            document.createElement("a");
-
-        link.href = blobUrl;
-        link.download = filename;
-
-        document.body.appendChild(link);
-
-        link.click();
-
-        link.remove();
-
-        setTimeout(
-            () => URL.revokeObjectURL(blobUrl),
-            5000
-        );
-
-
-        /*
-         * O backend é a fonte da verdade.
-         * Atualizamos a interface depois do sucesso.
-         */
-
+        mostrarToast("Download concluído com sucesso!", "success");
         await atualizarUsuario();
-
-        mostrarToast(
-            usuario.isVip
-                ? "Corte baixado com sucesso!"
-                : "Corte baixado! Seus pontos foram atualizados.",
-            "success"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro no download:",
-            error
-        );
-
-        mostrarToast(
-            error.message ||
-            "Não foi possível baixar o corte.",
-            "error"
-        );
+    } catch (err) {
+        console.error("Erro no download:", err);
+        mostrarToast(err.message || "Erro ao renderizar o vídeo.", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
 
-
 /* =========================================================
-   NOVO VÍDEO
+   MODAL PLANOS & PIX
 ========================================================= */
 
-function novoVideo() {
+function abrirPlanos() {
+    $("planModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
+}
 
-    $("resultados").classList.add(
-        "hidden"
-    );
+function fecharPlanos() {
+    $("planModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+}
 
-    $("cardsContainer").innerHTML = "";
+async function criarPagamento() {
+    fecharPlanos();
+    $("pixModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
+    $("pixLoading").classList.remove("hidden");
+    $("pixContent").classList.add("hidden");
 
-    $("videoUrl").value = "";
+    try {
+        const data = await fetchJson(`${BACKEND_URL}/api/pix/criar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: 19.90, userId: usuario.userId })
+        });
 
-    $("videoUrl").focus();
+        pagamentoAtual = data;
+        const qrCode = data.qr_code || data.qrCode || "";
+        const qrBase64 = data.qr_code_base64 || data.qrCodeBase64 || "";
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
+        if (qrBase64) {
+            $("pixQrImage").src = qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`;
+        } else if (qrCode) {
+            $("pixQrImage").src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
+        }
+
+        if (data.ticket_url || data.ticketUrl) {
+            $("pixTicketLink").href = data.ticket_url || data.ticketUrl;
+            $("pixTicketLink").classList.remove("hidden");
+        }
+
+        $("pixLoading").classList.add("hidden");
+        $("pixContent").classList.remove("hidden");
+        iniciarPollingPix();
+    } catch (e) {
+        $("pixLoading").innerHTML = `<p class="text-xs text-red-400">Erro: ${escapeHtml(e.message)}</p>`;
+    }
+}
+
+function fecharPix() {
+    if (pollingPix) { clearInterval(pollingPix); pollingPix = null; }
+    $("pixModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+}
+
+function copiarPix() {
+    const codigo = pagamentoAtual?.qr_code || pagamentoAtual?.qrCode || "";
+    if (!codigo) return;
+    navigator.clipboard.writeText(codigo).then(() => {
+        mostrarToast("Código Pix copiado!", "success");
     });
 }
 
-
-/* =========================================================
-   ERROS
-========================================================= */
-
-function mostrarErro(mensagem) {
-
-    $("errorText").textContent =
-        mensagem;
-
-    $("errorArea").classList.remove(
-        "hidden"
-    );
-
-    $("errorArea").scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-    });
+function iniciarPollingPix() {
+    if (pollingPix) clearInterval(pollingPix);
+    pollingPix = setInterval(async () => {
+        if (!pagamentoAtual?.id) return;
+        try {
+            const data = await fetchJson(`${BACKEND_URL}/api/pix/status/${pagamentoAtual.id}`);
+            if (data.status === "approved" || data.approved) {
+                clearInterval(pollingPix);
+                pollingPix = null;
+                mostrarToast("VIP ativado com sucesso!", "success");
+                usuario.isVip = true;
+                atualizarInterfaceUsuario();
+                setTimeout(fecharPix, 1500);
+            }
+        } catch {}
+    }, 4000);
 }
 
-
-function fecharErro() {
-
-    $("errorArea").classList.add(
-        "hidden"
-    );
-}
-
-
 /* =========================================================
-   ADMIN
+   ADMINISTRATIVO
 ========================================================= */
 
 function abrirAdmin() {
-
-    $("adminModal").classList.remove(
-        "hidden"
-    );
-
-    document.body.classList.add(
-        "overflow-hidden"
-    );
-
+    $("adminModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
     if (adminToken) {
-
-        $("adminLoginArea").classList.add(
-            "hidden"
-        );
-
-        $("adminDashboard").classList.remove(
-            "hidden"
-        );
-
+        $("adminLoginArea").classList.add("hidden");
+        $("adminDashboard").classList.remove("hidden");
         carregarDashboard();
-
-    } else {
-
-        $("adminLoginArea").classList.remove(
-            "hidden"
-        );
-
-        $("adminDashboard").classList.add(
-            "hidden"
-        );
-
-        setTimeout(
-            () => $("adminPassword").focus(),
-            100
-        );
     }
 }
-
 
 function fecharAdmin() {
-
-    $("adminModal").classList.add(
-        "hidden"
-    );
-
-    if (
-        $("planModal").classList.contains("hidden") &&
-        $("pixModal").classList.contains("hidden")
-    ) {
-        document.body.classList.remove(
-            "overflow-hidden"
-        );
-    }
+    $("adminModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
 }
-
 
 function toggleAdminPassword() {
-
-    const input =
-        $("adminPassword");
-
-    const eye =
-        $("adminEye");
-
-    if (
-        input.type === "password"
-    ) {
-
-        input.type = "text";
-
-        eye.className =
-            "fa-regular fa-eye-slash";
-
-    } else {
-
-        input.type = "password";
-
-        eye.className =
-            "fa-regular fa-eye";
-    }
+    const input = $("adminPassword");
+    input.type = input.type === "password" ? "text" : "password";
 }
-
 
 async function fazerLoginAdmin() {
-
-    const password =
-        $("adminPassword").value.trim();
-
-    if (!password) {
-
-        $("adminLoginError").textContent =
-            "Digite a senha administrativa.";
-
-        $("adminLoginError").classList.remove(
-            "hidden"
-        );
-
-        return;
-    }
-
-    const button =
-        $("btnAdminLogin");
-
-    button.disabled = true;
-
-    button.innerHTML = `
-        <div class="loader"></div>
-    `;
-
-    $("adminLoginError").classList.add(
-        "hidden"
-    );
+    const password = $("adminPassword").value.trim();
+    if (!password) return;
 
     try {
+        const data = await fetchJson(`${BACKEND_URL}/api/admin/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password, username: "admin" })
+        });
 
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/admin/login`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        password
-                    })
-                }
-            );
-
-
-        const token =
-            data.token ??
-            data.adminToken;
-
-
-        if (!token) {
-
-            throw new Error(
-                "O servidor não retornou um token administrativo."
-            );
-        }
-
-
-        adminToken = token;
-
-        localStorage.setItem(
-            ADMIN_STORAGE_KEY,
-            adminToken
-        );
-
-
-        $("adminLoginArea").classList.add(
-            "hidden"
-        );
-
-        $("adminDashboard").classList.remove(
-            "hidden"
-        );
-
-
-        await carregarDashboard();
-
-        mostrarToast(
-            "Login administrativo realizado.",
-            "success"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro no login admin:",
-            error
-        );
-
-        $("adminLoginError").textContent =
-            error.message ||
-            "Senha inválida.";
-
-        $("adminLoginError").classList.remove(
-            "hidden"
-        );
-
-    } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-            "Entrar";
+        adminToken = data.token;
+        localStorage.setItem(ADMIN_STORAGE_KEY, adminToken);
+        $("adminLoginArea").classList.add("hidden");
+        $("adminDashboard").classList.remove("hidden");
+        carregarDashboard();
+    } catch (e) {
+        $("adminLoginError").textContent = e.message || "Senha incorreta.";
+        $("adminLoginError").classList.remove("hidden");
     }
 }
-
 
 async function carregarDashboard() {
-
-    if (!adminToken) return;
-
-    const container =
-        $("adminStats");
-
-    container.innerHTML = `
-        <div class="col-span-2 py-8 text-center">
-            <div class="flex justify-center">
-                <div class="loader-light"></div>
-            </div>
-        </div>
-    `;
-
+    const stats = $("adminStats");
+    stats.innerHTML = `<div class="col-span-2 text-center py-4"><div class="loader-light mx-auto"></div></div>`;
     try {
-
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/admin/dashboard`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization:
-                            `Bearer ${adminToken}`
-                    }
-                }
-            );
-
-
-        const metrics =
-            data.metrics ??
-            data;
-
-
-        const total =
-            metrics.totalRequests ??
-            metrics.requests ??
-            metrics.total ??
-            0;
-
-        const analyses =
-            metrics.analyses ??
-            metrics.analysis ??
-            metrics.totalAnalyses ??
-            0;
-
-        const downloads =
-            metrics.downloads ??
-            metrics.totalDownloads ??
-            0;
-
-        const approved =
-            metrics.approvedPayments ??
-            metrics.pagamentosAprovados ??
-            metrics.approved ??
-            0;
-
-        const revenue =
-            metrics.revenue ??
-            metrics.receita ??
-            0;
-
-
-        container.innerHTML = `
-
+        const data = await fetchJson(`${BACKEND_URL}/api/admin/dashboard`, {
+            headers: { Authorization: `Bearer ${adminToken}` }
+        });
+        const m = data.metrics || {};
+        stats.innerHTML = `
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
-                    Requests
-                </div>
-                <div class="text-2xl font-black mt-2">
-                    ${escapeHtml(total)}
-                </div>
+                <div class="text-[10px] text-zinc-500">Requisições</div>
+                <div class="text-xl font-black mt-1">${m.requests || 0}</div>
             </div>
-
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
-                    Análises
-                </div>
-                <div class="text-2xl font-black mt-2">
-                    ${escapeHtml(analyses)}
-                </div>
+                <div class="text-[10px] text-zinc-500">Análises IA</div>
+                <div class="text-xl font-black mt-1">${m.analyses || 0}</div>
             </div>
-
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
-                    Downloads
-                </div>
-                <div class="text-2xl font-black mt-2">
-                    ${escapeHtml(downloads)}
-                </div>
+                <div class="text-[10px] text-zinc-500">Downloads</div>
+                <div class="text-xl font-black mt-1">${m.downloads || 0}</div>
             </div>
-
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
-                    Pagamentos
-                </div>
-                <div class="text-2xl font-black mt-2">
-                    ${escapeHtml(approved)}
-                </div>
-            </div>
-
-            <div class="col-span-2 rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] uppercase tracking-wider text-zinc-600">
-                    Receita
-                </div>
-                <div class="text-2xl font-black mt-2">
-                    R$ ${formatarMoeda(revenue)}
-                </div>
+                <div class="text-[10px] text-zinc-500">Pix Aprovados</div>
+                <div class="text-xl font-black mt-1">${m.pixApproved || 0}</div>
             </div>
         `;
-
-    } catch (error) {
-
-        console.error(
-            "Erro dashboard:",
-            error
-        );
-
-        if (
-            error.status === 401 ||
-            error.status === 403
-        ) {
-
-            logoutAdmin();
-
-            $("adminLoginError").textContent =
-                "Sessão administrativa expirada.";
-
-            $("adminLoginError").classList.remove(
-                "hidden"
-            );
-
-            return;
-        }
-
-        container.innerHTML = `
-            <div class="col-span-2 rounded-xl border border-white/[.07] p-4 text-center text-xs text-zinc-500">
-                Não foi possível carregar o dashboard.
-            </div>
-        `;
+    } catch {
+        logoutAdmin();
     }
 }
-
-
-function formatarMoeda(value) {
-
-    const n =
-        Number(value) || 0;
-
-    return n.toLocaleString(
-        "pt-BR",
-        {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }
-    );
-}
-
 
 function logoutAdmin() {
-
     adminToken = "";
-
-    localStorage.removeItem(
-        ADMIN_STORAGE_KEY
-    );
-
-    $("adminDashboard").classList.add(
-        "hidden"
-    );
-
-    $("adminLoginArea").classList.remove(
-        "hidden"
-    );
-
-    $("adminPassword").value = "";
-
-    mostrarToast(
-        "Sessão administrativa encerrada."
-    );
+    localStorage.removeItem(ADMIN_STORAGE_KEY);
+    $("adminDashboard").classList.add("hidden");
+    $("adminLoginArea").classList.remove("hidden");
 }
 
+function novoVideo() {
+    $("resultados").classList.add("hidden");
+    $("cardsContainer").innerHTML = "";
+    $("videoUrl").value = "";
+    $("videoUrl").focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function mostrarErro(m) {
+    $("errorText").textContent = m;
+    $("errorArea").classList.remove("hidden");
+    $("errorArea").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharErro() { $("errorArea").classList.add("hidden"); }
 
 /* =========================================================
-   MODAIS — ESC
-========================================================= */
-
-document.addEventListener(
-    "keydown",
-    event => {
-
-        if (event.key !== "Escape") {
-            return;
-        }
-
-        if (
-            !$("pixModal").classList.contains(
-                "hidden"
-            )
-        ) {
-
-            fecharPix();
-
-            return;
-        }
-
-        if (
-            !$("adminModal").classList.contains(
-                "hidden"
-            )
-        ) {
-
-            fecharAdmin();
-
-            return;
-        }
-
-        if (
-            !$("planModal").classList.contains(
-                "hidden"
-            )
-        ) {
-
-            fecharPlanos();
-        }
-    }
-);
-
-
-/* =========================================================
-   CLIQUE NO BACKDROP
-========================================================= */
-
-$("planModal").addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target ===
-            $("planModal")
-        ) {
-            fecharPlanos();
-        }
-    }
-);
-
-
-$("pixModal").addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target ===
-            $("pixModal")
-        ) {
-            fecharPix();
-        }
-    }
-);
-
-
-$("adminModal").addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target ===
-            $("adminModal")
-        ) {
-            fecharAdmin();
-        }
-    }
-);
-
-
-/* =========================================================
-   INICIALIZAÇÃO
+   INICIALIZAÇÃO DO APP
 ========================================================= */
 
 async function inicializar() {
-
-    $("anoAtual").textContent =
-        new Date().getFullYear();
-
-    atualizarInterfaceUsuario();
-
+    $("anoAtual").textContent = new Date().getFullYear();
     await iniciarSessao();
-
-    /*
-     * Mantém os dados da conta atualizados
-     * enquanto a página estiver aberta.
-     */
-    setInterval(
-        atualizarUsuario,
-        60000
-    );
 }
 
-
 inicializar();
-
 </script>
-
 </body>
 </html>
