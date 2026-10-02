@@ -1,7 +1,7 @@
 {
   "name": "clipforge-server",
   "version": "13.2.2",
-  "description": "ClipForge Pro - Backend de cortes com IA Gemini e upload de vídeos",
+  "description": "ClipForge Pro - Backend de cortes com IA Gemini e upload direto de vídeos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
