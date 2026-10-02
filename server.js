@@ -235,53 +235,139 @@ app.get('/api/pix/status/:id', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// RAPIDAPI STREAM
+// RAPIDAPI STREAM — VÍDEO + ÁUDIO
 // ----------------------------------------------------
 
 async function extrairStreamOficial(videoId) {
   try {
-    const response = await axios.get(`https://${RAPIDAPI_HOST}/download`, {
-      params: {
-        id: videoId,
-        quality: 'lowest',
-        filter: 'audioandvideo'
-      },
-      headers: {
-        'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'User-Agent': 'Mozilla/5.0'
-      },
-      timeout: 25000
-    });
+    const response = await axios.get(
+      `https://${RAPIDAPI_HOST}/download`,
+      {
+        params: {
+          id: videoId,
+          quality: 'lowest',
+          filter: 'audioandvideo'
+        },
+        headers: {
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'x-rapidapi-host': RAPIDAPI_HOST,
+          'User-Agent': 'Mozilla/5.0'
+        },
+        timeout: 25000
+      }
+    );
 
     const data = response.data;
 
     if (Array.isArray(data?.formats)) {
-      const formato = data.formats.find(
-        item => item?.url && !item.url.includes('ytimg.com') && item.hasAudio !== false && item.hasVideo !== false
+
+      // Primeiro tenta encontrar um formato
+      // que tenha vídeo E áudio.
+      const formatoComAudio = data.formats.find(item =>
+        item?.url &&
+        !String(item.url).includes('ytimg.com') &&
+        item.hasVideo !== false &&
+        item.hasAudio !== false
       );
-      if (formato?.url) return formato.url;
+
+      if (formatoComAudio?.url) {
+        console.log(
+          '[RapidAPI] Stream com vídeo + áudio encontrado.'
+        );
+
+        return formatoComAudio.url;
+      }
+
+      // Algumas respostas da API não informam
+      // hasAudio/hasVideo. Nesse caso tenta uma URL válida.
+      const formatoValido = data.formats.find(item =>
+        item?.url &&
+        !String(item.url).includes('ytimg.com')
+      );
+
+      if (formatoValido?.url) {
+        console.log(
+          '[RapidAPI] Stream encontrado sem metadados de áudio.'
+        );
+
+        return formatoValido.url;
+      }
     }
 
-    if (typeof data?.url === 'string' && data.url.length > 20 && !data.url.includes('ytimg.com')) {
+    // Resposta direta
+    if (
+      typeof data?.url === 'string' &&
+      data.url.length > 20 &&
+      !data.url.includes('ytimg.com')
+    ) {
+      console.log(
+        '[RapidAPI] URL direta encontrada.'
+      );
+
       return data.url;
     }
 
-    if (typeof data?.download_url === 'string' && data.download_url.length > 20) {
+    // download_url
+    if (
+      typeof data?.download_url === 'string' &&
+      data.download_url.length > 20 &&
+      !data.download_url.includes('ytimg.com')
+    ) {
+      console.log(
+        '[RapidAPI] Download URL encontrada.'
+      );
+
       return data.download_url;
     }
+
+    // Algumas respostas podem vir dentro de result
+    if (
+      typeof data?.result?.url === 'string' &&
+      data.result.url.length > 20 &&
+      !data.result.url.includes('ytimg.com')
+    ) {
+      console.log(
+        '[RapidAPI] URL encontrada em result.'
+      );
+
+      return data.result.url;
+    }
+
+    if (
+      typeof data?.result?.download_url === 'string' &&
+      data.result.download_url.length > 20 &&
+      !data.result.download_url.includes('ytimg.com')
+    ) {
+      console.log(
+        '[RapidAPI] Download URL encontrada em result.'
+      );
+
+      return data.result.download_url;
+    }
+
   } catch (error) {
-    console.error('[RapidAPI Error]:', error.message);
+    console.error(
+      '[RapidAPI Error]:',
+      error.response?.data || error.message
+    );
   }
+
   return null;
 }
 
 // ----------------------------------------------------
-// MOTOR DE DOWNLOAD FFMPEG (FECHADO E CORRIGIDO)
+// MOTOR DE DOWNLOAD FFMPEG
+// VÍDEO + ÁUDIO
 // ----------------------------------------------------
 
-function executarDownloadComFfmpeg(streamUrl, inicio, duracao, res) {
+function executarDownloadComFfmpeg(
+  streamUrl,
+  inicio,
+  duracao,
+  res
+) {
   return new Promise((resolve, reject) => {
+
     const headers = [
       'Referer: https://www.youtube.com/',
       'Origin: https://www.youtube.com',
@@ -292,116 +378,223 @@ function executarDownloadComFfmpeg(streamUrl, inicio, duracao, res) {
 
     function finalizarErro(error) {
       if (finalizado) return;
+
       finalizado = true;
+
       reject(error);
     }
 
     const argumentos = [
       '-hide_banner',
-      '-loglevel', 'error',
-      '-headers', headers,
-      '-ss', String(inicio),
-      '-i', streamUrl,
-      '-t', String(duracao),
-      '-map', '0:v:0?',
-      '-map', '0:a:0?',
-      '-vf', 'scale=-2:360',
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-tune', 'zerolatency',
-      '-crf', '32',
-      '-pix_fmt', 'yuv420p',
-      '-g', '15',
-      '-keyint_min', '15',
-      '-c:a', 'aac',
-      '-b:a', '96k',
-      '-ac', '2',
-      '-ar', '44100',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-      '-f', 'mp4',
+      '-loglevel',
+      'error',
+
+      // Headers da fonte
+      '-headers',
+      headers,
+
+      // Início do corte
+      '-ss',
+      String(inicio),
+
+      // Stream
+      '-i',
+      streamUrl,
+
+      // Duração
+      '-t',
+      String(duracao),
+
+      // ==============================
+      // VÍDEO
+      // ==============================
+
+      '-map',
+      '0:v:0',
+
+      // ==============================
+      // ÁUDIO
+      // ==============================
+
+      '-map',
+      '0:a:0',
+
+      // ==============================
+      // PROCESSAMENTO DO VÍDEO
+      // ==============================
+
+      '-vf',
+      'scale=-2:360',
+
+      '-c:v',
+      'libx264',
+
+      '-preset',
+      'ultrafast',
+
+      '-tune',
+      'zerolatency',
+
+      '-crf',
+      '32',
+
+      '-pix_fmt',
+      'yuv420p',
+
+      '-g',
+      '15',
+
+      '-keyint_min',
+      '15',
+
+      // ==============================
+      // PROCESSAMENTO DO ÁUDIO
+      // ==============================
+
+      '-c:a',
+      'aac',
+
+      '-b:a',
+      '96k',
+
+      '-ac',
+      '2',
+
+      '-ar',
+      '44100',
+
+      // Corrige sincronização
+      '-af',
+      'aresample=async=1',
+
+      // ==============================
+      // MP4
+      // ==============================
+
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+
+      '-f',
+      'mp4',
+
+      // Saída
       'pipe:1'
     ];
 
-    const processo = spawn('ffmpeg', argumentos, {
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    console.log(
+      `[FFmpeg] Gerando corte ${inicio}s + ${duracao}s com vídeo + áudio...`
+    );
+
+    const processo = spawn(
+      'ffmpeg',
+      argumentos,
+      {
+        stdio: [
+          'ignore',
+          'pipe',
+          'pipe'
+        ]
+      }
+    );
 
     let erro = '';
 
-    processo.stderr.on('data', dados => {
-      erro += dados.toString();
-    });
+    processo.stderr.on(
+      'data',
+      dados => {
+        erro += dados.toString();
+      }
+    );
 
+    processo.stdout.on(
+      'error',
+      error => {
+
+        if (error.code !== 'EPIPE') {
+          console.error(
+            '[FFmpeg stdout error]:',
+            error.message
+          );
+        }
+
+      }
+    );
+
+    // Envia o MP4 diretamente para o navegador
     processo.stdout.pipe(res);
 
-    processo.stdout.on('error', error => {
-      if (error.code !== 'EPIPE') {
-        console.error('[FFmpeg stdout error]:', error.message);
-      }
-    });
+    processo.on(
+      'error',
+      error => {
 
-    processo.on('error', error => {
-      finalizarErro(error);
-    });
+        console.error(
+          '[FFmpeg process error]:',
+          error.message
+        );
 
-    processo.on('close', codigo => {
-      if (codigo === 0) {
-        finalizado = true;
-        resolve();
-      } else {
-        finalizarErro(new Error(erro || `FFmpeg encerrou com código ${codigo}`));
+        finalizarErro(error);
       }
-    });
+    );
 
-    res.on('close', () => {
-      if (processo && !processo.killed) {
-        try {
-          processo.kill('SIGKILL');
-        } catch (e) {}
+    processo.on(
+      'close',
+      codigo => {
+
+        if (codigo === 0) {
+
+          finalizado = true;
+
+          console.log(
+            '[FFmpeg] Corte finalizado com vídeo + áudio.'
+          );
+
+          resolve();
+
+          return;
+        }
+
+        // Cliente encerrou a conexão
+        if (codigo === null) {
+
+          finalizado = true;
+
+          resolve();
+
+          return;
+        }
+
+        console.error(
+          '[FFmpeg] Erro:',
+          erro
+        );
+
+        finalizarErro(
+          new Error(
+            erro ||
+            `FFmpeg encerrou com código ${codigo}`
+          )
+        );
       }
-    });
+    );
+
+    // Se o usuário cancelar o download,
+    // encerra o FFmpeg.
+    res.on(
+      'close',
+      () => {
+
+        if (
+          processo &&
+          !processo.killed
+        ) {
+
+          try {
+            processo.kill('SIGKILL');
+          } catch (e) {}
+
+        }
+      }
+    );
+
   });
 }
-
-app.get('/api/download', async (req, res) => {
-  const videoId = String(req.query.id || '');
-  let start = parseInt(req.query.start || 0, 10);
-  let duration = parseInt(req.query.duration || 55, 10);
-
-  if (!videoId || videoId.length < 5) {
-    return res.status(400).json({ error: 'ID do vídeo inválido.' });
-  }
-
-  if (!Number.isFinite(start) || start < 0) start = 0;
-  if (!Number.isFinite(duration) || duration < 1) duration = 55;
-  duration = Math.min(duration, 120);
-
-  try {
-    const streamUrl = await extrairStreamOficial(videoId);
-    if (!streamUrl) {
-      return res.status(503).json({ error: 'Não foi possível obter o vídeo para download.' });
-    }
-
-    const safeId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-    res.setHeader('Content-Disposition', `attachment; filename="corte_${safeId}_${start}s.mp4"`);
-    res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Cache-Control', 'no-cache');
-
-    await executarDownloadComFfmpeg(streamUrl, start, duration, res);
-    metricas.totalDownloads += 1;
-
-  } catch (error) {
-    console.error('[Download Error]:', error.message);
-    if (!res.headersSent) {
-      return res.status(500).json({ error: 'Erro temporário no download.' });
-    }
-  }
-});
-
-// ----------------------------------------------------
-// INICIALIZAÇÃO
-// ----------------------------------------------------
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[ClipForge Core] Servidor operacional na porta ${PORT} [v12.3.0]`);
-});
