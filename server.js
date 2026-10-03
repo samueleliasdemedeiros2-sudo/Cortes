@@ -5,70 +5,149 @@
  *
  * Node.js >= 20 + Express
  *
- * CORREÇÕES 13.2.8
- * ------------------------------------------------------------
- * 1. Gemini Files:
- *    - Corrige resource names como "files/abc123"
- *    - Evita gerar "files/files/abc123"
- *
- * 2. Gemini Files Polling:
- *    - Erros HTTP 4xx/5xx são tratados imediatamente
- *    - Estados FAILED são tratados imediatamente
- *    - Não fica preso falsamente em PROCESSANDO
- *
- * 3. Upload Gemini:
- *    - MP4 enviado por stream
- *    - Não carrega o arquivo inteiro na RAM
- *
- * MANTIDO
+ * PRINCIPAIS RECURSOS
  * ------------------------------------------------------------
  * - Upload MP4 até 150 MB
- * - FFmpeg / FFprobe
+ * - FFmpeg + FFprobe
  * - yt-dlp
- * - YouTube
+ * - Análise de YouTube
  * - Gemini Interactions API
- * - Gemini Files API
+ * - Gemini Files API para MP4 enviado
+ * - Polling Gemini Files até ACTIVE
  * - Fallback de modelos Gemini
- * - PIX Mercado Pago
+ * - Download/renderização MP4
+ * - Mercado Pago PIX
  * - Autenticação
- * - Sessões
  * - Pontos / VIP
  * - Administração
- * - Download de cortes MP4
+ *
+ * CORREÇÕES 13.2.8
+ * ------------------------------------------------------------
+ * 1. Corrige resource name do Gemini Files:
+ *    files/ABC -> ABC ao montar /files/ABC
+ *
+ * 2. Polling Gemini Files trata HTTP 4xx/5xx
+ *    imediatamente, em vez de ficar PROCESSANDO.
+ *
+ * 3. Upload do MP4 para Gemini usa stream,
+ *    evitando carregar o vídeo inteiro na RAM.
+ *
+ * 4. /api/download devolve MP4 diretamente.
+ *
+ * 5. Mantém compatibilidade com:
+ *    /api/analisar
+ *    /api/analisar-upload
+ *    /api/upload
+ *    /api/upload/:id
+ *    /api/download
  * ============================================================
  */
 
 "use strict";
 
+/* ============================================================
+   DEPENDÊNCIAS
+============================================================ */
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+const crypto = require("crypto");
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
 const os = require("os");
-const crypto = require("crypto");
 const { spawn } = require("child_process");
 
-const VERSION = "13.2.8";
-const PORT = Number(process.env.PORT || 10000);
+/* ============================================================
+   APP
+============================================================ */
+
+const app = express();
+
+const PORT =
+    Number(process.env.PORT || 10000);
+
+const HOST =
+    process.env.HOST || "0.0.0.0";
 
 /* ============================================================
- * CONFIGURAÇÕES
- * ========================================================== */
+   VERSÃO
+============================================================ */
 
-const MAX_UPLOAD_MB = 150;
-const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+const VERSION = "13.2.8";
 
-const UPLOAD_TTL_MS = 2 * 60 * 60 * 1000;
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/* ============================================================
+   CONFIGURAÇÕES GERAIS
+============================================================ */
 
-const DAILY_POINTS = 200;
-const FREE_ANALYSIS_COST = 20;
-const VIP_ANALYSIS_COST = 0;
+const MAX_UPLOAD_MB =
+    Number(process.env.MAX_UPLOAD_MB || 150);
 
-const GEMINI_PRIMARY_MODEL =
-    process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const MAX_UPLOAD_BYTES =
+    MAX_UPLOAD_MB * 1024 * 1024;
+
+const UPLOAD_TTL_MS =
+    2 * 60 * 60 * 1000;
+
+const SESSION_TTL_MS =
+    30 * 24 * 60 * 60 * 1000;
+
+const ADMIN_SESSION_TTL_MS =
+    24 * 60 * 60 * 1000;
+
+const FREE_POINTS =
+    Number(process.env.FREE_POINTS || 200);
+
+const DAILY_POINTS =
+    Number(process.env.DAILY_POINTS || 50);
+
+const ANALYSIS_COST =
+    Number(process.env.ANALYSIS_COST || 20);
+
+const DOWNLOAD_COST =
+    Number(process.env.DOWNLOAD_COST || 50);
+
+const VIP_PRICE =
+    Number(process.env.VIP_PRICE || 19.90);
+
+const MAX_CLIPS =
+    Number(process.env.MAX_CLIPS || 8);
+
+/* ============================================================
+   DIRETÓRIOS
+============================================================ */
+
+const TEMP_ROOT =
+    process.env.TEMP_DIR ||
+    path.join(os.tmpdir(), "clipforge");
+
+const UPLOAD_DIR =
+    process.env.UPLOAD_DIR ||
+    path.join(
+        TEMP_ROOT,
+        "uploads"
+    );
+
+const OUTPUT_DIR =
+    process.env.OUTPUT_DIR ||
+    path.join(
+        TEMP_ROOT,
+        "outputs"
+    );
+
+/* ============================================================
+   GEMINI
+============================================================ */
+
+const GEMINI_API_KEY =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    "";
+
+const GEMINI_MODEL =
+    process.env.GEMINI_MODEL ||
+    "gemini-3.8-flash";
 
 const GEMINI_FALLBACK_MODELS = (
     process.env.GEMINI_FALLBACK_MODELS ||
@@ -79,9 +158,10 @@ const GEMINI_FALLBACK_MODELS = (
     .filter(Boolean);
 
 const GEMINI_MODELS = [
-    GEMINI_PRIMARY_MODEL,
+    GEMINI_MODEL,
     ...GEMINI_FALLBACK_MODELS.filter(
-        (model) => model !== GEMINI_PRIMARY_MODEL
+        (model) =>
+            model !== GEMINI_MODEL
     )
 ];
 
@@ -89,26 +169,31 @@ const GEMINI_INTERACTIONS_URL =
     process.env.GEMINI_INTERACTIONS_URL ||
     "https://generativelanguage.googleapis.com/v1beta/interactions";
 
-const GEMINI_UPLOAD_URL =
-    process.env.GEMINI_UPLOAD_URL ||
+const GEMINI_FILES_UPLOAD_URL =
+    process.env.GEMINI_FILES_UPLOAD_URL ||
     "https://generativelanguage.googleapis.com/upload/v1beta/files";
 
 const GEMINI_FILES_API_URL =
     process.env.GEMINI_FILES_API_URL ||
     "https://generativelanguage.googleapis.com/v1beta/files";
 
-const GEMINI_API_KEY =
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    "";
+/* ============================================================
+   MERCADO PAGO
+============================================================ */
 
-const MERCADO_PAGO_ACCESS_TOKEN =
-    process.env.MERCADO_PAGO_ACCESS_TOKEN ||
+const MP_ACCESS_TOKEN =
     process.env.MP_ACCESS_TOKEN ||
+    process.env.MERCADO_PAGO_ACCESS_TOKEN ||
     "";
 
-const MERCADO_PAGO_WEBHOOK_URL =
-    process.env.MERCADO_PAGO_WEBHOOK_URL || "";
+const MP_WEBHOOK_URL =
+    process.env.MP_WEBHOOK_URL ||
+    process.env.MERCADO_PAGO_WEBHOOK_URL ||
+    "";
+
+/* ============================================================
+   ADMIN
+============================================================ */
 
 const ADMIN_EMAIL =
     process.env.ADMIN_EMAIL ||
@@ -116,48 +201,92 @@ const ADMIN_EMAIL =
 
 const ADMIN_PASSWORD =
     process.env.ADMIN_PASSWORD ||
-    "admin123";
-
-const RAPIDAPI_KEY =
-    process.env.RAPIDAPI_KEY ||
     "";
 
-const RAPIDAPI_HOST =
-    process.env.RAPIDAPI_HOST ||
-    "";
+/* ============================================================
+   YT-DLP
+============================================================ */
+
+const YTDLP_BIN =
+    process.env.YTDLP_BIN ||
+    process.env.YTDLP_PATH ||
+    "yt-dlp";
 
 const YTDLP_COOKIES_FILE =
     process.env.YTDLP_COOKIES_FILE ||
     process.env.YOUTUBE_COOKIES_FILE ||
     "";
 
-const YTDLP_TIMEOUT_MS = 12 * 60 * 1000;
+/* ============================================================
+   FFMPEG / FFPROBE
+============================================================ */
 
-const TEMP_ROOT =
-    process.env.TEMP_DIR ||
-    path.join(os.tmpdir(), "clipforge");
+let FFMPEG_BIN =
+    process.env.FFMPEG_PATH ||
+    process.env.FFMPEG_BIN ||
+    null;
 
-const UPLOAD_DIR =
-    process.env.UPLOAD_DIR ||
-    path.join(TEMP_ROOT, "uploads");
-
-const OUTPUT_DIR =
-    process.env.OUTPUT_DIR ||
-    path.join(TEMP_ROOT, "outputs");
+let FFPROBE_BIN =
+    process.env.FFPROBE_PATH ||
+    process.env.FFPROBE_BIN ||
+    null;
 
 /* ============================================================
- * APP
- * ========================================================== */
+   MEMÓRIA
+============================================================ */
 
-const app = express();
+const users =
+    new Map();
+
+const sessions =
+    new Map();
+
+const adminSessions =
+    new Map();
+
+const uploads =
+    new Map();
+
+const payments =
+    new Map();
+
+/* ============================================================
+   MÉTRICAS
+============================================================ */
+
+const metrics = {
+    startedAt: Date.now(),
+    requests: 0,
+    uploads: 0,
+    analyses: 0,
+    successfulAnalyses: 0,
+    failedAnalyses: 0,
+    downloads: 0,
+    pixCreated: 0,
+    pixApproved: 0,
+    errors: 0
+};
+
+/* ============================================================
+   EXPRESS
+============================================================ */
 
 app.disable("x-powered-by");
+
+app.set(
+    "trust proxy",
+    1
+);
 
 app.use(
     cors({
         origin: true,
-        credentials: true,
-        methods: ["GET", "POST", "OPTIONS"],
+        credentials: false,
+        methods: [
+            "GET",
+            "POST",
+            "OPTIONS"
+        ],
         allowedHeaders: [
             "Content-Type",
             "Authorization",
@@ -169,108 +298,126 @@ app.use(
 
 app.use(
     express.json({
-        limit: "10mb"
+        limit: "5mb"
     })
 );
 
 app.use(
     express.urlencoded({
-        extended: true,
-        limit: "10mb"
+        extended: false,
+        limit: "2mb"
     })
 );
 
-/* ============================================================
- * MEMÓRIA
- * ========================================================== */
+app.use(
+    (req, res, next) => {
+        metrics.requests++;
 
-const users = new Map();
-const sessions = new Map();
-const adminSessions = new Map();
-const uploads = new Map();
-const payments = new Map();
+        res.setHeader(
+            "X-ClipForge-Version",
+            VERSION
+        );
 
-const metrics = {
-    startedAt: Date.now(),
-    requests: 0,
-    analyses: 0,
-    successfulAnalyses: 0,
-    failedAnalyses: 0,
-    uploads: 0,
-    downloads: 0,
-    pixCreated: 0,
-    errors: 0
-};
+        next();
+    }
+);
 
 /* ============================================================
- * UTILITÁRIOS
- * ========================================================== */
+   UTILITÁRIOS
+============================================================ */
 
 function now() {
     return Date.now();
 }
 
 function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randomToken(bytes = 32) {
-    return crypto.randomBytes(bytes).toString("hex");
-}
-
-function randomId(prefix = "") {
-    return `${prefix}${crypto.randomUUID()}`;
-}
-
-function parseNumber(value, fallback = 0) {
-    const n = Number(value);
-
-    return Number.isFinite(n)
-        ? n
-        : fallback;
-}
-
-function clamp(value, min, max) {
-    return Math.min(
-        Math.max(value, min),
-        max
+    return new Promise(
+        (resolve) =>
+            setTimeout(
+                resolve,
+                ms
+            )
     );
 }
 
-function safeString(value, fallback = "") {
-    if (value === null || value === undefined) {
+function randomToken(
+    bytes = 32
+) {
+    return crypto
+        .randomBytes(bytes)
+        .toString("hex");
+}
+
+function randomId(
+    prefix = ""
+) {
+    return (
+        prefix +
+        crypto.randomUUID()
+    );
+}
+
+function safeString(
+    value,
+    fallback = ""
+) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
         return fallback;
     }
 
     return String(value);
 }
 
-function safeUserId(value) {
-    const id = safeString(value).trim();
+function parseNumber(
+    value,
+    fallback = 0
+) {
+    const number =
+        Number(value);
 
-    if (!id) {
-        return null;
-    }
-
-    if (id.length < 6 || id.length > 200) {
-        return null;
-    }
-
-    return id;
+    return Number.isFinite(
+        number
+    )
+        ? number
+        : fallback;
 }
 
-function jsonError(res, status, message, extra = {}) {
-    return res.status(status).json({
-        ok: false,
-        error: message,
-        ...extra
-    });
+function clamp(
+    value,
+    min,
+    max
+) {
+    return Math.min(
+        max,
+        Math.max(
+            min,
+            value
+        )
+    );
 }
 
-function redactSecrets(value) {
-    const text = safeString(value);
+function jsonError(
+    res,
+    status,
+    message,
+    extra = {}
+) {
+    return res
+        .status(status)
+        .json({
+            ok: false,
+            error: message,
+            ...extra
+        });
+}
 
-    return text
+function redactSecrets(
+    value
+) {
+    return safeString(value)
         .replace(
             /([?&](?:key|api_key|access_token|token)=)[^&]+/gi,
             "$1[REDACTED]"
@@ -281,325 +428,431 @@ function redactSecrets(value) {
         );
 }
 
-async function safeRemove(filePath) {
+async function safeRemove(
+    filePath
+) {
     if (!filePath) {
         return;
     }
 
     try {
-        await fsp.rm(filePath, {
-            force: true,
-            recursive: true
-        });
-    } catch (_) {
-        // Ignorado propositalmente.
-    }
+        await fsp.rm(
+            filePath,
+            {
+                recursive: true,
+                force: true
+            }
+        );
+    } catch (_) {}
 }
 
 async function ensureDirectories() {
-    await fsp.mkdir(TEMP_ROOT, {
-        recursive: true
-    });
+    await fsp.mkdir(
+        TEMP_ROOT,
+        {
+            recursive: true
+        }
+    );
 
-    await fsp.mkdir(UPLOAD_DIR, {
-        recursive: true
-    });
+    await fsp.mkdir(
+        UPLOAD_DIR,
+        {
+            recursive: true
+        }
+    );
 
-    await fsp.mkdir(OUTPUT_DIR, {
-        recursive: true
-    });
-}
-
-function getFileExtension(filePath) {
-    return path.extname(filePath || "").toLowerCase();
+    await fsp.mkdir(
+        OUTPUT_DIR,
+        {
+            recursive: true
+        }
+    );
 }
 
 /* ============================================================
- * PROCESSOS
- * ========================================================== */
+   PROCESSOS
+============================================================ */
 
 function spawnCapture(
     command,
     args = [],
     options = {}
 ) {
-    return new Promise((resolve, reject) => {
-        const child = spawn(
-            command,
-            args,
-            {
-                windowsHide: true,
-                ...options
-            }
-        );
+    return new Promise(
+        (resolve, reject) => {
+            const child =
+                spawn(
+                    command,
+                    args,
+                    {
+                        windowsHide:
+                            true,
+                        ...options
+                    }
+                );
 
-        let stdout = "";
-        let stderr = "";
+            let stdout = "";
+            let stderr = "";
 
-        child.stdout?.on("data", (chunk) => {
-            stdout += chunk.toString();
-        });
+            child.stdout?.on(
+                "data",
+                (chunk) => {
+                    stdout +=
+                        chunk.toString();
 
-        child.stderr?.on("data", (chunk) => {
-            stderr += chunk.toString();
-        });
+                    if (
+                        stdout.length >
+                        150000
+                    ) {
+                        stdout =
+                            stdout.slice(
+                                -150000
+                            );
+                    }
+                }
+            );
 
-        child.on("error", (error) => {
-            reject(error);
-        });
+            child.stderr?.on(
+                "data",
+                (chunk) => {
+                    stderr +=
+                        chunk.toString();
 
-        child.on("close", (code, signal) => {
-            resolve({
-                code,
-                signal,
-                stdout,
-                stderr
-            });
-        });
-    });
+                    if (
+                        stderr.length >
+                        250000
+                    ) {
+                        stderr =
+                            stderr.slice(
+                                -250000
+                            );
+                    }
+                }
+            );
+
+            child.on(
+                "error",
+                reject
+            );
+
+            child.on(
+                "close",
+                (
+                    code,
+                    signal
+                ) => {
+                    resolve({
+                        code,
+                        signal,
+                        stdout,
+                        stderr
+                    });
+                }
+            );
+        }
+    );
 }
 
-async function commandExists(command, args = ["-version"]) {
+async function commandExists(
+    command,
+    args = [
+        "--version"
+    ]
+) {
     try {
-        const result = await spawnCapture(
-            command,
-            args
-        );
+        const result =
+            await spawnCapture(
+                command,
+                args
+            );
 
         return (
-            result.code === 0 ||
-            Boolean(result.stdout) ||
-            Boolean(result.stderr)
+            result.code === 0
         );
     } catch (_) {
         return false;
     }
 }
 
-async function resolveExecutable(
-    candidates,
-    testArgs = ["-version"]
-) {
-    for (const candidate of candidates) {
-        if (!candidate) {
-            continue;
-        }
-
-        try {
-            const exists = await commandExists(
-                candidate,
-                testArgs
-            );
-
-            if (exists) {
-                return candidate;
-            }
-        } catch (_) {
-            // continua
-        }
-    }
-
-    return null;
-}
-
 /* ============================================================
- * FFmpeg / FFprobe
- * ========================================================== */
-
-let FFMPEG_PATH = null;
-let FFPROBE_PATH = null;
-let YTDLP_PATH = null;
+   RESOLUÇÃO DOS BINÁRIOS
+============================================================ */
 
 async function resolveBinaries() {
-    const ffmpegCandidates = [];
+    if (
+        !FFMPEG_BIN
+    ) {
+        try {
+            const installer =
+                require(
+                    "@ffmpeg-installer/ffmpeg"
+                );
 
-    try {
-        const ffmpegInstaller =
-            require("@ffmpeg-installer/ffmpeg");
+            if (
+                installer?.path
+            ) {
+                FFMPEG_BIN =
+                    installer.path;
+            }
+        } catch (_) {}
+    }
 
-        ffmpegCandidates.push(
-            ffmpegInstaller.path
+    if (
+        !FFMPEG_BIN
+    ) {
+        try {
+            const staticPath =
+                require(
+                    "ffmpeg-static"
+                );
+
+            if (
+                staticPath
+            ) {
+                FFMPEG_BIN =
+                    staticPath;
+            }
+        } catch (_) {}
+    }
+
+    if (
+        !FFMPEG_BIN
+    ) {
+        FFMPEG_BIN =
+            "ffmpeg";
+    }
+
+    if (
+        !FFPROBE_BIN
+    ) {
+        try {
+            const installer =
+                require(
+                    "@ffprobe-installer/ffprobe"
+                );
+
+            if (
+                installer?.path
+            ) {
+                FFPROBE_BIN =
+                    installer.path;
+            }
+        } catch (_) {}
+    }
+
+    if (
+        !FFPROBE_BIN
+    ) {
+        FFPROBE_BIN =
+            "ffprobe";
+    }
+
+    const ffmpegOk =
+        await commandExists(
+            FFMPEG_BIN
         );
-    } catch (_) {}
 
-    try {
-        const ffmpegStatic =
-            require("ffmpeg-static");
-
-        ffmpegCandidates.push(
-            ffmpegStatic
+    const ffprobeOk =
+        await commandExists(
+            FFPROBE_BIN
         );
-    } catch (_) {}
 
-    ffmpegCandidates.push(
-        process.env.FFMPEG_PATH,
-        "ffmpeg"
-    );
-
-    const ffprobeCandidates = [];
-
-    try {
-        const ffprobeInstaller =
-            require("@ffprobe-installer/ffprobe");
-
-        ffprobeCandidates.push(
-            ffprobeInstaller.path
+    const ytdlpOk =
+        await commandExists(
+            YTDLP_BIN
         );
-    } catch (_) {}
 
-    ffprobeCandidates.push(
-        process.env.FFPROBE_PATH,
-        "ffprobe"
-    );
-
-    const ytdlpCandidates = [
-        process.env.YTDLP_PATH,
-        process.env.YT_DLP_PATH,
-        "yt-dlp"
-    ];
-
-    FFMPEG_PATH = await resolveExecutable(
-        ffmpegCandidates,
-        ["-version"]
-    );
-
-    FFPROBE_PATH = await resolveExecutable(
-        ffprobeCandidates,
-        ["-version"]
-    );
-
-    YTDLP_PATH = await resolveExecutable(
-        ytdlpCandidates,
-        ["--version"]
+    console.log(
+        `[Binaries] FFmpeg: ${
+            ffmpegOk
+                ? FFMPEG_BIN
+                : "AUSENTE"
+        }`
     );
 
     console.log(
-        "[Binaries] FFmpeg:",
-        FFMPEG_PATH || "NÃO ENCONTRADO"
+        `[Binaries] FFprobe: ${
+            ffprobeOk
+                ? FFPROBE_BIN
+                : "AUSENTE"
+        }`
     );
 
     console.log(
-        "[Binaries] FFprobe:",
-        FFPROBE_PATH || "NÃO ENCONTRADO"
-    );
-
-    console.log(
-        "[Binaries] yt-dlp:",
-        YTDLP_PATH || "NÃO ENCONTRADO"
+        `[Binaries] yt-dlp: ${
+            ytdlpOk
+                ? YTDLP_BIN
+                : "AUSENTE"
+        }`
     );
 }
 
 /* ============================================================
- * FFPROBE
- * ========================================================== */
+   FFPROBE
+============================================================ */
 
-async function getVideoMetadata(filePath) {
-    if (!FFPROBE_PATH) {
+async function getVideoMetadata(
+    filePath
+) {
+    if (!FFPROBE_BIN) {
         throw new Error(
-            "FFprobe não está disponível no servidor."
+            "FFprobe não está disponível."
         );
     }
 
-    const result = await spawnCapture(
-        FFPROBE_PATH,
-        [
-            "-v",
-            "error",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            filePath
-        ]
-    );
+    const result =
+        await spawnCapture(
+            FFPROBE_BIN,
+            [
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                filePath
+            ]
+        );
 
-    if (result.code !== 0) {
+    if (
+        result.code !== 0
+    ) {
         throw new Error(
-            `FFprobe falhou: ${result.stderr || result.stdout}`
+            `FFprobe falhou: ${
+                result.stderr ||
+                result.stdout
+            }`
         );
     }
 
     let data;
 
     try {
-        data = JSON.parse(result.stdout);
+        data =
+            JSON.parse(
+                result.stdout
+            );
     } catch (_) {
         throw new Error(
             "FFprobe retornou JSON inválido."
         );
     }
 
-    const format = data.format || {};
+    const format =
+        data.format || {};
 
-    const duration = parseNumber(
-        format.duration,
-        0
-    );
-
-    const streams = Array.isArray(data.streams)
-        ? data.streams
-        : [];
+    const streams =
+        Array.isArray(
+            data.streams
+        )
+            ? data.streams
+            : [];
 
     const videoStream =
         streams.find(
             (stream) =>
-                stream.codec_type === "video"
+                stream.codec_type ===
+                "video"
         ) || null;
 
     const audioStream =
         streams.find(
             (stream) =>
-                stream.codec_type === "audio"
+                stream.codec_type ===
+                "audio"
         ) || null;
 
     return {
-        duration,
-        format: format.format_name || null,
-        size: parseNumber(format.size, 0),
-        videoCodec:
-            videoStream?.codec_name || null,
-        audioCodec:
-            audioStream?.codec_name || null,
+        duration:
+            parseNumber(
+                format.duration,
+                0
+            ),
+
+        size:
+            parseNumber(
+                format.size,
+                0
+            ),
+
+        format:
+            format.format_name ||
+            null,
+
         width:
-            parseNumber(videoStream?.width, 0),
+            parseNumber(
+                videoStream?.width,
+                0
+            ),
+
         height:
-            parseNumber(videoStream?.height, 0),
+            parseNumber(
+                videoStream?.height,
+                0
+            ),
+
+        videoCodec:
+            videoStream?.codec_name ||
+            null,
+
+        audioCodec:
+            audioStream?.codec_name ||
+            null,
+
         fps:
-            videoStream?.r_frame_rate || null
+            videoStream?.r_frame_rate ||
+            null
     };
 }
 
-async function validateVideoFile(filePath) {
+async function validateVideoFile(
+    filePath
+) {
     if (!filePath) {
         throw new Error(
             "Arquivo de vídeo não informado."
         );
     }
 
-    const stat = await fsp.stat(filePath);
+    const stat =
+        await fsp.stat(
+            filePath
+        );
 
-    if (!stat.isFile()) {
+    if (
+        !stat.isFile()
+    ) {
         throw new Error(
             "O caminho informado não é um arquivo."
         );
     }
 
-    if (stat.size <= 0) {
+    if (
+        stat.size <= 10000
+    ) {
         throw new Error(
-            "O arquivo de vídeo está vazio."
+            "O arquivo de vídeo está vazio ou inválido."
         );
     }
 
-    if (stat.size > MAX_UPLOAD_BYTES) {
+    if (
+        stat.size >
+        MAX_UPLOAD_BYTES
+    ) {
         throw new Error(
             `O vídeo excede o limite de ${MAX_UPLOAD_MB} MB.`
         );
     }
 
     const metadata =
-        await getVideoMetadata(filePath);
+        await getVideoMetadata(
+            filePath
+        );
 
-    if (!metadata.duration || metadata.duration <= 0) {
+    if (
+        !metadata.duration ||
+        metadata.duration <= 0
+    ) {
         throw new Error(
             "Não foi possível obter a duração do vídeo."
         );
@@ -609,153 +862,238 @@ async function validateVideoFile(filePath) {
 }
 
 /* ============================================================
- * MULTER
- * ========================================================== */
+   MULTER
+============================================================ */
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, UPLOAD_DIR);
-    },
-
-    filename: function (req, file, cb) {
-        const ext =
-            getFileExtension(file.originalname) ||
-            ".mp4";
-
-        cb(
-            null,
-            `${randomId("upload_")}${ext}`
-        );
-    }
-});
-
-const videoUpload = multer({
-    storage,
-
-    limits: {
-        fileSize: MAX_UPLOAD_BYTES,
-        files: 1
-    },
-
-    fileFilter: function (req, file, cb) {
-        const mime =
-            safeString(file.mimetype)
-                .toLowerCase();
-
-        const name =
-            safeString(file.originalname)
-                .toLowerCase();
-
-        const validMime =
-            mime === "video/mp4" ||
-            mime.startsWith("video/");
-
-        const validExtension =
-            name.endsWith(".mp4") ||
-            name.endsWith(".mov") ||
-            name.endsWith(".mkv") ||
-            name.endsWith(".webm") ||
-            name.endsWith(".avi");
-
-        if (!validMime && !validExtension) {
-            return cb(
-                new Error(
-                    "Formato de vídeo não suportado."
-                )
-            );
-        }
-
-        cb(null, true);
-    }
-});
-
-/* ============================================================
- * LIMPEZA DE UPLOADS
- * ========================================================== */
-
-async function cleanupExpiredUploads() {
-    const expiration =
-        now() - UPLOAD_TTL_MS;
-
-    for (const [id, upload] of uploads.entries()) {
-        if (
-            upload.createdAt < expiration ||
-            !upload.filePath
-        ) {
-            await safeRemove(
-                upload.filePath
-            );
-
-            uploads.delete(id);
-        }
-    }
-}
-
-setInterval(
-    () => {
-        cleanupExpiredUploads()
-            .catch((error) => {
-                console.error(
-                    "[Cleanup]",
-                    error.message
+const storage =
+    multer.diskStorage({
+        destination:
+            function (
+                req,
+                file,
+                cb
+            ) {
+                cb(
+                    null,
+                    UPLOAD_DIR
                 );
-            });
-    },
-    15 * 60 * 1000
-).unref();
+            },
+
+        filename:
+            function (
+                req,
+                file,
+                cb
+            ) {
+                const ext =
+                    path.extname(
+                        file.originalname ||
+                            ""
+                    )
+                        .toLowerCase() ||
+                    ".mp4";
+
+                cb(
+                    null,
+                    `${randomId(
+                        "upload_"
+                    )}${ext}`
+                );
+            }
+    });
+
+const uploadMiddleware =
+    multer({
+        storage,
+
+        limits: {
+            fileSize:
+                MAX_UPLOAD_BYTES,
+            files: 1
+        },
+
+        fileFilter:
+            function (
+                req,
+                file,
+                cb
+            ) {
+                const mime =
+                    safeString(
+                        file.mimetype
+                    ).toLowerCase();
+
+                const name =
+                    safeString(
+                        file.originalname
+                    ).toLowerCase();
+
+                const validMime =
+                    mime.startsWith(
+                        "video/"
+                    );
+
+                const validExtension =
+                    /\.(mp4|mov|mkv|webm|avi)$/i.test(
+                        name
+                    );
+
+                if (
+                    !validMime &&
+                    !validExtension
+                ) {
+                    return cb(
+                        new Error(
+                            "Formato de vídeo não suportado."
+                        )
+                    );
+                }
+
+                cb(
+                    null,
+                    true
+                );
+            }
+    });
 
 /* ============================================================
- * YOUTUBE
- * ========================================================== */
+   YOUTUBE
+============================================================ */
 
-function isYouTubeUrl(value) {
+function getYouTubeId(
+    value
+) {
+    const input =
+        safeString(
+            value
+        ).trim();
+
+    if (
+        /^[A-Za-z0-9_-]{11}$/.test(
+            input
+        )
+    ) {
+        return input;
+    }
+
     try {
-        const url = new URL(value);
+        const url =
+            new URL(
+                input
+            );
 
         const host =
             url.hostname.toLowerCase();
 
-        return (
-            host === "youtube.com" ||
-            host === "www.youtube.com" ||
-            host === "m.youtube.com" ||
-            host === "youtu.be" ||
-            host.endsWith(".youtube.com")
+        if (
+            host ===
+                "youtu.be"
+        ) {
+            const id =
+                url.pathname
+                    .replace(
+                        /^\//,
+                        ""
+                    )
+                    .split(
+                        "/"
+                    )[0];
+
+            return /^[A-Za-z0-9_-]{11}$/.test(
+                id
+            )
+                ? id
+                : null;
+        }
+
+        if (
+            host.includes(
+                "youtube.com"
+            )
+        ) {
+            const v =
+                url.searchParams.get(
+                    "v"
+                );
+
+            if (
+                v &&
+                /^[A-Za-z0-9_-]{11}$/.test(
+                    v
+                )
+            ) {
+                return v;
+            }
+
+            const parts =
+                url.pathname
+                    .split("/")
+                    .filter(Boolean);
+
+            const index =
+                parts.findIndex(
+                    (part) =>
+                        [
+                            "shorts",
+                            "embed",
+                            "live"
+                        ].includes(
+                            part
+                        )
+                );
+
+            if (
+                index >= 0 &&
+                parts[index + 1]
+            ) {
+                const id =
+                    parts[
+                        index + 1
+                    ];
+
+                if (
+                    /^[A-Za-z0-9_-]{11}$/.test(
+                        id
+                    )
+                ) {
+                    return id;
+                }
+            }
+        }
+    } catch (_) {}
+
+    return null;
+}
+
+function normalizeYouTubeUrl(
+    value
+) {
+    const id =
+        getYouTubeId(
+            value
         );
-    } catch (_) {
-        return false;
+
+    if (!id) {
+        return null;
     }
+
+    return `https://www.youtube.com/watch?v=${id}`;
 }
 
-function normalizeYouTubeUrl(value) {
-    const text =
-        safeString(value).trim();
-
-    if (!text) {
-        return null;
-    }
-
-    if (!isYouTubeUrl(text)) {
-        return null;
-    }
-
-    return text;
-}
-
-async function getYouTubeInfo(url) {
-    if (!YTDLP_PATH) {
-        return null;
-    }
-
+async function getYouTubeInfo(
+    url
+) {
     const args = [
-        "--dump-single-json",
-        "--skip-download",
-        "--no-warnings",
         "--no-playlist",
+        "--skip-download",
+        "--dump-single-json",
+        "--no-warnings",
         url
     ];
 
-    if (YTDLP_COOKIES_FILE) {
+    if (
+        YTDLP_COOKIES_FILE
+    ) {
         args.splice(
             2,
             0,
@@ -764,429 +1102,328 @@ async function getYouTubeInfo(url) {
         );
     }
 
+    const result =
+        await spawnCapture(
+            YTDLP_BIN,
+            args
+        );
+
+    if (
+        result.code !== 0
+    ) {
+        throw new Error(
+            result.stderr ||
+                result.stdout ||
+                "yt-dlp não conseguiu obter os metadados."
+        );
+    }
+
     try {
-        const result =
-            await spawnCapture(
-                YTDLP_PATH,
-                args
-            );
-
-        if (result.code !== 0) {
-            console.warn(
-                "[yt-dlp] info falhou:",
-                redactSecrets(
-                    result.stderr
-                )
-            );
-
-            return null;
-        }
-
         return JSON.parse(
             result.stdout
         );
-    } catch (error) {
-        console.warn(
-            "[yt-dlp] info exception:",
-            error.message
+    } catch (_) {
+        throw new Error(
+            "yt-dlp retornou dados inválidos."
         );
-
-        return null;
     }
 }
 
 /* ============================================================
- * DOWNLOAD ORIGINAL
- * ========================================================== */
+   DOWNLOAD ORIGINAL YOUTUBE
+============================================================ */
 
-async function downloadWithYtDlp(
+async function downloadYouTubeVideo(
     url,
-    outputPath
+    outputTemplate
 ) {
-    if (!YTDLP_PATH) {
-        throw new Error(
-            "yt-dlp não está disponível."
-        );
-    }
-
     const args = [
         "--no-playlist",
         "--no-warnings",
+        "--no-mtime",
         "--restrict-filenames",
+
         "-f",
         "bv*+ba/b",
+
         "--merge-output-format",
         "mp4",
+
         "-o",
-        outputPath,
+        outputTemplate,
+
         url
     ];
 
-    if (YTDLP_COOKIES_FILE) {
+    if (
+        YTDLP_COOKIES_FILE
+    ) {
         args.splice(
-            3,
+            2,
             0,
             "--cookies",
             YTDLP_COOKIES_FILE
         );
     }
 
-    console.log(
-        "[yt-dlp] Iniciando download:",
-        redactSecrets(url)
-    );
-
     const result =
         await spawnCapture(
-            YTDLP_PATH,
+            YTDLP_BIN,
             args
         );
 
-    if (result.code !== 0) {
+    if (
+        result.code !== 0
+    ) {
         throw new Error(
-            `yt-dlp falhou: ${
-                result.stderr ||
+            result.stderr ||
                 result.stdout ||
-                "erro desconhecido"
-            }`
+                "yt-dlp falhou ao baixar o vídeo."
         );
     }
 
-    await fsp.access(
-        outputPath
-    );
+    const directory =
+        path.dirname(
+            outputTemplate
+        );
 
-    return outputPath;
-}
+    const files =
+        await fsp.readdir(
+            directory
+        );
 
-async function downloadWithRapidApi(
-    url,
-    outputPath
-) {
-    if (
-        !RAPIDAPI_KEY ||
-        !RAPIDAPI_HOST
+    const candidates =
+        [];
+
+    for (
+        const filename of files
     ) {
-        throw new Error(
-            "RapidAPI não configurada."
-        );
-    }
-
-    /*
-     * Mantido como fallback opcional.
-     *
-     * O formato da resposta varia conforme a API
-     * contratada. Tentamos extrair URLs comuns.
-     */
-
-    const endpoint =
-        process.env.RAPIDAPI_YOUTUBE_URL;
-
-    if (!endpoint) {
-        throw new Error(
-            "RAPIDAPI_YOUTUBE_URL não configurada."
-        );
-    }
-
-    const apiUrl =
-        new URL(endpoint);
-
-    apiUrl.searchParams.set(
-        "url",
-        url
-    );
-
-    const response =
-        await fetch(
-            apiUrl,
-            {
-                headers: {
-                    "x-rapidapi-key":
-                        RAPIDAPI_KEY,
-                    "x-rapidapi-host":
-                        RAPIDAPI_HOST
-                },
-                signal:
-                    AbortSignal.timeout(
-                        120000
-                    )
-            }
-        );
-
-    const text =
-        await response.text();
-
-    if (!response.ok) {
-        throw new Error(
-            `RapidAPI HTTP ${response.status}: ${text.slice(
-                0,
-                1000
-            )}`
-        );
-    }
-
-    let data;
-
-    try {
-        data = JSON.parse(text);
-    } catch (_) {
-        throw new Error(
-            "RapidAPI retornou JSON inválido."
-        );
-    }
-
-    const directUrl =
-        data?.url ||
-        data?.videoUrl ||
-        data?.downloadUrl ||
-        data?.data?.url ||
-        data?.data?.videoUrl ||
-        data?.result?.url ||
-        data?.result?.videoUrl;
-
-    if (!directUrl) {
-        throw new Error(
-            "RapidAPI não retornou uma URL de vídeo."
-        );
-    }
-
-    const videoResponse =
-        await fetch(
-            directUrl,
-            {
-                signal:
-                    AbortSignal.timeout(
-                        120000
-                    )
-            }
-        );
-
-    if (!videoResponse.ok) {
-        throw new Error(
-            `Download RapidAPI HTTP ${videoResponse.status}.`
-        );
-    }
-
-    const fileStream =
-        fs.createWriteStream(
-            outputPath
-        );
-
-    if (!videoResponse.body) {
-        throw new Error(
-            "RapidAPI não retornou stream de vídeo."
-        );
-    }
-
-    await new Promise(
-        (resolve, reject) => {
-            const reader =
-                videoResponse.body.getReader();
-
-            fileStream.on(
-                "finish",
-                resolve
-            );
-
-            fileStream.on(
-                "error",
-                reject
-            );
-
-            (async () => {
-                try {
-                    while (true) {
-                        const {
-                            done,
-                            value
-                        } =
-                            await reader.read();
-
-                        if (done) {
-                            fileStream.end();
-                            break;
-                        }
-
-                        fileStream.write(
-                            Buffer.from(value)
-                        );
-                    }
-                } catch (error) {
-                    fileStream.destroy(
-                        error
-                    );
-
-                    reject(error);
-                }
-            })();
+        if (
+            !/^source\./i.test(
+                filename
+            )
+        ) {
+            continue;
         }
-    );
 
-    return outputPath;
-}
-
-async function downloadOriginalVideo(
-    url
-) {
-    const tempName =
-        `${randomId("source_")}.mp4`;
-
-    const outputPath =
-        path.join(
-            TEMP_ROOT,
-            tempName
-        );
-
-    let lastError = null;
-
-    /*
-     * yt-dlp é o método principal.
-     */
-
-    try {
-        await downloadWithYtDlp(
-            url,
-            outputPath
-        );
-
-        const metadata =
-            await validateVideoFile(
-                outputPath
+        const fullPath =
+            path.join(
+                directory,
+                filename
             );
 
-        console.log(
-            "[Download] yt-dlp OK:",
-            metadata.duration,
-            "segundos"
-        );
-
-        return {
-            filePath: outputPath,
-            metadata
-        };
-    } catch (error) {
-        lastError = error;
-
-        console.warn(
-            "[Download] yt-dlp falhou:",
-            error.message
-        );
-
-        await safeRemove(
-            outputPath
-        );
-    }
-
-    /*
-     * RapidAPI como fallback opcional.
-     */
-
-    if (
-        RAPIDAPI_KEY &&
-        RAPIDAPI_HOST &&
-        process.env.RAPIDAPI_YOUTUBE_URL
-    ) {
         try {
-            await downloadWithRapidApi(
-                url,
-                outputPath
-            );
-
-            const metadata =
-                await validateVideoFile(
-                    outputPath
+            const stat =
+                await fsp.stat(
+                    fullPath
                 );
 
-            console.log(
-                "[Download] RapidAPI OK:",
-                metadata.duration,
-                "segundos"
-            );
-
-            return {
-                filePath: outputPath,
-                metadata
-            };
-        } catch (error) {
-            lastError = error;
-
-            console.warn(
-                "[Download] RapidAPI falhou:",
-                error.message
-            );
-
-            await safeRemove(
-                outputPath
-            );
-        }
+            if (
+                stat.isFile() &&
+                stat.size > 0
+            ) {
+                candidates.push(
+                    fullPath
+                );
+            }
+        } catch (_) {}
     }
 
-    throw new Error(
-        `Não foi possível baixar o vídeo do YouTube. ${
-            lastError?.message || ""
-        }`
-    );
+    if (
+        !candidates.length
+    ) {
+        throw new Error(
+            "yt-dlp terminou sem produzir o arquivo de vídeo."
+        );
+    }
+
+    return candidates[0];
 }
 
 /* ============================================================
- * AUTENTICAÇÃO
- * ========================================================== */
+   AUTENTICAÇÃO
+============================================================ */
 
-function createUser({
-    email,
-    name
-}) {
-    const normalizedEmail =
-        safeString(email)
-            .trim()
-            .toLowerCase();
+function ensureUser(
+    requestedId
+) {
+    let userId =
+        safeString(
+            requestedId
+        ).trim();
 
-    const existing =
-        Array.from(
-            users.values()
-        ).find(
-            (user) =>
-                user.email ===
-                normalizedEmail
-        );
-
-    if (existing) {
-        return existing;
+    if (
+        !userId
+    ) {
+        userId =
+            randomId(
+                "user_"
+            );
     }
 
-    const user = {
-        id: randomId("user_"),
-        userId: randomId("user_"),
-        email:
-            normalizedEmail ||
-            `${randomToken(6)}@clipforge.local`,
-        name:
-            safeString(name).trim() ||
-            "Usuário ClipForge",
-        pontos: 200,
-        isVip: false,
-        createdAt: now(),
-        lastDailyClaim: now()
-    };
+    let user =
+        users.get(
+            userId
+        );
 
-    users.set(
-        user.id,
+    if (!user) {
+        user = {
+            id:
+                userId,
+
+            points:
+                FREE_POINTS,
+
+            vip:
+                false,
+
+            createdAt:
+                now(),
+
+            lastDailyClaim:
+                now(),
+
+            downloads:
+                0,
+
+            analyses:
+                0
+        };
+
+        users.set(
+            userId,
+            user
+        );
+    }
+
+    claimDailyPoints(
         user
     );
 
     return user;
 }
 
-function createSession(user) {
+function claimDailyPoints(
+    user
+) {
+    if (!user) {
+        return 0;
+    }
+
+    const today =
+        new Date()
+            .toISOString()
+            .slice(
+                0,
+                10
+            );
+
+    const previous =
+        user.lastDailyClaim
+            ? new Date(
+                  user.lastDailyClaim
+              )
+                  .toISOString()
+                  .slice(
+                      0,
+                      10
+                  )
+            : "";
+
+    if (
+        today !==
+        previous
+    ) {
+        user.points +=
+            DAILY_POINTS;
+
+        user.lastDailyClaim =
+            now();
+
+        return DAILY_POINTS;
+    }
+
+    return 0;
+}
+
+function publicUser(
+    user
+) {
+    return {
+        id:
+            user.id,
+
+        userId:
+            user.id,
+
+        pontos:
+            Math.max(
+                0,
+                Math.floor(
+                    user.points
+                )
+            ),
+
+        points:
+            Math.max(
+                0,
+                Math.floor(
+                    user.points
+                )
+            ),
+
+        isVip:
+            Boolean(
+                user.vip
+            ),
+
+        vip:
+            Boolean(
+                user.vip
+            )
+    };
+}
+
+function getBearerToken(
+    req
+) {
+    const header =
+        safeString(
+            req.headers.authorization
+        );
+
+    if (
+        header
+            .toLowerCase()
+            .startsWith(
+                "bearer "
+            )
+    ) {
+        return header
+            .slice(7)
+            .trim();
+    }
+
+    return "";
+}
+
+function createUserSession(
+    user
+) {
     const token =
-        randomToken(48);
+        randomToken(
+            48
+        );
 
     sessions.set(
         token,
         {
-            token,
-            userId: user.id,
-            createdAt: now(),
+            userId:
+                user.id,
+
+            createdAt:
+                now(),
+
             expiresAt:
                 now() +
                 SESSION_TTL_MS
@@ -1196,82 +1433,60 @@ function createSession(user) {
     return token;
 }
 
-function getUserFromToken(token) {
-    if (!token) {
-        return null;
-    }
-
-    const session =
-        sessions.get(token);
-
-    if (!session) {
-        return null;
-    }
-
-    if (
-        session.expiresAt < now()
-    ) {
-        sessions.delete(token);
-        return null;
-    }
-
-    return (
-        users.get(
-            session.userId
-        ) || null
-    );
-}
-
-function extractBearerToken(req) {
-    const authorization =
-        safeString(
-            req.headers.authorization
+function getAuthenticatedUser(
+    req
+) {
+    const token =
+        getBearerToken(
+            req
         );
 
-    if (
-        authorization
-            .toLowerCase()
-            .startsWith("bearer ")
-    ) {
-        return authorization
-            .slice(7)
-            .trim();
-    }
+    if (token) {
+        const session =
+            sessions.get(
+                token
+            );
 
-    return null;
-}
+        if (
+            session &&
+            session.expiresAt >
+                now()
+        ) {
+            return (
+                users.get(
+                    session.userId
+                ) || null
+            );
+        }
 
-function getAuthenticatedUser(req) {
-    const token =
-        extractBearerToken(req);
-
-    const tokenUser =
-        getUserFromToken(token);
-
-    if (tokenUser) {
-        return tokenUser;
+        if (
+            session
+        ) {
+            sessions.delete(
+                token
+            );
+        }
     }
 
     /*
-     * Compatibilidade com frontend antigo.
+     * Compatibilidade com frontend
+     * antigo que envia X-User-Id.
      */
 
-    const headerUserId =
-        safeUserId(
-            req.headers["x-user-id"]
-        );
+    const headerUser =
+        safeString(
+            req.headers[
+                "x-user-id"
+            ]
+        ).trim();
 
-    if (headerUserId) {
+    if (
+        headerUser
+    ) {
         return (
-            users.get(headerUserId) ||
-            Array.from(
-                users.values()
-            ).find(
-                (user) =>
-                    user.userId ===
-                    headerUserId
-            ) ||
-            null
+            users.get(
+                headerUser
+            ) || null
         );
     }
 
@@ -1284,7 +1499,9 @@ function requireUser(
     next
 ) {
     const user =
-        getAuthenticatedUser(req);
+        getAuthenticatedUser(
+            req
+        );
 
     if (!user) {
         return jsonError(
@@ -1294,48 +1511,36 @@ function requireUser(
         );
     }
 
-    req.user = user;
+    claimDailyPoints(
+        user
+    );
+
+    req.user =
+        user;
 
     next();
 }
 
-function claimDailyPoints(user) {
-    const elapsed =
-        now() -
-        Number(
-            user.lastDailyClaim || 0
-        );
-
-    if (
-        elapsed >=
-        24 * 60 * 60 * 1000
-    ) {
-        user.pontos += DAILY_POINTS;
-        user.lastDailyClaim = now();
-
-        return DAILY_POINTS;
-    }
-
-    return 0;
-}
-
 /* ============================================================
- * UPLOAD OWNERSHIP
- * ========================================================== */
+   UPLOAD OWNERSHIP
+============================================================ */
 
 function getOwnedUpload(
     user,
     uploadId
 ) {
     const upload =
-        uploads.get(uploadId);
+        uploads.get(
+            uploadId
+        );
 
     if (!upload) {
         return null;
     }
 
     if (
-        upload.userId !== user.id
+        upload.userId !==
+        user.id
     ) {
         return null;
     }
@@ -1344,8 +1549,8 @@ function getOwnedUpload(
 }
 
 /* ============================================================
- * GEMINI SCHEMA
- * ========================================================== */
+   GEMINI SCHEMA
+============================================================ */
 
 const CLIPS_SCHEMA = {
     type: "object",
@@ -1401,38 +1606,48 @@ const CLIPS_SCHEMA = {
 };
 
 /* ============================================================
- * NORMALIZAÇÃO GEMINI
- * ========================================================== */
+   NORMALIZAÇÃO DOS CORTES
+============================================================ */
 
 function normalizeGeminiClips(
     value,
     videoDuration = null
 ) {
-    let rawClips = [];
+    let rawClips =
+        [];
 
-    if (Array.isArray(value)) {
-        rawClips = value;
+    if (
+        Array.isArray(
+            value
+        )
+    ) {
+        rawClips =
+            value;
     } else if (
         Array.isArray(
             value?.clips
         )
     ) {
-        rawClips = value.clips;
+        rawClips =
+            value.clips;
     } else if (
         Array.isArray(
             value?.cortes
         )
     ) {
-        rawClips = value.cortes;
+        rawClips =
+            value.cortes;
     } else if (
         Array.isArray(
             value?.results
         )
     ) {
-        rawClips = value.results;
+        rawClips =
+            value.results;
     }
 
-    const clips = [];
+    const result =
+        [];
 
     for (
         const item of rawClips
@@ -1444,55 +1659,67 @@ function normalizeGeminiClips(
         let start =
             parseNumber(
                 item.start ??
-                item.inicio ??
-                item.startTime,
+                    item.inicio ??
+                    item.startTime,
                 NaN
             );
 
         let end =
             parseNumber(
                 item.end ??
-                item.fim ??
-                item.endTime,
+                    item.fim ??
+                    item.endTime,
                 NaN
             );
 
         let duration =
             parseNumber(
                 item.duration ??
-                item.duracao,
+                    item.duracao,
                 NaN
             );
 
-        if (!Number.isFinite(start)) {
+        if (
+            !Number.isFinite(
+                start
+            )
+        ) {
             start = 0;
         }
 
-        start = Math.max(
-            0,
-            start
-        );
+        start =
+            Math.max(
+                0,
+                start
+            );
 
         if (
-            !Number.isFinite(duration) ||
+            !Number.isFinite(
+                duration
+            ) ||
             duration <= 0
         ) {
             if (
-                Number.isFinite(end) &&
+                Number.isFinite(
+                    end
+                ) &&
                 end > start
             ) {
                 duration =
-                    end - start;
+                    end -
+                    start;
             } else {
-                duration = 30;
+                duration =
+                    30;
             }
         }
 
-        duration = clamp(
-            duration,
-            1,
-            120
-        );
+        duration =
+            clamp(
+                duration,
+                1,
+                90
+            );
 
         end =
             start +
@@ -1520,54 +1747,62 @@ function normalizeGeminiClips(
             duration =
                 Math.max(
                     1,
-                    end - start
+                    end -
+                        start
                 );
         }
 
         let score =
             parseNumber(
                 item.score ??
-                item.pontuacao ??
-                item.rating,
+                    item.rating ??
+                    item.pontuacao,
                 0
             );
 
-        score = clamp(
-            score,
-            0,
-            100
-        );
+        score =
+            clamp(
+                score,
+                0,
+                100
+            );
 
         const title =
             safeString(
                 item.title ??
-                item.titulo,
+                    item.titulo,
                 "Corte recomendado"
             ).trim();
 
         const description =
             safeString(
                 item.description ??
-                item.descricao ??
-                item.reason ??
-                item.motivo,
+                    item.descricao ??
+                    item.reason ??
+                    item.motivo,
                 ""
             ).trim();
 
-        clips.push({
+        result.push({
             start:
                 Number(
-                    start.toFixed(3)
+                    start.toFixed(
+                        3
+                    )
                 ),
 
             end:
                 Number(
-                    end.toFixed(3)
+                    end.toFixed(
+                        3
+                    )
                 ),
 
             duration:
                 Number(
-                    duration.toFixed(3)
+                    duration.toFixed(
+                        3
+                    )
                 ),
 
             title:
@@ -1578,53 +1813,49 @@ function normalizeGeminiClips(
 
             score:
                 Number(
-                    score.toFixed(1)
+                    score.toFixed(
+                        1
+                    )
                 )
         });
     }
 
-    return clips;
+    return result.slice(
+        0,
+        MAX_CLIPS
+    );
 }
 
 /* ============================================================
- * PARSER GEMINI
- * ========================================================== */
+   PARSER DA RESPOSTA GEMINI
+============================================================ */
 
-function parseGeminiOutput(data) {
+function parseGeminiOutput(
+    data
+) {
     if (!data) {
         throw new Error(
             "Resposta vazia do Gemini."
         );
     }
 
-    const candidates = [];
+    const possible =
+        [
+            data.output,
+            data.response,
+            data.result,
+            data.text,
+            data.content,
+            data
+        ];
 
-    candidates.push(
-        data.output
-    );
-
-    candidates.push(
-        data.response
-    );
-
-    candidates.push(
-        data.result
-    );
-
-    candidates.push(
-        data.text
-    );
-
-    candidates.push(
-        data.content
-    );
-
-    candidates.push(
-        data
-    );
-
-    function inspect(value) {
-        if (!value) {
+    function inspect(
+        value
+    ) {
+        if (
+            value === null ||
+            value === undefined
+        ) {
             return null;
         }
 
@@ -1666,13 +1897,17 @@ function parseGeminiOutput(data) {
             }
 
             if (
-                Array.isArray(value)
+                Array.isArray(
+                    value
+                )
             ) {
                 for (
                     const item of value
                 ) {
                     const found =
-                        inspect(item);
+                        inspect(
+                            item
+                        );
 
                     if (found) {
                         return found;
@@ -1690,7 +1925,13 @@ function parseGeminiOutput(data) {
 
             text =
                 text.replace(
-                    /^```(?:json)?/i,
+                    /^```json/i,
+                    ""
+                );
+
+            text =
+                text.replace(
+                    /^```/i,
                     ""
                 );
 
@@ -1710,49 +1951,51 @@ function parseGeminiOutput(data) {
             } catch (_) {}
 
             const firstBrace =
-                text.indexOf("{");
+                text.indexOf(
+                    "{"
+                );
 
             const lastBrace =
-                text.lastIndexOf("}");
+                text.lastIndexOf(
+                    "}"
+                );
 
             if (
                 firstBrace >= 0 &&
                 lastBrace >
                     firstBrace
             ) {
-                const candidate =
-                    text.slice(
-                        firstBrace,
-                        lastBrace + 1
-                    );
-
                 try {
                     return JSON.parse(
-                        candidate
+                        text.slice(
+                            firstBrace,
+                            lastBrace + 1
+                        )
                     );
                 } catch (_) {}
             }
 
             const firstBracket =
-                text.indexOf("[");
+                text.indexOf(
+                    "["
+                );
 
             const lastBracket =
-                text.lastIndexOf("]");
+                text.lastIndexOf(
+                    "]"
+                );
 
             if (
                 firstBracket >= 0 &&
                 lastBracket >
                     firstBracket
             ) {
-                const candidate =
-                    text.slice(
-                        firstBracket,
-                        lastBracket + 1
-                    );
-
                 try {
                     return JSON.parse(
-                        candidate
+                        text.slice(
+                            firstBracket,
+                            lastBracket + 1
+                        )
                     );
                 } catch (_) {}
             }
@@ -1762,10 +2005,12 @@ function parseGeminiOutput(data) {
     }
 
     for (
-        const candidate of candidates
+        const candidate of possible
     ) {
         const parsed =
-            inspect(candidate);
+            inspect(
+                candidate
+            );
 
         if (parsed) {
             return parsed;
@@ -1778,11 +2023,11 @@ function parseGeminiOutput(data) {
 }
 
 /* ============================================================
- * PROMPT
- * ========================================================== */
+   PROMPT GEMINI
+============================================================ */
 
 function buildClipPrompt(
-    videoDuration = null
+    videoDuration
 ) {
     const durationText =
         Number.isFinite(
@@ -1791,133 +2036,134 @@ function buildClipPrompt(
             ? `${videoDuration.toFixed(
                   1
               )} segundos`
-            : "duração desconhecida";
+            : "desconhecida";
 
     return `
-Você é um especialista em edição de vídeos curtos para redes sociais.
+Você é um especialista profissional em edição de vídeos curtos.
 
-Analise o vídeo inteiro e encontre os melhores momentos para criar cortes verticais/shorts.
+Analise o vídeo inteiro e encontre os melhores momentos para criar cortes para TikTok, Instagram Reels, YouTube Shorts e outras plataformas.
 
-Duração aproximada do vídeo:
+Duração do vídeo:
 ${durationText}
 
+OBJETIVO:
+Encontrar momentos com alto potencial de retenção.
+
+PRIORIZE:
+- ganchos fortes;
+- frases impactantes;
+- histórias;
+- opiniões;
+- revelações;
+- surpresa;
+- emoção;
+- humor;
+- conflito;
+- informação útil;
+- momentos que funcionem mesmo quando transformados em vídeo curto.
+
 REGRAS:
+1. Não invente falas.
+2. Não invente timestamps.
+3. Os tempos devem existir no vídeo.
+4. Evite introduções vazias.
+5. Evite silêncio prolongado.
+6. Prefira cortes entre aproximadamente 20 e 60 segundos.
+7. Escolha até ${MAX_CLIPS} cortes.
+8. Dê uma pontuação de 0 a 100.
+9. Escreva uma descrição curta explicando por que o trecho é interessante.
+10. Retorne SOMENTE JSON.
 
-1. Encontre momentos realmente interessantes.
-2. Priorize trechos com:
-   - gancho forte;
-   - informação útil;
-   - emoção;
-   - surpresa;
-   - humor;
-   - opinião forte;
-   - história;
-   - conflito;
-   - revelação;
-   - frase memorável;
-   - potencial de retenção.
-3. Evite introduções vazias.
-4. Evite trechos sem contexto.
-5. Evite pausas longas.
-6. Cada corte deve normalmente ter entre 20 e 60 segundos.
-7. Não invente falas.
-8. Os tempos devem corresponder ao vídeo.
-9. Escolha de 3 a 8 cortes.
-10. Dê uma nota de 0 a 100 para o potencial do corte.
-11. Explique brevemente por que o momento é interessante.
+Formato:
 
-RESPONDA SOMENTE EM JSON COMPATÍVEL COM O SCHEMA FORNECIDO.
-
-Cada corte deve possuir:
-
-start
-end
-duration
-title
-description
-score
+{
+  "clips": [
+    {
+      "start": 0,
+      "end": 30,
+      "duration": 30,
+      "title": "Título do corte",
+      "description": "Por que esse momento é interessante.",
+      "score": 90
+    }
+  ]
+}
 `;
 }
 
 /* ============================================================
- * GEMINI FILES — UPLOAD
- * ========================================================== */
+   GEMINI FILES — NORMALIZAÇÃO DO ID
+============================================================ */
 
-/**
- * Extrai o upload URL retornado pelo Google.
+/*
+ * O Gemini pode devolver:
+ *
+ * files/abc123
+ *
+ * ou:
+ *
+ * abc123
+ *
+ * A API de consulta usada abaixo precisa receber somente:
+ *
+ * abc123
+ *
+ * porque a base já termina em /files.
  */
-function getGeminiUploadUrl(
-    response
-) {
-    return (
-        response.headers.get(
-            "x-goog-upload-url"
-        ) ||
-        response.headers.get(
-            "X-Goog-Upload-URL"
-        )
-    );
-}
 
 function normalizeGeminiFileId(
-    fileName
+    name
 ) {
-    let resource =
+    let value =
         safeString(
-            fileName
+            name
         ).trim();
 
-    resource =
-        resource.replace(
+    if (!value) {
+        return "";
+    }
+
+    value =
+        value.replace(
             /^\/+/,
             ""
         );
 
-    /*
-     * Correção 13.2.8:
-     *
-     * Se Gemini retorna:
-     *
-     * files/abc123
-     *
-     * nós precisamos usar somente:
-     *
-     * abc123
-     *
-     * ao montar:
-     *
-     * /files/abc123
-     *
-     * e nunca:
-     *
-     * /files/files/abc123
-     */
-
     if (
-        resource.startsWith(
+        value.startsWith(
             "files/"
         )
     ) {
-        resource =
-            resource.slice(
+        value =
+            value.slice(
                 "files/".length
             );
     }
 
-    resource =
-        resource.split(
+    const parts =
+        value.split(
             "/"
-        ).pop();
+        );
 
-    return resource;
+    return (
+        parts[
+            parts.length - 1
+        ] || ""
+    );
 }
+
+/* ============================================================
+   GEMINI FILES — UPLOAD
+============================================================ */
 
 async function uploadVideoToGemini(
     filePath
 ) {
-    if (!GEMINI_API_KEY) {
+    if (
+        !GEMINI_API_KEY
+    ) {
         throw new Error(
-            "GEMINI_API_KEY não configurada no servidor."
+            "GEMINI_API_KEY não configurada."
         );
     }
 
@@ -1930,7 +2176,7 @@ async function uploadVideoToGemini(
         !stat.isFile()
     ) {
         throw new Error(
-            "Arquivo Gemini inválido."
+            "Arquivo do Gemini não é válido."
         );
     }
 
@@ -1939,20 +2185,23 @@ async function uploadVideoToGemini(
             stat.size /
             1024 /
             1024
-        ).toFixed(2)} MB`
+        ).toFixed(
+            2
+        )} MB`
     );
 
     /*
-     * --------------------------------------------------------
-     * PASSO 1 — INICIALIZAÇÃO RESUMABLE
-     * --------------------------------------------------------
+     * ========================================================
+     * 1 — INICIA UPLOAD RESUMABLE
+     * ========================================================
      */
 
     const initResponse =
         await fetch(
-            GEMINI_UPLOAD_URL,
+            GEMINI_FILES_UPLOAD_URL,
             {
-                method: "POST",
+                method:
+                    "POST",
 
                 headers: {
                     "x-goog-api-key":
@@ -1976,14 +2225,15 @@ async function uploadVideoToGemini(
                         "application/json"
                 },
 
-                body: JSON.stringify({
-                    file: {
-                        display_name:
-                            path.basename(
-                                filePath
-                            )
-                    }
-                }),
+                body:
+                    JSON.stringify({
+                        file: {
+                            display_name:
+                                path.basename(
+                                    filePath
+                                )
+                        }
+                    }),
 
                 signal:
                     AbortSignal.timeout(
@@ -1992,21 +2242,26 @@ async function uploadVideoToGemini(
             }
         );
 
-    if (!initResponse.ok) {
-        const body =
+    if (
+        !initResponse.ok
+    ) {
+        const text =
             await initResponse.text();
 
         throw new Error(
-            `Gemini Files init HTTP ${initResponse.status}: ${body.slice(
+            `Gemini Files init HTTP ${initResponse.status}: ${text.slice(
                 0,
-                2000
+                3000
             )}`
         );
     }
 
     const uploadUrl =
-        getGeminiUploadUrl(
-            initResponse
+        initResponse.headers.get(
+            "x-goog-upload-url"
+        ) ||
+        initResponse.headers.get(
+            "X-Goog-Upload-URL"
         );
 
     if (!uploadUrl) {
@@ -2015,67 +2270,87 @@ async function uploadVideoToGemini(
         );
     }
 
+    console.log(
+        "[Gemini Files] URL resumable recebida."
+    );
+
     /*
-     * --------------------------------------------------------
-     * PASSO 2 — UPLOAD POR STREAM
-     * --------------------------------------------------------
+     * ========================================================
+     * 2 — ENVIA O MP4 POR STREAM
+     * ========================================================
      *
-     * Correção 13.2.8:
+     * NÃO usamos:
      *
-     * Não usamos readFile().
+     * await fsp.readFile(filePath)
      *
-     * O MP4 vai direto do disco para o fetch.
+     * porque isso poderia colocar um vídeo de 150 MB
+     * inteiro na RAM.
      */
 
-    const stream =
+    const fileStream =
         fs.createReadStream(
             filePath
         );
 
-    const uploadResponse =
-        await fetch(
-            uploadUrl,
-            {
-                method: "POST",
+    let uploadResponse;
 
-                headers: {
-                    "Content-Length":
-                        String(
-                            stat.size
-                        ),
+    try {
+        uploadResponse =
+            await fetch(
+                uploadUrl,
+                {
+                    method:
+                        "POST",
 
-                    "X-Goog-Upload-Offset":
-                        "0",
+                    headers: {
+                        "Content-Length":
+                            String(
+                                stat.size
+                            ),
 
-                    "X-Goog-Upload-Command":
-                        "upload, finalize",
+                        "X-Goog-Upload-Offset":
+                            "0",
 
-                    "Content-Type":
-                        "video/mp4"
-                },
+                        "X-Goog-Upload-Command":
+                            "upload, finalize",
 
-                body: stream,
+                        "Content-Type":
+                            "video/mp4"
+                    },
 
-                /*
-                 * Node.js 20+
-                 */
-                duplex: "half",
+                    body:
+                        fileStream,
 
-                signal:
-                    AbortSignal.timeout(
-                        15 * 60 * 1000
-                    )
-            }
-        );
+                    /*
+                     * Node >= 20
+                     */
+                    duplex:
+                        "half",
 
-    if (!uploadResponse.ok) {
-        const body =
+                    signal:
+                        AbortSignal.timeout(
+                            15 *
+                                60 *
+                                1000
+                        )
+                }
+            );
+    } catch (error) {
+        fileStream.destroy();
+
+        throw error;
+    }
+
+    if (
+        !uploadResponse.ok
+    ) {
+        const text =
             await uploadResponse.text();
 
         throw new Error(
-            `Gemini Files upload HTTP ${uploadResponse.status}: ${body.slice(
+            `Gemini Files upload HTTP ${uploadResponse.status}: ${text.slice(
                 0,
-                2000
+                3000
             )}`
         );
     }
@@ -2085,30 +2360,30 @@ async function uploadVideoToGemini(
     try {
         uploadData =
             await uploadResponse.json();
-    } catch (error) {
+    } catch (_) {
         throw new Error(
-            "Gemini Files retornou resposta JSON inválida após upload."
+            "Gemini Files retornou JSON inválido após o upload."
         );
     }
 
-    const fileObject =
+    const file =
         uploadData?.file ||
-        uploadData?.resource ||
         uploadData;
 
     const fileUri =
-        fileObject?.uri ||
-        fileObject?.file?.uri;
+        file?.uri;
 
     const fileName =
-        fileObject?.name ||
-        fileObject?.file?.name;
+        file?.name;
 
     if (!fileUri) {
         throw new Error(
-            `Gemini não retornou file.uri: ${JSON.stringify(
+            `Gemini não retornou file.uri. Resposta: ${JSON.stringify(
                 uploadData
-            ).slice(0, 3000)}`
+            ).slice(
+                0,
+                3000
+            )}`
         );
     }
 
@@ -2123,22 +2398,15 @@ async function uploadVideoToGemini(
 
     console.log(
         "[Gemini Files] Name:",
-        fileName || "(não informado)"
+        fileName ||
+            "(não informado)"
     );
 
     /*
-     * --------------------------------------------------------
-     * PASSO 3 — POLLING
-     * --------------------------------------------------------
+     * ========================================================
+     * 3 — DETERMINA ID
+     * ========================================================
      */
-
-    let activeFile = null;
-
-    const startPolling =
-        now();
-
-    const pollingTimeout =
-        10 * 60 * 1000;
 
     const fileId =
         normalizeGeminiFileId(
@@ -2153,11 +2421,9 @@ async function uploadVideoToGemini(
     }
 
     /*
-     * Correção importante:
-     *
-     * GEMINI_FILES_API_URL termina em /files.
-     *
-     * fileId precisa ser somente abc123.
+     * ========================================================
+     * 4 — POLLING
+     * ========================================================
      */
 
     const statusUrl =
@@ -2170,22 +2436,39 @@ async function uploadVideoToGemini(
         statusUrl
     );
 
+    const pollingStarted =
+        now();
+
+    const pollingTimeout =
+        10 *
+        60 *
+        1000;
+
+    let activeFile =
+        null;
+
     while (
         now() -
-            startPolling <
+            pollingStarted <
         pollingTimeout
     ) {
-        await sleep(5000);
+        await sleep(
+            5000
+        );
 
         const checkResponse =
             await fetch(
                 statusUrl,
                 {
-                    method: "GET",
+                    method:
+                        "GET",
 
                     headers: {
                         "x-goog-api-key":
-                            GEMINI_API_KEY
+                            GEMINI_API_KEY,
+
+                        "Accept":
+                            "application/json"
                     },
 
                     signal:
@@ -2196,18 +2479,41 @@ async function uploadVideoToGemini(
             );
 
         /*
-         * Correção 13.2.8:
+         * IMPORTANTE:
          *
-         * 404/500/etc. NÃO pode virar
-         * "PROCESSANDO".
+         * Antes da 13.2.8 um 404/500 poderia
+         * virar simplesmente PROCESSANDO.
+         *
+         * Agora qualquer HTTP != 2xx
+         * encerra o processamento imediatamente.
          */
 
-        if (!checkResponse.ok) {
-            const body =
+        if (
+            !checkResponse.ok
+        ) {
+            const text =
                 await checkResponse.text();
 
+            let detail =
+                text;
+
+            try {
+                const parsed =
+                    JSON.parse(
+                        text
+                    );
+
+                detail =
+                    parsed?.error
+                        ?.message ||
+                    parsed?.message ||
+                    text;
+            } catch (_) {}
+
             throw new Error(
-                `Gemini Files polling HTTP ${checkResponse.status}: ${body.slice(
+                `Gemini Files polling HTTP ${checkResponse.status}: ${safeString(
+                    detail
+                ).slice(
                     0,
                     3000
                 )}`
@@ -2225,26 +2531,28 @@ async function uploadVideoToGemini(
             );
         }
 
-        const file =
+        const currentFile =
             checkData?.file ||
             checkData;
 
         const state =
             safeString(
-                file?.state
+                currentFile?.state
             ).toUpperCase();
 
         const elapsed =
             Math.round(
                 (
                     now() -
-                    startPolling
-                ) / 1000
+                    pollingStarted
+                ) /
+                    1000
             );
 
         console.log(
             `[Gemini Files] Estado: ${
-                state || "DESCONHECIDO"
+                state ||
+                "DESCONHECIDO"
             } | ${elapsed}s`
         );
 
@@ -2253,7 +2561,7 @@ async function uploadVideoToGemini(
             "ACTIVE"
         ) {
             activeFile =
-                file;
+                currentFile;
 
             break;
         }
@@ -2262,38 +2570,36 @@ async function uploadVideoToGemini(
             state ===
             "FAILED"
         ) {
-            const message =
-                file?.error?.message ||
-                checkData?.error?.message ||
-                file?.error ||
+            const reason =
+                currentFile
+                    ?.error
+                    ?.message ||
+                checkData
+                    ?.error
+                    ?.message ||
+                currentFile?.error ||
                 checkData?.error ||
                 "Gemini Files informou FAILED.";
 
             throw new Error(
                 `Gemini Files FAILED: ${safeString(
-                    message
+                    reason
                 )}`
             );
         }
-
-        /*
-         * Alguns retornos podem não fornecer state.
-         * Se já houver URI e o recurso não indicar
-         * PROCESSING, continuamos consultando.
-         */
     }
 
     if (!activeFile) {
         throw new Error(
-            "Tempo limite excedido aguardando o Gemini processar o vídeo."
+            "Tempo limite de 10 minutos excedido aguardando o Gemini processar o vídeo."
         );
     }
 
-    const finalUri =
+    const activeUri =
         activeFile?.uri ||
         fileUri;
 
-    const finalName =
+    const activeName =
         activeFile?.name ||
         fileName ||
         `files/${fileId}`;
@@ -2303,21 +2609,27 @@ async function uploadVideoToGemini(
     );
 
     return {
-        uri: finalUri,
-        name: finalName,
+        uri:
+            activeUri,
+
+        name:
+            activeName,
+
         fileId
     };
 }
 
 /* ============================================================
- * GEMINI INTERACTIONS
- * ========================================================== */
+   GEMINI INTERACTIONS
+============================================================ */
 
-async function requestGeminiInteraction({
+async function requestGeminiInteraction(
     model,
     input
-}) {
-    if (!GEMINI_API_KEY) {
+) {
+    if (
+        !GEMINI_API_KEY
+    ) {
         throw new Error(
             "GEMINI_API_KEY não configurada."
         );
@@ -2328,16 +2640,35 @@ async function requestGeminiInteraction({
 
     const timeout =
         setTimeout(
-            () => controller.abort(),
+            () =>
+                controller.abort(),
             120000
         );
 
     try {
+        const body = {
+            model,
+
+            input,
+
+            response_format: {
+                type:
+                    "json_schema",
+
+                json_schema:
+                    CLIPS_SCHEMA
+            },
+
+            thinking_level:
+                "low"
+        };
+
         const response =
             await fetch(
                 GEMINI_INTERACTIONS_URL,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Content-Type":
@@ -2347,19 +2678,10 @@ async function requestGeminiInteraction({
                             GEMINI_API_KEY
                     },
 
-                    body: JSON.stringify({
-                        model,
-
-                        input,
-
-                        response_format: {
-                            type:
-                                "json_schema",
-
-                            json_schema:
-                                CLIPS_SCHEMA
-                        }
-                    }),
+                    body:
+                        JSON.stringify(
+                            body
+                        ),
 
                     signal:
                         controller.signal
@@ -2369,7 +2691,9 @@ async function requestGeminiInteraction({
         const text =
             await response.text();
 
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
             throw new Error(
                 `Gemini Interactions HTTP ${response.status}: ${text.slice(
                     0,
@@ -2382,7 +2706,9 @@ async function requestGeminiInteraction({
 
         try {
             data =
-                JSON.parse(text);
+                JSON.parse(
+                    text
+                );
         } catch (_) {
             throw new Error(
                 "Gemini Interactions retornou JSON inválido."
@@ -2391,25 +2717,30 @@ async function requestGeminiInteraction({
 
         return data;
     } finally {
-        clearTimeout(timeout);
+        clearTimeout(
+            timeout
+        );
     }
 }
 
 /* ============================================================
- * GEMINI FALLBACK
- * ========================================================== */
+   GEMINI FALLBACK
+============================================================ */
 
 async function analyzeWithGeminiFallback({
     input,
     videoDuration
 }) {
-    if (!GEMINI_API_KEY) {
+    if (
+        !GEMINI_API_KEY
+    ) {
         throw new Error(
             "GEMINI_API_KEY não configurada no Render."
         );
     }
 
-    const errors = [];
+    const errors =
+        [];
 
     for (
         const model of GEMINI_MODELS
@@ -2420,10 +2751,10 @@ async function analyzeWithGeminiFallback({
             );
 
             const response =
-                await requestGeminiInteraction({
+                await requestGeminiInteraction(
                     model,
                     input
-                });
+                );
 
             const parsed =
                 parseGeminiOutput(
@@ -2436,24 +2767,27 @@ async function analyzeWithGeminiFallback({
                     videoDuration
                 );
 
-            if (!clips.length) {
+            if (
+                !clips.length
+            ) {
                 throw new Error(
                     "Gemini não retornou cortes válidos."
                 );
             }
 
             console.log(
-                `[Gemini] Modelo ${model} retornou ${clips.length} cortes.`
+                `[Gemini] ${model}: ${clips.length} cortes encontrados.`
             );
 
             return {
                 model,
                 clips,
-                raw: response
+                raw:
+                    response
             };
         } catch (error) {
             console.error(
-                `[Gemini] Modelo ${model} falhou:`,
+                `[Gemini] ${model} falhou:`,
                 error.message
             );
 
@@ -2471,83 +2805,80 @@ async function analyzeWithGeminiFallback({
 }
 
 /* ============================================================
- * ANÁLISE DE YOUTUBE
- * ========================================================== */
+   ANÁLISE YOUTUBE
+============================================================ */
 
-async function analyzeYouTubeUrl(
+async function analyzeYouTube(
     url
 ) {
-    const normalized =
-        normalizeYouTubeUrl(
-            url
-        );
-
-    if (!normalized) {
-        throw new Error(
-            "URL do YouTube inválida."
-        );
-    }
-
-    let videoDuration = null;
+    let duration =
+        null;
 
     try {
         const info =
             await getYouTubeInfo(
-                normalized
+                url
             );
 
-        if (info) {
-            videoDuration =
-                parseNumber(
-                    info.duration,
-                    null
-                );
-
-            console.log(
-                "[YouTube] Título:",
-                info.title || "(sem título)"
+        duration =
+            parseNumber(
+                info?.duration,
+                null
             );
 
-            console.log(
-                "[YouTube] Duração:",
-                videoDuration || "desconhecida"
-            );
-        }
-    } catch (_) {}
+        console.log(
+            "[YouTube] Título:",
+            info?.title ||
+                "(sem título)"
+        );
+
+        console.log(
+            "[YouTube] Duração:",
+            duration ||
+                "desconhecida"
+        );
+    } catch (error) {
+        console.warn(
+            "[YouTube] Não foi possível obter metadados:",
+            error.message
+        );
+    }
 
     const prompt =
         buildClipPrompt(
-            videoDuration
+            duration
         );
-
-    /*
-     * Gemini recebe a URL pública do YouTube
-     * diretamente.
-     */
 
     const input = [
         {
-            type: "text",
-            text: prompt
+            type:
+                "text",
+
+            text:
+                prompt
         },
 
         {
-            type: "video",
-            uri: normalized
+            type:
+                "video",
+
+            uri:
+                url
         }
     ];
 
     return analyzeWithGeminiFallback({
         input,
-        videoDuration
+        videoDuration:
+            duration
     });
 }
 
 /* ============================================================
- * ANÁLISE DE UPLOAD
- * ========================================================== */
+   ANÁLISE UPLOAD
+============================================================ */
 
-async function analyzeUploadedVideo(
+async function analyzeUpload(
     upload
 ) {
     if (!upload) {
@@ -2572,28 +2903,23 @@ async function analyzeUploadedVideo(
         metadata;
 
     /*
-     * Reaproveita o arquivo Gemini se já
-     * tiver sido enviado anteriormente.
+     * Envia somente uma vez.
      */
 
-    let geminiFile =
-        upload.geminiFile;
-
-    if (!geminiFile) {
+    if (
+        !upload.geminiFile
+    ) {
         console.log(
             "[Gemini] Enviando MP4 para Gemini Files..."
         );
 
-        geminiFile =
+        upload.geminiFile =
             await uploadVideoToGemini(
                 upload.filePath
             );
-
-        upload.geminiFile =
-            geminiFile;
     } else {
         console.log(
-            "[Gemini] Reutilizando arquivo Gemini já enviado."
+            "[Gemini] Reutilizando Gemini File existente."
         );
     }
 
@@ -2604,14 +2930,24 @@ async function analyzeUploadedVideo(
 
     const input = [
         {
-            type: "text",
-            text: prompt
+            type:
+                "text",
+
+            text:
+                prompt
         },
 
         {
-            type: "video",
-            uri: geminiFile.uri,
-            mime_type: "video/mp4"
+            type:
+                "video",
+
+            uri:
+                upload
+                    .geminiFile
+                    .uri,
+
+            mime_type:
+                "video/mp4"
         }
     ];
 
@@ -2623,55 +2959,128 @@ async function analyzeUploadedVideo(
 }
 
 /* ============================================================
- * CONTROLE DE PONTOS
- * ========================================================== */
+   PONTOS
+============================================================ */
 
 function chargeAnalysis(
     user
 ) {
-    const cost =
-        user.isVip
-            ? VIP_ANALYSIS_COST
-            : FREE_ANALYSIS_COST;
-
     if (
-        user.isVip
+        user.vip
     ) {
-        return {
-            cost: 0,
-            remaining:
-                user.pontos
-        };
+        return 0;
     }
 
     if (
-        user.pontos < cost
+        user.points <
+        ANALYSIS_COST
     ) {
         throw new Error(
-            `Pontos insuficientes. Necessário: ${cost}. Disponível: ${user.pontos}.`
+            `Pontos insuficientes. Necessário: ${ANALYSIS_COST}. Disponível: ${user.points}.`
         );
     }
 
-    user.pontos -= cost;
+    user.points -=
+        ANALYSIS_COST;
 
-    return {
-        cost,
-        remaining:
-            user.pontos
-    };
+    return ANALYSIS_COST;
 }
 
 /* ============================================================
- * UPLOAD
- * ========================================================== */
+   AUTH LOGIN
+============================================================ */
+
+app.post(
+    "/api/auth/login",
+    async (
+        req,
+        res
+    ) => {
+        try {
+            const requestedId =
+                safeString(
+                    req.body?.userId
+                ).trim();
+
+            const user =
+                ensureUser(
+                    requestedId
+                );
+
+            const token =
+                createUserSession(
+                    user
+                );
+
+            return res.json({
+                ok: true,
+
+                token,
+
+                session:
+                    token,
+
+                user:
+                    publicUser(
+                        user
+                    )
+            });
+        } catch (error) {
+            metrics.errors++;
+
+            return jsonError(
+                res,
+                500,
+                error.message
+            );
+        }
+    }
+);
+
+/* ============================================================
+   AUTH ME
+============================================================ */
+
+app.get(
+    "/api/auth/me",
+    requireUser,
+    (
+        req,
+        res
+    ) => {
+        claimDailyPoints(
+            req.user
+        );
+
+        return res.json({
+            ok: true,
+
+            user:
+                publicUser(
+                    req.user
+                )
+        });
+    }
+);
+
+/* ============================================================
+   UPLOAD MP4
+============================================================ */
 
 app.post(
     "/api/upload",
     requireUser,
-    videoUpload.single("video"),
-    async (req, res) => {
+    uploadMiddleware.single(
+        "video"
+    ),
+    async (
+        req,
+        res
+    ) => {
         try {
-            if (!req.file) {
+            if (
+                !req.file
+            ) {
                 return jsonError(
                     res,
                     400,
@@ -2680,11 +3089,13 @@ app.post(
             }
 
             console.log(
-                `[Upload] Recebido: ${req.file.originalname} (${(
+                `[Upload] ${req.file.originalname} — ${(
                     req.file.size /
                     1024 /
                     1024
-                ).toFixed(2)} MB)`
+                ).toFixed(
+                    2
+                )} MB`
             );
 
             const metadata =
@@ -2693,27 +3104,41 @@ app.post(
                 );
 
             const uploadId =
-                randomId("upload_");
+                randomId(
+                    "upload_"
+                );
 
-            const upload = {
-                id: uploadId,
-                userId: req.user.id,
+            const item = {
+                id:
+                    uploadId,
+
+                userId:
+                    req.user.id,
+
                 filePath:
                     req.file.path,
+
                 originalName:
                     req.file.originalname,
+
                 mimeType:
                     req.file.mimetype,
+
                 size:
                     req.file.size,
-                createdAt: now(),
+
+                createdAt:
+                    now(),
+
                 metadata,
-                geminiFile: null
+
+                geminiFile:
+                    null
             };
 
             uploads.set(
                 uploadId,
-                upload
+                item
             );
 
             metrics.uploads++;
@@ -2723,66 +3148,64 @@ app.post(
 
                 uploadId,
 
-                file: {
-                    id: uploadId,
-                    name:
-                        upload.originalName,
-                    size:
-                        upload.size,
-                    mimeType:
-                        upload.mimeType
-                },
+                id:
+                    uploadId,
 
                 duration:
                     metadata.duration,
 
-                metadata: {
-                    duration:
-                        metadata.duration,
-                    width:
-                        metadata.width,
-                    height:
-                        metadata.height,
-                    videoCodec:
-                        metadata.videoCodec,
-                    audioCodec:
-                        metadata.audioCodec,
-                    fps:
-                        metadata.fps
-                }
+                file: {
+                    id:
+                        uploadId,
+
+                    name:
+                        item.originalName,
+
+                    size:
+                        item.size,
+
+                    mimeType:
+                        item.mimeType
+                },
+
+                metadata
             });
         } catch (error) {
             metrics.errors++;
 
-            if (req.file?.path) {
+            if (
+                req.file?.path
+            ) {
                 await safeRemove(
                     req.file.path
                 );
             }
 
             console.error(
-                "[Upload] Erro:",
-                error
+                "[Upload] ERRO:",
+                error.message
             );
 
             return jsonError(
                 res,
                 400,
-                error.message ||
-                    "Não foi possível processar o upload."
+                error.message
             );
         }
     }
 );
 
 /* ============================================================
- * CONSULTAR UPLOAD
- * ========================================================== */
+   CONSULTAR UPLOAD
+============================================================ */
 
 app.get(
     "/api/upload/:id",
     requireUser,
-    async (req, res) => {
+    async (
+        req,
+        res
+    ) => {
         try {
             const upload =
                 getOwnedUpload(
@@ -2838,31 +3261,34 @@ app.get(
 );
 
 /* ============================================================
- * ANÁLISE
- * ========================================================== */
+   ANALISAR
+============================================================ */
 
 app.post(
     "/api/analisar",
     requireUser,
-    async (req, res) => {
-        const startedAt =
-            now();
-
+    async (
+        req,
+        res
+    ) => {
         metrics.analyses++;
 
         try {
             const {
                 url,
                 uploadId
-            } = req.body || {};
+            } =
+                req.body || {};
 
             /*
-             * ------------------------------------------------
+             * ----------------------------------------------
              * UPLOAD
-             * ------------------------------------------------
+             * ----------------------------------------------
              */
 
-            if (uploadId) {
+            if (
+                uploadId
+            ) {
                 const upload =
                     getOwnedUpload(
                         req.user,
@@ -2879,27 +3305,28 @@ app.post(
                     );
                 }
 
-                const charge =
-                    chargeAnalysis(
-                        req.user
-                    );
+                let charged = 0;
 
                 try {
-                    console.log(
-                        `[Análise] Upload ${uploadId}`
-                    );
+                    charged =
+                        chargeAnalysis(
+                            req.user
+                        );
 
                     const result =
-                        await analyzeUploadedVideo(
+                        await analyzeUpload(
                             upload
                         );
 
                     metrics.successfulAnalyses++;
 
+                    req.user.analyses++;
+
                     return res.json({
                         ok: true,
 
-                        type: "upload",
+                        type:
+                            "upload",
 
                         uploadId,
 
@@ -2909,42 +3336,52 @@ app.post(
                         model:
                             result.model,
 
-                        pontos:
-                            req.user.pontos,
+                        fallback:
+                            false,
 
-                        charged:
-                            charge.cost,
+                        user:
+                            publicUser(
+                                req.user
+                            ),
 
-                        elapsedMs:
-                            now() -
-                            startedAt
+                        charged,
+
+                        version:
+                            VERSION
                     });
                 } catch (error) {
                     /*
-                     * Devolve os pontos em caso
-                     * de falha da análise.
+                     * Devolve os pontos se a análise falhar.
                      */
 
-                    req.user.pontos +=
-                        charge.cost;
+                    if (
+                        charged > 0
+                    ) {
+                        req.user.points +=
+                            charged;
+                    }
 
                     throw error;
                 }
             }
 
             /*
-             * ------------------------------------------------
+             * ----------------------------------------------
              * YOUTUBE
-             * ------------------------------------------------
+             * ----------------------------------------------
              */
 
-            if (url) {
+            if (
+                url
+            ) {
                 const normalized =
                     normalizeYouTubeUrl(
                         url
                     );
 
-                if (!normalized) {
+                if (
+                    !normalized
+                ) {
                     metrics.failedAnalyses++;
 
                     return jsonError(
@@ -2954,32 +3391,31 @@ app.post(
                     );
                 }
 
-                const charge =
-                    chargeAnalysis(
-                        req.user
-                    );
+                let charged = 0;
 
                 try {
-                    console.log(
-                        "[Análise] YouTube:",
-                        redactSecrets(
-                            normalized
-                        )
-                    );
+                    charged =
+                        chargeAnalysis(
+                            req.user
+                        );
 
                     const result =
-                        await analyzeYouTubeUrl(
+                        await analyzeYouTube(
                             normalized
                         );
 
                     metrics.successfulAnalyses++;
 
+                    req.user.analyses++;
+
                     return res.json({
                         ok: true,
 
-                        type: "youtube",
+                        type:
+                            "youtube",
 
-                        url: normalized,
+                        url:
+                            normalized,
 
                         clips:
                             result.clips,
@@ -2987,19 +3423,26 @@ app.post(
                         model:
                             result.model,
 
-                        pontos:
-                            req.user.pontos,
+                        fallback:
+                            false,
 
-                        charged:
-                            charge.cost,
+                        user:
+                            publicUser(
+                                req.user
+                            ),
 
-                        elapsedMs:
-                            now() -
-                            startedAt
+                        charged,
+
+                        version:
+                            VERSION
                     });
                 } catch (error) {
-                    req.user.pontos +=
-                        charge.cost;
+                    if (
+                        charged > 0
+                    ) {
+                        req.user.points +=
+                            charged;
+                    }
 
                     throw error;
                 }
@@ -3008,7 +3451,7 @@ app.post(
             return jsonError(
                 res,
                 400,
-                "Envie uma URL do YouTube ou um uploadId."
+                "Envie url ou uploadId."
             );
         } catch (error) {
             metrics.failedAnalyses++;
@@ -3016,7 +3459,7 @@ app.post(
 
             console.error(
                 "[Análise] ERRO:",
-                error
+                error.message
             );
 
             return jsonError(
@@ -3030,24 +3473,28 @@ app.post(
 );
 
 /* ============================================================
- * ROTA COMPATIBILIDADE
- * ========================================================== */
+   ANALISAR-UPLOAD
+   COMPATIBILIDADE
+============================================================ */
 
 app.post(
     "/api/analisar-upload",
     requireUser,
-    async (req, res) => {
-        const startedAt =
-            now();
-
+    async (
+        req,
+        res
+    ) => {
         metrics.analyses++;
 
         try {
-            const {
-                uploadId
-            } = req.body || {};
+            const uploadId =
+                safeString(
+                    req.body?.uploadId
+                ).trim();
 
-            if (!uploadId) {
+            if (
+                !uploadId
+            ) {
                 return jsonError(
                     res,
                     400,
@@ -3069,23 +3516,28 @@ app.post(
                 );
             }
 
-            const charge =
-                chargeAnalysis(
-                    req.user
-                );
+            let charged = 0;
 
             try {
+                charged =
+                    chargeAnalysis(
+                        req.user
+                    );
+
                 const result =
-                    await analyzeUploadedVideo(
+                    await analyzeUpload(
                         upload
                     );
 
                 metrics.successfulAnalyses++;
 
+                req.user.analyses++;
+
                 return res.json({
                     ok: true,
 
-                    type: "upload",
+                    type:
+                        "upload",
 
                     uploadId,
 
@@ -3095,19 +3547,23 @@ app.post(
                     model:
                         result.model,
 
-                    pontos:
-                        req.user.pontos,
+                    user:
+                        publicUser(
+                            req.user
+                        ),
 
-                    charged:
-                        charge.cost,
+                    charged,
 
-                    elapsedMs:
-                        now() -
-                        startedAt
+                    version:
+                        VERSION
                 });
             } catch (error) {
-                req.user.pontos +=
-                    charge.cost;
+                if (
+                    charged > 0
+                ) {
+                    req.user.points +=
+                        charged;
+                }
 
                 throw error;
             }
@@ -3117,7 +3573,7 @@ app.post(
 
             console.error(
                 "[Análise Upload] ERRO:",
-                error
+                error.message
             );
 
             return jsonError(
@@ -3131,40 +3587,20 @@ app.post(
 );
 
 /* ============================================================
- * RENDER DE CORTE
- * ========================================================== */
+   RENDERIZAR CORTE
+============================================================ */
 
-async function renderClip({
-    inputPath,
-    outputPath,
+async function renderClip(
+    sourceFile,
+    outputFile,
     start,
     duration
-}) {
-    if (!FFMPEG_PATH) {
+) {
+    if (!FFMPEG_BIN) {
         throw new Error(
             "FFmpeg não está disponível."
         );
     }
-
-    const safeStart =
-        Math.max(
-            0,
-            Number(start)
-        );
-
-    const safeDuration =
-        Math.max(
-            0.1,
-            Number(duration)
-        );
-
-    console.log(
-        `[FFmpeg] Corte start=${safeStart.toFixed(
-            3
-        )} duration=${safeDuration.toFixed(
-            3
-        )}`
-    );
 
     const args = [
         "-hide_banner",
@@ -3172,28 +3608,38 @@ async function renderClip({
         "error",
 
         "-ss",
-        String(safeStart),
+        String(
+            start
+        ),
 
         "-i",
-        inputPath,
+        sourceFile,
 
         "-t",
-        String(safeDuration),
+        String(
+            duration
+        ),
 
         "-map",
-        "0:v:0?",
+        "0:v:0",
 
         "-map",
         "0:a:0?",
+
+        "-sn",
+
+        "-dn",
 
         "-c:v",
         "libx264",
 
         "-preset",
-        "veryfast",
+        process.env.FFMPEG_PRESET ||
+            "veryfast",
 
         "-crf",
-        "20",
+        process.env.FFMPEG_CRF ||
+            "22",
 
         "-pix_fmt",
         "yuv420p",
@@ -3207,17 +3653,23 @@ async function renderClip({
         "-movflags",
         "+faststart",
 
+        "-avoid_negative_ts",
+        "make_zero",
+
         "-y",
-        outputPath
+
+        outputFile
     ];
 
     const result =
         await spawnCapture(
-            FFMPEG_PATH,
+            FFMPEG_BIN,
             args
         );
 
-    if (result.code !== 0) {
+    if (
+        result.code !== 0
+    ) {
         throw new Error(
             `FFmpeg falhou: ${
                 result.stderr ||
@@ -3229,7 +3681,7 @@ async function renderClip({
 
     const stat =
         await fsp.stat(
-            outputPath
+            outputFile
         );
 
     if (
@@ -3237,26 +3689,29 @@ async function renderClip({
         stat.size <= 0
     ) {
         throw new Error(
-            "FFmpeg não gerou um MP4 válido."
+            "FFmpeg não produziu um MP4 válido."
         );
     }
 
-    return {
-        path: outputPath,
-        size: stat.size
-    };
+    return stat;
 }
 
 /* ============================================================
- * DOWNLOAD MP4
- * ========================================================== */
+   DOWNLOAD MP4
+============================================================ */
 
 app.post(
     "/api/download",
     requireUser,
-    async (req, res) => {
-        let temporarySource = null;
-        let outputPath = null;
+    async (
+        req,
+        res
+    ) => {
+        let temporarySource =
+            null;
+
+        let outputFile =
+            null;
 
         try {
             const {
@@ -3265,18 +3720,117 @@ app.post(
                 end,
                 uploadId,
                 url
-            } = req.body || {};
-
-            let sourcePath = null;
-            let sourceDuration = null;
+            } =
+                req.body || {};
 
             /*
-             * ------------------------------------------------
-             * UPLOAD EXISTENTE
-             * ------------------------------------------------
+             * ----------------------------------------------
+             * PARÂMETROS
+             * ----------------------------------------------
              */
 
-            if (uploadId) {
+            let safeStart =
+                parseNumber(
+                    start,
+                    NaN
+                );
+
+            let requestedDuration =
+                parseNumber(
+                    duration,
+                    NaN
+                );
+
+            /*
+             * Compatibilidade:
+             *
+             * se duration não veio,
+             * usa end - start.
+             */
+
+            if (
+                !Number.isFinite(
+                    requestedDuration
+                ) &&
+                Number.isFinite(
+                    parseNumber(
+                        end,
+                        NaN
+                    )
+                )
+            ) {
+                requestedDuration =
+                    parseNumber(
+                        end,
+                        0
+                    ) -
+                    safeStart;
+            }
+
+            if (
+                !Number.isFinite(
+                    safeStart
+                ) ||
+                safeStart < 0
+            ) {
+                return jsonError(
+                    res,
+                    400,
+                    "Tempo inicial inválido."
+                );
+            }
+
+            if (
+                !Number.isFinite(
+                    requestedDuration
+                ) ||
+                requestedDuration <= 0 ||
+                requestedDuration > 90
+            ) {
+                return jsonError(
+                    res,
+                    400,
+                    "Duração inválida. O corte deve ter entre 0 e 90 segundos."
+                );
+            }
+
+            /*
+             * ----------------------------------------------
+             * PONTOS
+             * ----------------------------------------------
+             */
+
+            if (
+                !req.user.vip &&
+                req.user.points <
+                    DOWNLOAD_COST
+            ) {
+                return jsonError(
+                    res,
+                    402,
+                    `Pontos insuficientes. Necessário: ${DOWNLOAD_COST}. Disponível: ${req.user.points}.`
+                );
+            }
+
+            /*
+             * ----------------------------------------------
+             * FONTE
+             * ----------------------------------------------
+             */
+
+            let sourceFile =
+                null;
+
+            let sourceDuration =
+                0;
+
+            /*
+             * Upload
+             */
+
+            if (
+                uploadId
+            ) {
                 const upload =
                     getOwnedUpload(
                         req.user,
@@ -3291,7 +3845,7 @@ app.post(
                     );
                 }
 
-                sourcePath =
+                sourceFile =
                     upload.filePath;
 
                 sourceDuration =
@@ -3302,9 +3856,9 @@ app.post(
                     );
 
                 if (
-                    !sourcePath ||
+                    !sourceFile ||
                     !fs.existsSync(
-                        sourcePath
+                        sourceFile
                     )
                 ) {
                     return jsonError(
@@ -3316,13 +3870,11 @@ app.post(
             }
 
             /*
-             * ------------------------------------------------
-             * YOUTUBE
-             * ------------------------------------------------
+             * YouTube
              */
 
             if (
-                !sourcePath &&
+                !sourceFile &&
                 url
             ) {
                 const normalized =
@@ -3330,7 +3882,9 @@ app.post(
                         url
                     );
 
-                if (!normalized) {
+                if (
+                    !normalized
+                ) {
                     return jsonError(
                         res,
                         400,
@@ -3338,23 +3892,61 @@ app.post(
                     );
                 }
 
-                const downloaded =
-                    await downloadOriginalVideo(
-                        normalized
+                const workDir =
+                    await fsp.mkdtemp(
+                        path.join(
+                            TEMP_ROOT,
+                            "download_"
+                        )
                     );
 
-                sourcePath =
-                    downloaded.filePath;
+                const template =
+                    path.join(
+                        workDir,
+                        "source.%(ext)s"
+                    );
 
-                sourceDuration =
-                    downloaded.metadata
-                        .duration;
+                try {
+                    try {
+                        const info =
+                            await getYouTubeInfo(
+                                normalized
+                            );
 
-                temporarySource =
-                    sourcePath;
+                        sourceDuration =
+                            parseNumber(
+                                info?.duration,
+                                0
+                            );
+                    } catch (
+                        metadataError
+                    ) {
+                        console.warn(
+                            "[Download] Metadados YouTube:",
+                            metadataError.message
+                        );
+                    }
+
+                    sourceFile =
+                        await downloadYouTubeVideo(
+                            normalized,
+                            template
+                        );
+
+                    temporarySource =
+                        workDir;
+                } catch (error) {
+                    await safeRemove(
+                        workDir
+                    );
+
+                    throw error;
+                }
             }
 
-            if (!sourcePath) {
+            if (
+                !sourceFile
+            ) {
                 return jsonError(
                     res,
                     400,
@@ -3363,77 +3955,28 @@ app.post(
             }
 
             /*
-             * ------------------------------------------------
-             * VALIDAÇÃO DE TEMPO
-             * ------------------------------------------------
-             */
-
-            let safeStart =
-                parseNumber(
-                    start,
-                    NaN
-                );
-
-            let safeDuration =
-                parseNumber(
-                    duration,
-                    NaN
-                );
-
-            /*
-             * Compatibilidade com frontend antigo:
-             *
-             * se duration não existir, usa end - start.
+             * ----------------------------------------------
+             * VALIDA DURAÇÃO
+             * ----------------------------------------------
              */
 
             if (
-                !Number.isFinite(
-                    safeDuration
-                ) &&
-                Number.isFinite(
-                    parseNumber(
-                        end,
-                        NaN
-                    )
-                )
+                sourceDuration <= 0
             ) {
-                safeDuration =
-                    parseNumber(
-                        end,
-                        0
-                    ) -
-                    safeStart;
+                try {
+                    const metadata =
+                        await getVideoMetadata(
+                            sourceFile
+                        );
+
+                    sourceDuration =
+                        metadata.duration;
+                } catch (_) {}
             }
 
             if (
-                !Number.isFinite(
-                    safeStart
-                ) ||
-                !Number.isFinite(
-                    safeDuration
-                )
-            ) {
-                return jsonError(
-                    res,
-                    400,
-                    "start e duration são obrigatórios."
-                );
-            }
-
-            safeStart =
-                Math.max(
-                    0,
-                    safeStart
-                );
-
-            safeDuration =
-                Math.max(
-                    0.1,
-                    safeDuration
-                );
-
-            if (
-                sourceDuration > 0
+                sourceDuration >
+                0
             ) {
                 if (
                     safeStart >=
@@ -3442,29 +3985,37 @@ app.post(
                     return jsonError(
                         res,
                         400,
-                        "O início do corte está além da duração do vídeo."
+                        "O início do corte está além do fim do vídeo."
                     );
                 }
 
-                safeDuration =
+                const availableDuration =
+                    sourceDuration -
+                    safeStart;
+
+                const safeDuration =
                     Math.min(
-                        safeDuration,
-                        sourceDuration -
-                            safeStart
+                        requestedDuration,
+                        availableDuration
                     );
+
+                requestedDuration =
+                    safeDuration;
             }
 
-            /*
-             * Limite de segurança.
-             */
-
-            safeDuration =
+            requestedDuration =
                 Math.min(
-                    safeDuration,
-                    120
+                    requestedDuration,
+                    90
                 );
 
-            outputPath =
+            /*
+             * ----------------------------------------------
+             * OUTPUT
+             * ----------------------------------------------
+             */
+
+            outputFile =
                 path.join(
                     OUTPUT_DIR,
                     `${randomId(
@@ -3472,44 +4023,52 @@ app.post(
                     )}.mp4`
                 );
 
-            await renderClip({
-                inputPath:
-                    sourcePath,
-
-                outputPath,
-
-                start:
-                    safeStart,
-
-                duration:
-                    safeDuration
-            });
+            await renderClip(
+                sourceFile,
+                outputFile,
+                safeStart,
+                requestedDuration
+            );
 
             const stat =
                 await fsp.stat(
-                    outputPath
+                    outputFile
                 );
+
+            /*
+             * ----------------------------------------------
+             * COBRA PONTOS
+             * SOMENTE DEPOIS DE RENDERIZAR COM SUCESSO
+             * ----------------------------------------------
+             */
+
+            if (
+                !req.user.vip
+            ) {
+                req.user.points -=
+                    DOWNLOAD_COST;
+            }
+
+            req.user.downloads++;
 
             metrics.downloads++;
 
             /*
-             * ------------------------------------------------
-             * MP4 DIRETO
-             * ------------------------------------------------
-             *
-             * O frontend espera response.blob().
+             * ----------------------------------------------
+             * STREAM MP4
+             * ----------------------------------------------
              */
 
-            res.status(200);
+            const filename =
+                `clipforge_${Date.now()}.mp4`;
+
+            res.status(
+                200
+            );
 
             res.setHeader(
                 "Content-Type",
                 "video/mp4"
-            );
-
-            res.setHeader(
-                "Content-Disposition",
-                `attachment; filename="clipforge-${Date.now()}.mp4"`
             );
 
             res.setHeader(
@@ -3520,32 +4079,94 @@ app.post(
             );
 
             res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="${filename}"`
+            );
+
+            res.setHeader(
                 "Cache-Control",
-                "no-store"
+                "no-store, no-cache, must-revalidate, proxy-revalidate"
+            );
+
+            res.setHeader(
+                "Pragma",
+                "no-cache"
+            );
+
+            res.setHeader(
+                "Expires",
+                "0"
+            );
+
+            res.setHeader(
+                "X-ClipForge-Version",
+                VERSION
+            );
+
+            res.setHeader(
+                "X-ClipForge-User-Points",
+                String(
+                    req.user.points
+                )
             );
 
             const stream =
                 fs.createReadStream(
-                    outputPath
+                    outputFile
                 );
+
+            let cleaned =
+                false;
+
+            const cleanupAfterStream =
+                async () => {
+                    if (
+                        cleaned
+                    ) {
+                        return;
+                    }
+
+                    cleaned =
+                        true;
+
+                    await safeRemove(
+                        outputFile
+                    );
+
+                    if (
+                        temporarySource
+                    ) {
+                        await safeRemove(
+                            temporarySource
+                        );
+                    }
+                };
 
             stream.on(
                 "error",
-                (error) => {
+                async (
+                    error
+                ) => {
                     console.error(
-                        "[Download] Stream error:",
+                        "[Download] Stream:",
                         error.message
                     );
+
+                    await cleanupAfterStream();
 
                     if (
                         !res.headersSent
                     ) {
-                        res.status(500)
-                            .json({
-                                ok: false,
+                        try {
+                            res.status(
+                                500
+                            ).json({
+                                ok:
+                                    false,
                                 error:
                                     "Erro ao transmitir o MP4."
                             });
+                        } catch (_) {}
                     } else {
                         res.destroy(
                             error
@@ -3556,22 +4177,22 @@ app.post(
 
             stream.on(
                 "close",
-                async () => {
-                    await safeRemove(
-                        outputPath
-                    );
+                cleanupAfterStream
+            );
 
-                    if (
-                        temporarySource
-                    ) {
-                        await safeRemove(
-                            temporarySource
+            res.on(
+                "close",
+                () => {
+                    cleanupAfterStream()
+                        .catch(
+                            () => {}
                         );
-                    }
                 }
             );
 
-            stream.pipe(res);
+            stream.pipe(
+                res
+            );
 
             return;
         } catch (error) {
@@ -3579,11 +4200,11 @@ app.post(
 
             console.error(
                 "[Download] ERRO:",
-                error
+                error.message
             );
 
             await safeRemove(
-                outputPath
+                outputFile
             );
 
             if (
@@ -3604,195 +4225,42 @@ app.post(
                         "Não foi possível gerar o corte MP4."
                 );
             }
-
-            return;
         }
     }
 );
 
 /* ============================================================
- * AUTH LOGIN
- * ========================================================== */
+   MERCADO PAGO
+============================================================ */
 
-app.post(
-    "/api/auth/login",
-    async (req, res) => {
-        try {
-            const {
-                email,
-                name
-            } = req.body || {};
-
-            const user =
-                createUser({
-                    email,
-                    name
-                });
-
-            const daily =
-                claimDailyPoints(
-                    user
-                );
-
-            const token =
-                createSession(
-                    user
-                );
-
-            return res.json({
-                ok: true,
-
-                token,
-
-                session:
-                    token,
-
-                user: {
-                    id:
-                        user.id,
-
-                    userId:
-                        user.userId,
-
-                    email:
-                        user.email,
-
-                    name:
-                        user.name,
-
-                    pontos:
-                        user.pontos,
-
-                    isVip:
-                        user.isVip
-                },
-
-                dailyPoints:
-                    daily
-            });
-        } catch (error) {
-            return jsonError(
-                res,
-                500,
-                error.message
-            );
-        }
-    }
-);
-
-/* ============================================================
- * AUTH ME
- * ========================================================== */
-
-app.get(
-    "/api/auth/me",
-    requireUser,
-    async (req, res) => {
-        const daily =
-            claimDailyPoints(
-                req.user
-            );
-
-        return res.json({
-            ok: true,
-
-            user: {
-                id:
-                    req.user.id,
-
-                userId:
-                    req.user.userId,
-
-                email:
-                    req.user.email,
-
-                name:
-                    req.user.name,
-
-                pontos:
-                    req.user.pontos,
-
-                isVip:
-                    req.user.isVip
-            },
-
-            dailyPoints:
-                daily
-        });
-    }
-);
-
-/* ============================================================
- * PIX — MERCADO PAGO
- * ========================================================== */
-
-async function mercadoPagoCreatePix({
-    user,
-    amount,
-    description
-}) {
+async function mercadoPagoRequest(
+    endpoint,
+    options = {}
+) {
     if (
-        !MERCADO_PAGO_ACCESS_TOKEN
+        !MP_ACCESS_TOKEN
     ) {
         throw new Error(
-            "MERCADO_PAGO_ACCESS_TOKEN não configurado."
+            "MP_ACCESS_TOKEN não configurado."
         );
-    }
-
-    const externalReference =
-        randomId(
-            "clipforge_"
-        );
-
-    const body = {
-        transaction_amount:
-            Number(amount),
-
-        description:
-            description ||
-            "ClipForge Pro",
-
-        payment_method_id:
-            "pix",
-
-        payer: {
-            email:
-                user.email ||
-                `cliente-${user.id}@clipforge.local`
-        },
-
-        external_reference:
-            externalReference
-    };
-
-    if (
-        MERCADO_PAGO_WEBHOOK_URL
-    ) {
-        body.notification_url =
-            MERCADO_PAGO_WEBHOOK_URL;
     }
 
     const response =
         await fetch(
-            "https://api.mercadopago.com/v1/payments",
+            `https://api.mercadopago.com${endpoint}`,
             {
-                method: "POST",
+                ...options,
 
                 headers: {
                     Authorization:
-                        `Bearer ${MERCADO_PAGO_ACCESS_TOKEN}`,
+                        `Bearer ${MP_ACCESS_TOKEN}`,
 
                     "Content-Type":
                         "application/json",
 
-                    "X-Idempotency-Key":
-                        randomToken(24)
+                    ...(options.headers ||
+                        {})
                 },
-
-                body:
-                    JSON.stringify(
-                        body
-                    ),
 
                 signal:
                     AbortSignal.timeout(
@@ -3804,250 +4272,278 @@ async function mercadoPagoCreatePix({
     const text =
         await response.text();
 
-    if (!response.ok) {
-        throw new Error(
-            `Mercado Pago HTTP ${response.status}: ${text.slice(
-                0,
-                3000
-            )}`
-        );
-    }
-
     let data;
 
     try {
         data =
-            JSON.parse(text);
+            text
+                ? JSON.parse(
+                      text
+                  )
+                : null;
     } catch (_) {
+        data = {
+            raw:
+                text
+        };
+    }
+
+    if (
+        !response.ok
+    ) {
         throw new Error(
-            "Mercado Pago retornou JSON inválido."
+            data?.message ||
+                data?.error ||
+                `Mercado Pago HTTP ${response.status}`
         );
     }
 
     return data;
 }
 
+/* ============================================================
+   PIX CRIAR
+============================================================ */
+
 app.post(
     "/api/pix/criar",
     requireUser,
-    async (req, res) => {
+    async (
+        req,
+        res
+    ) => {
+        if (
+            !MP_ACCESS_TOKEN
+        ) {
+            return jsonError(
+                res,
+                503,
+                "Mercado Pago não está configurado no servidor."
+            );
+        }
+
         try {
             const amount =
-                parseNumber(
-                    req.body?.amount,
-                    0
-                );
-
-            const description =
-                safeString(
-                    req.body?.description,
-                    "ClipForge Pro"
-                );
-
-            if (
-                !Number.isFinite(
-                    amount
-                ) ||
-                amount <= 0
-            ) {
-                return jsonError(
-                    res,
-                    400,
-                    "Valor PIX inválido."
-                );
-            }
-
-            const payment =
-                await mercadoPagoCreatePix({
-                    user:
-                        req.user,
-
-                    amount,
-
-                    description
-                });
-
-            const paymentId =
-                String(
-                    payment.id ||
-                    randomId(
-                        "payment_"
+                Number(
+                    VIP_PRICE.toFixed(
+                        2
                     )
                 );
 
-            const record = {
-                id:
-                    paymentId,
+            const reference =
+                `clipforge_${req.user.id}_${crypto.randomUUID()}`;
 
-                userId:
-                    req.user.id,
+            const body = {
+                transaction_amount:
+                    amount,
 
-                amount,
+                description:
+                    "ClipForge Pro VIP",
 
-                status:
-                    payment.status ||
-                    "pending",
+                payment_method_id:
+                    "pix",
 
-                createdAt:
-                    now(),
+                payer: {
+                    email:
+                        process.env.MP_PAYER_EMAIL ||
+                        `cliente-${req.user.id}@clipforge.local`
+                },
 
-                mercadoPago:
-                    payment
+                external_reference:
+                    reference
             };
+
+            if (
+                MP_WEBHOOK_URL
+            ) {
+                body.notification_url =
+                    MP_WEBHOOK_URL;
+            }
+
+            const payment =
+                await mercadoPagoRequest(
+                    "/v1/payments",
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "X-Idempotency-Key":
+                                crypto.randomUUID()
+                        },
+
+                        body:
+                            JSON.stringify(
+                                body
+                            )
+                    }
+                );
+
+            const paymentId =
+                String(
+                    payment.id
+                );
+
+            const transaction =
+                payment
+                    .point_of_interaction
+                    ?.transaction_data ||
+                {};
 
             payments.set(
                 paymentId,
-                record
+                {
+                    id:
+                        paymentId,
+
+                    userId:
+                        req.user.id,
+
+                    amount,
+
+                    status:
+                        payment.status,
+
+                    createdAt:
+                        now(),
+
+                    externalReference:
+                        reference
+                }
             );
 
             metrics.pixCreated++;
 
-            const transactionData =
-                payment.point_of_interaction
-                    ?.transaction_data;
-
             return res.json({
                 ok: true,
+
+                id:
+                    paymentId,
 
                 paymentId,
 
                 status:
                     payment.status,
 
-                qrCode:
-                    transactionData
-                        ?.qr_code ||
-                    null,
+                qr_code:
+                    transaction.qr_code ||
+                    "",
 
-                qrCodeBase64:
-                    transactionData
-                        ?.qr_code_base64 ||
-                    null,
+                qr_code_base64:
+                    transaction.qr_code_base64 ||
+                    "",
 
-                ticketUrl:
-                    transactionData
-                        ?.ticket_url ||
-                    null,
+                ticket_url:
+                    transaction.ticket_url ||
+                    "",
 
-                payment
+                amount
             });
         } catch (error) {
             metrics.errors++;
 
             console.error(
-                "[PIX] Erro:",
-                error
+                "[PIX] ERRO:",
+                error.message
             );
 
             return jsonError(
                 res,
-                500,
-                error.message ||
-                    "Não foi possível criar o PIX."
+                502,
+                error.message
             );
         }
     }
 );
 
 /* ============================================================
- * PIX STATUS
- * ========================================================== */
+   PIX STATUS
+============================================================ */
 
 app.get(
     "/api/pix/status/:id",
     requireUser,
-    async (req, res) => {
+    async (
+        req,
+        res
+    ) => {
         try {
-            const payment =
-                payments.get(
+            const paymentId =
+                safeString(
                     req.params.id
+                ).trim();
+
+            const localPayment =
+                payments.get(
+                    paymentId
                 );
 
             if (
-                payment &&
-                payment.userId !==
+                localPayment &&
+                localPayment.userId !==
                     req.user.id
             ) {
                 return jsonError(
                     res,
                     403,
-                    "Pagamento não pertence ao usuário."
+                    "Pagamento não pertence a este usuário."
                 );
             }
 
-            if (
-                !MERCADO_PAGO_ACCESS_TOKEN
-            ) {
-                return jsonError(
-                    res,
-                    500,
-                    "Mercado Pago não configurado."
-                );
-            }
-
-            const response =
-                await fetch(
-                    `https://api.mercadopago.com/v1/payments/${encodeURIComponent(
-                        req.params.id
+            const payment =
+                await mercadoPagoRequest(
+                    `/v1/payments/${encodeURIComponent(
+                        paymentId
                     )}`,
                     {
-                        headers: {
-                            Authorization:
-                                `Bearer ${MERCADO_PAGO_ACCESS_TOKEN}`
-                        },
-
-                        signal:
-                            AbortSignal.timeout(
-                                30000
-                            )
+                        method:
+                            "GET"
                     }
                 );
 
-            const text =
-                await response.text();
+            const approved =
+                payment.status ===
+                "approved";
 
-            if (!response.ok) {
-                return jsonError(
-                    res,
-                    response.status,
-                    `Mercado Pago HTTP ${response.status}: ${text.slice(
-                        0,
-                        1000
-                    )}`
-                );
+            if (
+                localPayment
+            ) {
+                localPayment.status =
+                    payment.status;
             }
 
-            const data =
-                JSON.parse(text);
+            if (
+                approved &&
+                !req.user.vip
+            ) {
+                req.user.vip =
+                    true;
 
-            if (payment) {
-                payment.status =
-                    data.status ||
-                    payment.status;
-
-                payment.mercadoPago =
-                    data;
+                metrics.pixApproved++;
             }
 
             return res.json({
                 ok: true,
 
                 id:
-                    data.id,
+                    paymentId,
 
                 status:
-                    data.status,
+                    payment.status,
 
-                statusDetail:
-                    data.status_detail,
+                approved,
 
-                payment:
-                    data
+                user:
+                    publicUser(
+                        req.user
+                    )
             });
         } catch (error) {
+            metrics.errors++;
+
             return jsonError(
                 res,
-                500,
+                502,
                 error.message
             );
         }
@@ -4055,89 +4551,110 @@ app.get(
 );
 
 /* ============================================================
- * ADMIN
- * ========================================================== */
+   ADMIN LOGIN
+============================================================ */
 
 app.post(
     "/api/admin/login",
-    async (req, res) => {
-        try {
-            const {
-                email,
-                password
-            } = req.body || {};
-
-            if (
-                safeString(email)
-                    .trim()
-                    .toLowerCase() !==
-                ADMIN_EMAIL
-                    .trim()
-                    .toLowerCase()
-            ) {
-                return jsonError(
-                    res,
-                    401,
-                    "Credenciais inválidas."
-                );
-            }
-
-            if (
-                safeString(
-                    password
-                ) !==
-                ADMIN_PASSWORD
-            ) {
-                return jsonError(
-                    res,
-                    401,
-                    "Credenciais inválidas."
-                );
-            }
-
-            const token =
-                randomToken(48);
-
-            adminSessions.set(
-                token,
-                {
-                    token,
-                    createdAt:
-                        now(),
-                    expiresAt:
-                        now() +
-                        SESSION_TTL_MS
-                }
-            );
-
-            return res.json({
-                ok: true,
-                token,
-                session:
-                    token
-            });
-        } catch (error) {
+    async (
+        req,
+        res
+    ) => {
+        if (
+            !ADMIN_PASSWORD
+        ) {
             return jsonError(
                 res,
-                500,
-                error.message
+                503,
+                "ADMIN_PASSWORD não configurada no Render."
             );
         }
+
+        const email =
+            safeString(
+                req.body?.email
+            )
+                .trim()
+                .toLowerCase();
+
+        const password =
+            safeString(
+                req.body?.password
+            );
+
+        /*
+         * Compatibilidade:
+         * alguns frontends enviam somente password.
+         */
+
+        const validEmail =
+            !email ||
+            email ===
+                ADMIN_EMAIL
+                    .trim()
+                    .toLowerCase();
+
+        if (
+            !validEmail ||
+            password !==
+                ADMIN_PASSWORD
+        ) {
+            return jsonError(
+                res,
+                401,
+                "Credenciais administrativas inválidas."
+            );
+        }
+
+        const token =
+            randomToken(
+                48
+            );
+
+        adminSessions.set(
+            token,
+            {
+                createdAt:
+                    now(),
+
+                expiresAt:
+                    now() +
+                    ADMIN_SESSION_TTL_MS
+            }
+        );
+
+        return res.json({
+            ok: true,
+
+            token,
+
+            session:
+                token
+        });
     }
 );
+
+/* ============================================================
+   ADMIN AUTH
+============================================================ */
 
 function requireAdmin(
     req,
     res,
     next
 ) {
-    const token =
+    const headerToken =
         safeString(
             req.headers[
                 "x-admin-session"
             ]
-        ).trim() ||
-        extractBearerToken(req);
+        ).trim();
+
+    const token =
+        headerToken ||
+        getBearerToken(
+            req
+        );
 
     const session =
         adminSessions.get(
@@ -4153,7 +4670,8 @@ function requireAdmin(
     }
 
     if (
-        session.expiresAt < now()
+        session.expiresAt <
+        now()
     ) {
         adminSessions.delete(
             token
@@ -4166,26 +4684,57 @@ function requireAdmin(
         );
     }
 
-    req.admin = true;
-
     next();
 }
+
+/* ============================================================
+   ADMIN DASHBOARD
+============================================================ */
 
 app.get(
     "/api/admin/dashboard",
     requireAdmin,
-    async (req, res) => {
-        const uploadList =
-            Array.from(
-                uploads.values()
-            );
+    (
+        req,
+        res
+    ) => {
+        let vipUsers =
+            0;
 
-        const paymentList =
-            Array.from(
-                payments.values()
-            );
+        let totalPoints =
+            0;
 
-        const memoryUsage =
+        let totalDownloads =
+            0;
+
+        let totalAnalyses =
+            0;
+
+        for (
+            const user of users.values()
+        ) {
+            if (
+                user.vip
+            ) {
+                vipUsers++;
+            }
+
+            totalPoints +=
+                Math.max(
+                    0,
+                    user.points
+                );
+
+            totalDownloads +=
+                user.downloads ||
+                0;
+
+            totalAnalyses +=
+                user.analyses ||
+                0;
+        }
+
+        const memory =
             process.memoryUsage();
 
         return res.json({
@@ -4194,95 +4743,92 @@ app.get(
             version:
                 VERSION,
 
-            uptime:
-                process.uptime(),
-
             metrics: {
-                ...metrics
-            },
+                requests:
+                    metrics.requests,
 
-            counts: {
+                analyses:
+                    metrics.analyses,
+
+                successfulAnalyses:
+                    metrics.successfulAnalyses,
+
+                failedAnalyses:
+                    metrics.failedAnalyses,
+
+                downloads:
+                    metrics.downloads,
+
+                pixCreated:
+                    metrics.pixCreated,
+
+                pixApproved:
+                    metrics.pixApproved,
+
                 users:
                     users.size,
 
-                sessions:
-                    sessions.size,
+                vipUsers,
 
-                uploads:
-                    uploads.size,
+                totalPoints,
 
-                payments:
-                    payments.size,
+                totalDownloads,
 
-                adminSessions:
-                    adminSessions.size
-            },
+                totalAnalyses,
 
-            uploads: {
-                total:
-                    uploadList.length,
-
-                totalBytes:
-                    uploadList.reduce(
-                        (
-                            total,
-                            item
-                        ) =>
-                            total +
-                            Number(
-                                item.size ||
-                                    0
-                            ),
-                        0
-                    )
-            },
-
-            payments: {
-                total:
-                    paymentList.length,
-
-                pending:
-                    paymentList.filter(
-                        (p) =>
-                            p.status ===
-                            "pending"
-                    ).length,
-
-                approved:
-                    paymentList.filter(
-                        (p) =>
-                            p.status ===
-                            "approved"
-                    ).length
+                errors:
+                    metrics.errors
             },
 
             memory: {
                 rss:
-                    memoryUsage.rss,
+                    memory.rss,
 
                 heapUsed:
-                    memoryUsage.heapUsed,
+                    memory.heapUsed,
 
                 heapTotal:
-                    memoryUsage.heapTotal,
+                    memory.heapTotal,
 
                 external:
-                    memoryUsage.external
-            }
+                    memory.external
+            },
+
+            uptime:
+                process.uptime()
         });
     }
 );
 
 /* ============================================================
- * HEALTH
- * ========================================================== */
+   HEALTH
+============================================================ */
 
 app.get(
     "/health",
-    async (req, res) => {
-        const geminiConfigured =
-            Boolean(
-                GEMINI_API_KEY
+    async (
+        req,
+        res
+    ) => {
+        const ffmpeg =
+            await commandExists(
+                FFMPEG_BIN
+            ).catch(
+                () => false
+            );
+
+        const ffprobe =
+            await commandExists(
+                FFPROBE_BIN
+            ).catch(
+                () => false
+            );
+
+        const ytdlp =
+            await commandExists(
+                YTDLP_BIN
+            ).catch(
+                () => false
             );
 
         return res.json({
@@ -4305,94 +4851,193 @@ app.get(
 
             gemini: {
                 configured:
-                    geminiConfigured,
+                    Boolean(
+                        GEMINI_API_KEY
+                    ),
 
                 primaryModel:
-                    GEMINI_PRIMARY_MODEL,
+                    GEMINI_MODEL,
 
                 fallbackModels:
-                    GEMINI_FALLBACK_MODELS
+                    GEMINI_FALLBACK_MODELS,
+
+                interactions:
+                    GEMINI_INTERACTIONS_URL,
+
+                files:
+                    GEMINI_FILES_API_URL
             },
 
             binaries: {
-                ffmpeg:
-                    Boolean(
-                        FFMPEG_PATH
-                    ),
+                ffmpeg,
 
-                ffprobe:
-                    Boolean(
-                        FFPROBE_PATH
-                    ),
+                ffprobe,
 
                 ytDlp:
-                    Boolean(
-                        YTDLP_PATH
-                    )
+                    ytdlp
             },
 
             upload: {
                 maxMB:
                     MAX_UPLOAD_MB
-            }
+            },
+
+            metrics
         });
     }
 );
 
 /* ============================================================
- * ROOT
- * ========================================================== */
+   ROOT
+============================================================ */
 
 app.get(
     "/",
-    async (req, res) => {
+    (
+        req,
+        res
+    ) => {
         return res.json({
             ok: true,
 
             service:
-                "ClipForge Pro Server",
+                "ClipForge Pro",
 
             version:
                 VERSION,
+
+            status:
+                "online",
 
             message:
                 "Backend online.",
 
             endpoints: [
-                "/health",
-                "/api/auth/login",
-                "/api/auth/me",
-                "/api/upload",
-                "/api/upload/:id",
-                "/api/analisar",
-                "/api/analisar-upload",
-                "/api/download",
-                "/api/pix/criar",
-                "/api/pix/status/:id",
-                "/api/admin/login",
-                "/api/admin/dashboard"
+                "GET /health",
+                "POST /api/auth/login",
+                "GET /api/auth/me",
+                "POST /api/upload",
+                "GET /api/upload/:id",
+                "POST /api/analisar",
+                "POST /api/analisar-upload",
+                "POST /api/download",
+                "POST /api/pix/criar",
+                "GET /api/pix/status/:id",
+                "POST /api/admin/login",
+                "GET /api/admin/dashboard"
             ]
         });
     }
 );
 
 /* ============================================================
- * 404
- * ========================================================== */
+   LIMPEZA AUTOMÁTICA DE UPLOADS
+============================================================ */
+
+async function cleanupExpiredUploads() {
+    const expiration =
+        now() -
+        UPLOAD_TTL_MS;
+
+    for (
+        const [
+            uploadId,
+            upload
+        ] of uploads.entries()
+    ) {
+        if (
+            upload.createdAt <
+            expiration
+        ) {
+            await safeRemove(
+                upload.filePath
+            );
+
+            uploads.delete(
+                uploadId
+            );
+        }
+    }
+}
+
+setInterval(
+    () => {
+        cleanupExpiredUploads()
+            .catch(
+                (error) =>
+                    console.error(
+                        "[Cleanup]",
+                        error.message
+                    )
+            );
+    },
+    15 * 60 * 1000
+).unref();
+
+/* ============================================================
+   LIMPEZA DE SESSÕES
+============================================================ */
+
+setInterval(
+    () => {
+        const timestamp =
+            now();
+
+        for (
+            const [
+                token,
+                session
+            ] of sessions.entries()
+        ) {
+            if (
+                session.expiresAt <
+                timestamp
+            ) {
+                sessions.delete(
+                    token
+                );
+            }
+        }
+
+        for (
+            const [
+                token,
+                session
+            ] of adminSessions.entries()
+        ) {
+            if (
+                session.expiresAt <
+                timestamp
+            ) {
+                adminSessions.delete(
+                    token
+                );
+            }
+        }
+    },
+    15 * 60 * 1000
+).unref();
+
+/* ============================================================
+   404
+============================================================ */
 
 app.use(
-    (req, res) => {
+    (
+        req,
+        res
+    ) => {
         return jsonError(
             res,
             404,
-            "Rota não encontrada."
+            "Endpoint não encontrado."
         );
     }
 );
 
 /* ============================================================
- * ERROR HANDLER
- * ========================================================== */
+   ERROR HANDLER
+============================================================ */
 
 app.use(
     (
@@ -4404,7 +5049,7 @@ app.use(
         metrics.errors++;
 
         console.error(
-            "[Express Error]",
+            "[Server Error]",
             error
         );
 
@@ -4426,7 +5071,7 @@ app.use(
             return jsonError(
                 res,
                 400,
-                `Erro de upload: ${error.message}`
+                error.message
             );
         }
 
@@ -4442,23 +5087,25 @@ app.use(
         }
 
         if (
-            !res.headersSent
+            res.headersSent
         ) {
-            return jsonError(
-                res,
-                500,
-                error?.message ||
-                    "Erro interno do servidor."
+            return next(
+                error
             );
         }
 
-        next(error);
+        return jsonError(
+            res,
+            500,
+            error.message ||
+                "Erro interno do servidor."
+        );
     }
 );
 
 /* ============================================================
- * START
- * ========================================================== */
+   START
+============================================================ */
 
 async function startServer() {
     try {
@@ -4478,15 +5125,19 @@ async function startServer() {
         );
 
         console.log(
-            `[Server] Node.js ${process.version}`
+            `[Server] Node.js: ${process.version}`
         );
 
         console.log(
-            `[Server] Porta ${PORT}`
+            `[Server] Host: ${HOST}`
         );
 
         console.log(
-            `[Gemini] Modelo principal: ${GEMINI_PRIMARY_MODEL}`
+            `[Server] Port: ${PORT}`
+        );
+
+        console.log(
+            `[Gemini] Primary: ${GEMINI_MODEL}`
         );
 
         console.log(
@@ -4504,21 +5155,43 @@ async function startServer() {
         );
 
         console.log(
-            "[Gemini] Interactions API:",
-            GEMINI_INTERACTIONS_URL
+            `[Gemini] Interactions: ${GEMINI_INTERACTIONS_URL}`
         );
 
         console.log(
-            "[Gemini] Files API:",
-            GEMINI_FILES_API_URL
+            `[Gemini] Files Upload: ${GEMINI_FILES_UPLOAD_URL}`
         );
 
         console.log(
-            "[Download] YT-API/RapidAPI + FFmpeg + yt-dlp fallback ativo."
+            `[Gemini] Files API: ${GEMINI_FILES_API_URL}`
+        );
+
+        console.log(
+            `[Mercado Pago] ${
+                MP_ACCESS_TOKEN
+                    ? "CONFIGURADO"
+                    : "NÃO CONFIGURADO"
+            }`
         );
 
         console.log(
             `[Upload] Limite: ${MAX_UPLOAD_MB} MB`
+        );
+
+        console.log(
+            "[Gemini] Upload MP4 por STREAM ativo."
+        );
+
+        console.log(
+            "[Gemini] Polling HTTP errors ativo."
+        );
+
+        console.log(
+            "[Gemini] Normalização files/ID ativa."
+        );
+
+        console.log(
+            "[Download] MP4 direto via stream ativo."
         );
 
         console.log(
@@ -4527,7 +5200,7 @@ async function startServer() {
 
         app.listen(
             PORT,
-            "0.0.0.0",
+            HOST,
             () => {
                 console.log("");
                 console.log(
@@ -4535,11 +5208,11 @@ async function startServer() {
                 );
 
                 console.log(
-                    `🌐 Porta: ${PORT}`
+                    `🌐 http://${HOST}:${PORT}`
                 );
 
                 console.log(
-                    `❤️ Health: /health`
+                    "❤️ /health"
                 );
 
                 console.log("");
@@ -4547,18 +5220,18 @@ async function startServer() {
         );
     } catch (error) {
         console.error(
-            "[Startup] Falha fatal:",
+            "[Startup] ERRO FATAL:",
             error
         );
 
-        process.exit(1);
+        process.exit(
+            1
+        );
     }
 }
 
-startServer();
-
 /* ============================================================
- * EXPORT
- * ========================================================== */
+   INICIAR
+============================================================ */
 
-module.exports = app;
+startServer();
