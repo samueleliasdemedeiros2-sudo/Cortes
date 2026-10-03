@@ -1,18 +1,18 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.3.0 (FINAL)
+ * CLIPFORGE PRO — BACKEND 13.3.1
  * ============================================================
  *
  * Node.js >= 20 + Express
  *
- * REVISÃO FINAL 13.3.0:
- * ------------------------------------------------------------
- * 1. URL do Mercado Pago estritamente limpa (sem markdown residual)
- * 2. Mensagem amigável de erro se todos os modelos derem 503/sobrecarga
- * 3. Exponential Backoff com Full Jitter para falhas transitórias
- * 4. Interrupção imediata em caso de esgotamento de quota dura (429)
- * 5. Flag fallback dinâmica: result.model !== GEMINI_MODEL
- * 6. Upload via stream e Gemini Files API estabilizados
+ * PIPELINE ATUAL:
+ * 1. Resolução local de binários (FFmpeg via ffmpeg-static e yt-dlp em ./bin)
+ * 2. Upload de MP4 com streaming direto para Gemini Files API
+ * 3. Polling de status até ACTIVE com captura de erros HTTP
+ * 4. Inferência via Interactions API com Exponential Backoff + Jitter
+ * 5. Detecção de quota dura (429 / quota_exceeded)
+ * 6. Corte de vídeo pontual com FFmpeg nativo e download em stream
+ * 7. Integração PIX Mercado Pago e Autenticação por sessão
  * ============================================================
  */
 
@@ -32,7 +32,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-const VERSION = "13.3.0";
+const VERSION = "13.3.1";
 
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 150);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -97,14 +97,14 @@ const MP_WEBHOOK_URL =
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@clipforge.local";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
-const YTDLP_BIN = process.env.YTDLP_BIN || process.env.YTDLP_PATH || "yt-dlp";
 const YTDLP_COOKIES_FILE =
     process.env.YTDLP_COOKIES_FILE ||
     process.env.YOUTUBE_COOKIES_FILE ||
     "";
 
-let FFMPEG_BIN = process.env.FFMPEG_PATH || process.env.FFMPEG_BIN || null;
-let FFPROBE_BIN = process.env.FFPROBE_PATH || process.env.FFPROBE_BIN || null;
+let FFMPEG_BIN = "ffmpeg";
+let FFPROBE_BIN = "ffprobe";
+let YTDLP_BIN = path.join(__dirname, "bin", "yt-dlp");
 
 const users = new Map();
 const sessions = new Map();
@@ -180,12 +180,6 @@ function jsonError(res, status, message, extra = {}) {
     });
 }
 
-function redactSecrets(value) {
-    return safeString(value)
-        .replace(/([?&](?:key|api_key|access_token|token)=)[^&]+/gi, "$1[REDACTED]")
-        .replace(/(Bearer\s+)[A-Za-z0-9._-]+/gi, "$1[REDACTED]");
-}
-
 async function safeRemove(filePath) {
     if (!filePath) return;
     try {
@@ -232,31 +226,82 @@ async function commandExists(command, args = ["--version"]) {
 }
 
 async function resolveBinaries() {
-    if (!FFMPEG_BIN) {
-        try {
-            const installer = require("@ffmpeg-installer/ffmpeg");
-            if (installer?.path) FFMPEG_BIN = installer.path;
-        } catch (_) {}
-    }
-    if (!FFMPEG_BIN) {
-        try {
-            const staticPath = require("ffmpeg-static");
-            if (staticPath) FFMPEG_BIN = staticPath;
-        } catch (_) {}
-    }
-    if (!FFMPEG_BIN) FFMPEG_BIN = "ffmpeg";
+    const ffmpegCandidates = [
+        process.env.FFMPEG_PATH,
+        process.env.FFMPEG_BIN,
+        path.join(__dirname, "bin", "ffmpeg")
+    ];
 
-    if (!FFPROBE_BIN) {
-        try {
-            const installer = require("@ffprobe-installer/ffprobe");
-            if (installer?.path) FFPROBE_BIN = installer.path;
-        } catch (_) {}
-    }
-    if (!FFPROBE_BIN) FFPROBE_BIN = "ffprobe";
+    try {
+        const staticFfmpeg = require("ffmpeg-static");
+        if (staticFfmpeg) ffmpegCandidates.unshift(staticFfmpeg);
+    } catch (_) {}
 
-    const ffmpegOk = await commandExists(FFMPEG_BIN);
-    const ffprobeOk = await commandExists(FFPROBE_BIN);
-    const ytdlpOk = await commandExists(YTDLP_BIN);
+    try {
+        const installerFfmpeg = require("@ffmpeg-installer/ffmpeg");
+        if (installerFfmpeg?.path) ffmpegCandidates.push(installerFfmpeg.path);
+    } catch (_) {}
+
+    ffmpegCandidates.push("ffmpeg");
+
+    for (const cand of ffmpegCandidates) {
+        if (!cand) continue;
+        if (fs.existsSync(cand)) {
+            try { fs.chmodSync(cand, 0o755); } catch (_) {}
+        }
+        if (await commandExists(cand, ["-version"])) {
+            FFMPEG_BIN = cand;
+            break;
+        }
+    }
+
+    const ffprobeCandidates = [
+        process.env.FFPROBE_PATH,
+        process.env.FFPROBE_BIN,
+        path.join(__dirname, "bin", "ffprobe")
+    ];
+
+    try {
+        const installerFfprobe = require("@ffprobe-installer/ffprobe");
+        if (installerFfprobe?.path) ffprobeCandidates.unshift(installerFfprobe.path);
+    } catch (_) {}
+
+    ffprobeCandidates.push("ffprobe");
+
+    for (const cand of ffprobeCandidates) {
+        if (!cand) continue;
+        if (fs.existsSync(cand)) {
+            try { fs.chmodSync(cand, 0o755); } catch (_) {}
+        }
+        if (await commandExists(cand, ["-version"])) {
+            FFPROBE_BIN = cand;
+            break;
+        }
+    }
+
+    const localYtDlp = path.join(__dirname, "bin", "yt-dlp");
+    const ytdlpCandidates = [
+        localYtDlp,
+        process.env.YTDLP_BIN,
+        process.env.YTDLP_PATH,
+        path.join(process.cwd(), "bin", "yt-dlp"),
+        "yt-dlp"
+    ];
+
+    for (const cand of ytdlpCandidates) {
+        if (!cand) continue;
+        if (fs.existsSync(cand)) {
+            try { fs.chmodSync(cand, 0o755); } catch (_) {}
+        }
+        if (await commandExists(cand, ["--version"])) {
+            YTDLP_BIN = cand;
+            break;
+        }
+    }
+
+    const ffmpegOk = await commandExists(FFMPEG_BIN, ["-version"]);
+    const ffprobeOk = await commandExists(FFPROBE_BIN, ["-version"]);
+    const ytdlpOk = await commandExists(YTDLP_BIN, ["--version"]);
 
     console.log(`[Binaries] FFmpeg: ${ffmpegOk ? FFMPEG_BIN : "AUSENTE"}`);
     console.log(`[Binaries] FFprobe: ${ffprobeOk ? FFPROBE_BIN : "AUSENTE"}`);
@@ -1470,7 +1515,7 @@ app.post("/api/download", requireUser, async (req, res) => {
 });
 
 /* ============================================================
-   MERCADO PAGO / PIX (URL LIMPA)
+   MERCADO PAGO / PIX
 ============================================================ */
 
 async function mercadoPagoRequest(endpoint, options = {}) {
@@ -1676,9 +1721,9 @@ app.get("/api/admin/dashboard", requireAdmin, (req, res) => {
 });
 
 app.get("/health", async (req, res) => {
-    const ffmpeg = await commandExists(FFMPEG_BIN).catch(() => false);
-    const ffprobe = await commandExists(FFPROBE_BIN).catch(() => false);
-    const ytdlp = await commandExists(YTDLP_BIN).catch(() => false);
+    const ffmpeg = await commandExists(FFMPEG_BIN, ["-version"]).catch(() => false);
+    const ffprobe = await commandExists(FFPROBE_BIN, ["-version"]).catch(() => false);
+    const ytdlp = await commandExists(YTDLP_BIN, ["--version"]).catch(() => false);
 
     return res.json({
         ok: true,
