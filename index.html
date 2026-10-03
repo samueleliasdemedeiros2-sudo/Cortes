@@ -9,24 +9,20 @@
     <meta name="description" content="Crie cortes profissionais enviando arquivos MP4 ou via YouTube com inteligência artificial.">
     <meta name="theme-color" content="#08090d">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
+    <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap)" rel="stylesheet">
 
     <link
         rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css)"
     >
 
     <style>
         * { box-sizing: border-box; }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
             font-family: "Inter", sans-serif;
@@ -37,26 +33,11 @@
             min-height: 100vh;
         }
 
-        ::selection {
-            background: rgba(255,255,255,.18);
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #08090d;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #292b32;
-            border-radius: 999px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3b3e47;
-        }
+        ::selection { background: rgba(255,255,255,.18); }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #08090d; }
+        ::-webkit-scrollbar-thumb { background: #292b32; border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b3e47; }
 
         .glass {
             background: rgba(18, 19, 25, .78);
@@ -88,15 +69,8 @@
             transform: translateY(-1px);
         }
 
-        .btn-main:active {
-            transform: translateY(0);
-        }
-
-        .btn-main:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .btn-main:active { transform: translateY(0); }
+        .btn-main:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
         .btn-dark {
             background: rgba(255,255,255,.06);
@@ -109,10 +83,7 @@
             border-color: rgba(255,255,255,.14);
         }
 
-        .btn-dark:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-        }
+        .btn-dark:disabled { opacity: .55; cursor: not-allowed; }
 
         .input-dark {
             background: rgba(255,255,255,.035);
@@ -128,9 +99,7 @@
             box-shadow: 0 0 0 3px rgba(255,255,255,.025);
         }
 
-        .input-dark::placeholder {
-            color: #71717a;
-        }
+        .input-dark::placeholder { color: #71717a; }
 
         .card {
             background: linear-gradient(
@@ -139,10 +108,7 @@
                 rgba(255,255,255,.018)
             );
             border: 1px solid rgba(255,255,255,.075);
-            transition:
-                transform .2s ease,
-                border-color .2s ease,
-                background .2s ease;
+            transition: transform .2s ease, border-color .2s ease, background .2s ease;
         }
 
         .card:hover {
@@ -180,11 +146,7 @@
             animation: spin .7s linear infinite;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .pulse-dot {
             width: 7px;
@@ -196,61 +158,26 @@
         }
 
         @keyframes pulse {
-            70% {
-                box-shadow: 0 0 0 7px rgba(255,255,255,0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(255,255,255,0);
-            }
+            70% { box-shadow: 0 0 0 7px rgba(255,255,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
         }
 
-        .fade-in {
-            animation: fadeIn .35s ease both;
-        }
-
+        .fade-in { animation: fadeIn .35s ease both; }
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .slide-up {
-            animation: slideUp .3s ease both;
-        }
-
+        .slide-up { animation: slideUp .3s ease both; }
         @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .toast {
-            animation: toastIn .25s ease both;
-        }
-
+        .toast { animation: toastIn .25s ease both; }
         @keyframes toastIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px) scale(.97);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            from { opacity: 0; transform: translateY(12px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .line-clamp-2 {
@@ -280,9 +207,7 @@
 
 <body>
 
-    <!-- =====================================================
-         HEADER
-    ====================================================== -->
+    <!-- HEADER -->
     <header class="sticky top-0 z-40 border-b border-white/[.06] bg-[#08090d]/85 backdrop-blur-xl">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="h-[72px] flex items-center justify-between gap-4">
@@ -358,9 +283,7 @@
         </div>
     </header>
 
-    <!-- =====================================================
-         HERO
-    ====================================================== -->
+    <!-- HERO -->
     <main>
         <section class="relative overflow-hidden">
             <div class="absolute inset-0 pointer-events-none">
@@ -385,9 +308,7 @@
                     </p>
                 </div>
 
-                <!-- =================================================
-                     TABS DE MODO
-                ================================================== -->
+                <!-- TABS DE MODO -->
                 <div class="max-w-3xl mx-auto mt-10">
 
                     <div class="flex items-center justify-center gap-2 mb-3">
@@ -457,7 +378,7 @@
                         <!-- MODO YOUTUBE -->
                         <div
                             id="modoYoutubeArea"
-                            class="hidden flex-col sm:flex-row gap-2"
+                            class="hidden flex flex-col sm:flex-row gap-2"
                         >
 
                             <div class="relative flex-1">
@@ -489,29 +410,16 @@
                     </div>
 
                     <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-bolt"></i>
-                            Análise Gemini
-                        </span>
-
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-scissors"></i>
-                            Cortes automáticos
-                        </span>
-
-                        <span class="flex items-center gap-1.5">
-                            <i class="fa-solid fa-download"></i>
-                            Exportação em MP4
-                        </span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise Gemini</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cortes automáticos</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> Exportação em MP4</span>
                     </div>
 
                 </div>
             </div>
         </section>
 
-        <!-- =====================================================
-             LOADING
-        ====================================================== -->
+        <!-- LOADING -->
         <section
             id="loadingArea"
             class="hidden max-w-3xl mx-auto px-4 pb-10"
@@ -547,9 +455,7 @@
             </div>
         </section>
 
-        <!-- =====================================================
-             ERROR
-        ====================================================== -->
+        <!-- ERROR -->
         <section
             id="errorArea"
             class="hidden max-w-3xl mx-auto px-4 pb-10"
@@ -587,9 +493,7 @@
             </div>
         </section>
 
-        <!-- =====================================================
-             RESULTADOS
-        ====================================================== -->
+        <!-- RESULTADOS -->
         <section
             id="resultados"
             class="hidden max-w-6xl mx-auto px-4 sm:px-6 pb-20"
@@ -601,7 +505,6 @@
 
                     <div class="flex items-center gap-2 mb-2">
                         <span class="w-2 h-2 rounded-full bg-white"></span>
-
                         <span class="text-[11px] uppercase tracking-[.18em] text-zinc-500 font-bold">
                             Resultado da análise
                         </span>
@@ -637,91 +540,62 @@
 
         </section>
 
-        <!-- =====================================================
-             FEATURES
-        ====================================================== -->
+        <!-- FEATURES -->
         <section class="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                 <div class="card rounded-2xl p-6">
-
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
                         <i class="fa-solid fa-brain text-sm"></i>
                     </div>
-
-                    <h3 class="font-bold">
-                        Análise Estruturada
-                    </h3>
-
+                    <h3 class="font-bold">Análise Estruturada</h3>
                     <p class="text-sm text-zinc-500 leading-6 mt-2">
                         O motor de IA identifica ganchos de retenção e momentos ideais para Reels, Shorts e TikTok.
                     </p>
-
                 </div>
 
                 <div class="card rounded-2xl p-6">
-
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
                         <i class="fa-solid fa-scissors text-sm"></i>
                     </div>
-
-                    <h3 class="font-bold">
-                        Renderização Local
-                    </h3>
-
+                    <h3 class="font-bold">Renderização Local</h3>
                     <p class="text-sm text-zinc-500 leading-6 mt-2">
                         Cortes processados com FFmpeg nativo, preservando resolução e sincronia de áudio.
                     </p>
-
                 </div>
 
                 <div class="card rounded-2xl p-6">
-
                     <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-5">
                         <i class="fa-solid fa-crown text-sm"></i>
                     </div>
-
-                    <h3 class="font-bold">
-                        Plano VIP
-                    </h3>
-
+                    <h3 class="font-bold">Plano VIP</h3>
                     <p class="text-sm text-zinc-500 leading-6 mt-2">
                         Downloads ilimitados e processamento sem consumo de pontos da conta.
                     </p>
-
                 </div>
 
             </div>
         </section>
     </main>
 
-    <!-- =====================================================
-         FOOTER
-    ====================================================== -->
+    <!-- FOOTER -->
     <footer class="border-t border-white/[.06]">
-
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-
             <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-
                 <div class="text-xs text-zinc-600">
                     © <span id="anoAtual"></span> ClipForge Pro
                 </div>
-
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v13.3.3</span>
+                    <span>v13.3.4</span>
                 </div>
-
             </div>
         </div>
     </footer>
 
-    <!-- =====================================================
-         MODAL PLANOS
-    ====================================================== -->
+    <!-- MODAL PLANOS -->
     <div
         id="planModal"
         class="hidden fixed inset-0 z-50 modal-backdrop p-4 overflow-y-auto"
@@ -731,113 +605,55 @@
             <div class="modal rounded-3xl w-full max-w-3xl p-5 sm:p-7 slide-up">
 
                 <div class="flex items-start justify-between gap-4 mb-6">
-
                     <div>
-                        <div class="text-[10px] uppercase tracking-[.2em] text-zinc-500 font-bold">
-                            ClipForge Pro
-                        </div>
-
-                        <h2 class="text-2xl font-black mt-1">
-                            Escolha seu plano
-                        </h2>
-
-                        <p class="text-sm text-zinc-500 mt-1">
-                            Tenha mais liberdade para criar seus cortes.
-                        </p>
+                        <div class="text-[10px] uppercase tracking-[.2em] text-zinc-500 font-bold">ClipForge Pro</div>
+                        <h2 class="text-2xl font-black mt-1">Escolha seu plano</h2>
+                        <p class="text-sm text-zinc-500 mt-1">Tenha mais liberdade para criar seus cortes.</p>
                     </div>
-
                     <button
                         onclick="fecharPlanos()"
                         class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center text-zinc-400"
                     >
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                     <!-- FREE -->
                     <div class="rounded-2xl border border-white/[.08] bg-white/[.025] p-6">
-
                         <div class="flex items-center justify-between">
-
-                            <h3 class="font-bold">
-                                Free
-                            </h3>
-
-                            <span class="text-[10px] uppercase tracking-widest text-zinc-500">
-                                Atual
-                            </span>
-
+                            <h3 class="font-bold">Free</h3>
+                            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Atual</span>
                         </div>
-
                         <div class="mt-5">
                             <span class="text-4xl font-black">200</span>
                             <span class="text-sm text-zinc-500">pontos</span>
                         </div>
-
-                        <div class="text-xs text-zinc-500 mt-2">
-                            +50 pontos diariamente
-                        </div>
-
+                        <div class="text-xs text-zinc-500 mt-2">+50 pontos diariamente</div>
                         <div class="space-y-3 mt-6 text-sm text-zinc-400">
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                Análise com IA
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                Geração de cortes
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-zinc-300 mt-0.5"></i>
-                                50 pontos por download
-                            </div>
-
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> Análise com IA</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> Geração de cortes</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-zinc-300 mt-0.5"></i> 50 pontos por download</div>
                         </div>
-
                     </div>
 
                     <!-- VIP -->
                     <div class="rounded-2xl border border-white/[.14] bg-white/[.045] p-6 relative overflow-hidden">
-
-                        <div class="absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl bg-white text-black text-[10px] font-black uppercase tracking-wider">
-                            VIP
-                        </div>
-
+                        <div class="absolute top-0 right-0 px-3 py-1.5 rounded-bl-xl bg-white text-black text-[10px] font-black uppercase tracking-wider">VIP</div>
                         <div class="flex items-center gap-2">
                             <i class="fa-solid fa-crown text-sm"></i>
                             <h3 class="font-bold">ClipForge VIP</h3>
                         </div>
-
                         <div class="mt-5">
                             <span class="text-4xl font-black">R$ 19,90</span>
                             <span class="text-sm text-zinc-500">/ mês</span>
                         </div>
-
                         <div class="space-y-3 mt-6 text-sm text-zinc-400">
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Downloads sem descontar pontos
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Acesso VIP validado pelo servidor
-                            </div>
-
-                            <div class="flex gap-3">
-                                <i class="fa-solid fa-check text-white mt-0.5"></i>
-                                Experiência sem limites de pontos
-                            </div>
-
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Downloads sem descontar pontos</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Acesso VIP validado pelo servidor</div>
+                            <div class="flex gap-3"><i class="fa-solid fa-check text-white mt-0.5"></i> Experiência sem limites de pontos</div>
                         </div>
-
                         <button
                             id="btnComprarVip"
                             onclick="criarPagamento()"
@@ -846,7 +662,6 @@
                             <i class="fa-solid fa-bolt mr-2"></i>
                             Ativar VIP
                         </button>
-
                     </div>
 
                 </div>
@@ -854,9 +669,7 @@
         </div>
     </div>
 
-    <!-- =====================================================
-         MODAL PIX
-    ====================================================== -->
+    <!-- MODAL PIX -->
     <div
         id="pixModal"
         class="hidden fixed inset-0 z-[60] modal-backdrop p-4 overflow-y-auto"
@@ -866,67 +679,39 @@
             <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
 
                 <div class="flex items-center justify-between mb-6">
-
                     <div>
-                        <h2 class="font-black text-xl">
-                            Pagamento Pix
-                        </h2>
-
-                        <p class="text-xs text-zinc-500 mt-1">
-                            Ative seu plano ClipForge VIP.
-                        </p>
+                        <h2 class="font-black text-xl">Pagamento Pix</h2>
+                        <p class="text-xs text-zinc-500 mt-1">Ative seu plano ClipForge VIP.</p>
                     </div>
-
                     <button
                         onclick="fecharPix()"
                         class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
                     >
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-
                 </div>
 
                 <div class="text-center">
 
-                    <div
-                        id="pixLoading"
-                        class="py-10"
-                    >
-                        <div class="flex justify-center mb-4">
-                            <div class="loader-light"></div>
-                        </div>
-
-                        <p class="text-sm text-zinc-400">
-                            Gerando seu Pix...
-                        </p>
+                    <div id="pixLoading" class="py-10">
+                        <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
+                        <p class="text-sm text-zinc-400">Gerando seu Pix...</p>
                     </div>
 
-                    <div
-                        id="pixContent"
-                        class="hidden"
-                    >
+                    <div id="pixContent" class="hidden">
 
                         <div class="qr-box inline-block">
-
                             <img
                                 id="pixQrImage"
                                 src=""
                                 alt="QR Code Pix"
                                 class="w-52 h-52 sm:w-56 sm:h-56 object-contain"
                             >
-
                         </div>
 
                         <div class="mt-5">
-
-                            <div class="text-xs text-zinc-500">
-                                Valor
-                            </div>
-
-                            <div class="text-2xl font-black mt-1">
-                                R$ 19,90
-                            </div>
-
+                            <div class="text-xs text-zinc-500">Valor</div>
+                            <div class="text-2xl font-black mt-1">R$ 19,90</div>
                         </div>
 
                         <button
@@ -951,25 +736,13 @@
                             id="pixStatus"
                             class="status-loading rounded-xl border p-4 mt-5 text-left"
                         >
-
                             <div class="flex items-center gap-3">
-
                                 <div class="loader-light"></div>
-
                                 <div>
-
-                                    <div class="text-sm font-semibold">
-                                        Aguardando pagamento
-                                    </div>
-
-                                    <div class="text-xs text-zinc-600 mt-0.5">
-                                        Atualização automática após confirmação.
-                                    </div>
-
+                                    <div class="text-sm font-semibold">Aguardando pagamento</div>
+                                    <div class="text-xs text-zinc-600 mt-0.5">Atualização automática após confirmação.</div>
                                 </div>
-
                             </div>
-
                         </div>
 
                     </div>
@@ -978,9 +751,7 @@
         </div>
     </div>
 
-    <!-- =====================================================
-         MODAL ADMIN
-    ====================================================== -->
+    <!-- MODAL ADMIN -->
     <div
         id="adminModal"
         class="hidden fixed inset-0 z-[70] modal-backdrop p-4 overflow-y-auto"
@@ -990,36 +761,23 @@
             <div class="modal rounded-3xl w-full max-w-md p-6 slide-up">
 
                 <div class="flex items-start justify-between mb-6">
-
                     <div>
-
-                        <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-4">
-                            <i class="fa-solid fa-lock text-sm"></i>
-                        </div>
-
-                        <h2 class="font-black text-xl">
-                            Área administrativa
-                        </h2>
-
+                        <div class="w-10 h-10 rounded-xl bg-white/[.06] flex items-center justify-center mb-4"><i class="fa-solid fa-lock text-sm"></i></div>
+                        <h2 class="font-black text-xl">Área administrativa</h2>
                     </div>
-
                     <button
                         onclick="fecharAdmin()"
                         class="w-9 h-9 rounded-xl btn-dark flex items-center justify-center"
                     >
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-
                 </div>
 
                 <div id="adminLoginArea">
 
-                    <label class="text-xs text-zinc-500">
-                        Senha administrativa
-                    </label>
+                    <label class="text-xs text-zinc-500">Senha administrativa</label>
 
                     <div class="relative mt-2">
-
                         <input
                             id="adminPassword"
                             type="password"
@@ -1027,18 +785,13 @@
                             placeholder="Digite sua senha"
                             onkeydown="if(event.key==='Enter') fazerLoginAdmin()"
                         >
-
                         <button
                             onclick="toggleAdminPassword()"
                             class="absolute right-0 top-0 h-12 w-12 text-zinc-500"
                             aria-label="Mostrar ou ocultar senha"
                         >
-                            <i
-                                id="adminEye"
-                                class="fa-regular fa-eye"
-                            ></i>
+                            <i id="adminEye" class="fa-regular fa-eye"></i>
                         </button>
-
                     </div>
 
                     <button
@@ -1060,20 +813,14 @@
                     id="adminDashboard"
                     class="hidden"
                 >
-
                     <div class="flex items-center justify-between mb-5">
-
-                        <div class="font-bold">
-                            Visão geral
-                        </div>
-
+                        <div class="font-bold">Visão geral</div>
                         <button
                             onclick="logoutAdmin()"
                             class="text-xs text-zinc-500 hover:text-white"
                         >
                             Sair
                         </button>
-
                     </div>
 
                     <div
@@ -1088,7 +835,6 @@
                         <i class="fa-solid fa-rotate mr-2"></i>
                         Atualizar dados
                     </button>
-
                 </div>
 
             </div>
@@ -1103,10 +849,10 @@
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V13.3.3 — FRONTEND FINAL
+   CLIPFORGE PRO V13.3.4 — FRONTEND FINAL INTEGRADO
 ========================================================= */
 
-const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
+const BACKEND_URL = "[https://clipforge-server-ikai.onrender.com](https://clipforge-server-ikai.onrender.com)";
 
 const SESSION_STORAGE_KEY = "clipforge_session_v13";
 const ADMIN_STORAGE_KEY = "clipforge_admin_session_v13";
@@ -1143,29 +889,20 @@ function escapeHtml(value) {
 
 function formatarTempo(segundos) {
     segundos = Number(segundos) || 0;
-
     const minutos = Math.floor(segundos / 60);
     const secs = Math.floor(segundos % 60);
-
     return `${String(minutos).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 function mostrarToast(mensagem, tipo = "normal") {
     const container = $("toastContainer");
-
     if (!container) return;
 
     const toast = document.createElement("div");
-
     let icon = "fa-circle-info";
 
-    if (tipo === "success") {
-        icon = "fa-circle-check";
-    }
-
-    if (tipo === "error") {
-        icon = "fa-circle-exclamation";
-    }
+    if (tipo === "success") icon = "fa-circle-check";
+    if (tipo === "error") icon = "fa-circle-exclamation";
 
     toast.className =
         "toast pointer-events-auto glass rounded-xl px-4 py-3 flex items-center gap-3 text-sm shadow-2xl";
@@ -1180,32 +917,20 @@ function mostrarToast(mensagem, tipo = "normal") {
     setTimeout(() => {
         toast.style.opacity = "0";
         toast.style.transform = "translateY(8px)";
-
-        setTimeout(() => {
-            toast.remove();
-        }, 250);
-
+        setTimeout(() => toast.remove(), 250);
     }, 3200);
 }
 
 function authHeaders() {
     const headers = {};
-
-    if (sessionToken) {
-        headers["Authorization"] = `Bearer ${sessionToken}`;
-    }
-
-    if (usuario.userId) {
-        headers["X-User-Id"] = usuario.userId;
-    }
-
+    if (sessionToken) headers["Authorization"] = `Bearer ${sessionToken}`;
+    if (usuario.userId) headers["X-User-Id"] = usuario.userId;
     return headers;
 }
 
 async function fetchJson(url, options = {}) {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
         ...options,
-
         headers: {
             "Accept": "application/json",
             ...authHeaders(),
@@ -1213,8 +938,23 @@ async function fetchJson(url, options = {}) {
         }
     });
 
-    let data = null;
+    // Se o backend reiniciou ou a sessão caiu, renova automaticamente
+    if (response.status === 401) {
+        sessionToken = "";
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        await iniciarSessao();
 
+        response = await fetch(url, {
+            ...options,
+            headers: {
+                "Accept": "application/json",
+                ...authHeaders(),
+                ...(options.headers || {})
+            }
+        });
+    }
+
+    let data = null;
     try {
         data = await response.json();
     } catch {
@@ -1227,10 +967,8 @@ async function fetchJson(url, options = {}) {
             data?.message ||
             `Erro HTTP ${response.status}`
         );
-
         error.status = response.status;
         error.data = data;
-
         throw error;
     }
 
@@ -1243,28 +981,20 @@ async function fetchJson(url, options = {}) {
 
 function alternarModo(modo) {
     modoAtual = modo;
-
     fecharErro();
 
     if (modo === "upload") {
-
         $("tabUpload").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
-
         $("tabYoutube").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
-
         $("modoUploadArea").classList.remove("hidden");
         $("modoYoutubeArea").classList.add("hidden");
-
     } else {
-
         $("tabYoutube").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
-
         $("tabUpload").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
-
         $("modoUploadArea").classList.add("hidden");
         $("modoYoutubeArea").classList.remove("hidden");
     }
@@ -1276,13 +1006,9 @@ function alternarModo(modo) {
 
 async function selecionarArquivo(event) {
     const file = event.target.files[0];
-
-    if (!file) {
-        return;
-    }
+    if (!file) return;
 
     const nome = String(file.name || "").toLowerCase();
-
     if (!nome.endsWith(".mp4")) {
         mostrarErro("Apenas vídeos no formato MP4 são aceitos.");
         event.target.value = "";
@@ -1305,34 +1031,40 @@ async function selecionarArquivo(event) {
 
     $("resultados").classList.add("hidden");
     $("loadingArea").classList.remove("hidden");
-
-    $("loadingTitle").textContent =
-        "Enviando arquivo ao servidor";
-
+    $("loadingTitle").textContent = "Enviando arquivo ao servidor";
     $("loadingText").textContent =
         `Carregando ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
-
     $("loadingBar").style.width = "25%";
 
     try {
-
         const formData = new FormData();
-
         formData.append("video", file);
 
-        const uploadRes = await fetch(
+        let uploadRes = await fetch(
             `${BACKEND_URL}/api/upload`,
             {
                 method: "POST",
-                headers: {
-                    ...authHeaders()
-                },
+                headers: { ...authHeaders() },
                 body: formData
             }
         );
 
-        let uploadData = null;
+        if (uploadRes.status === 401) {
+            sessionToken = "";
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            await iniciarSessao();
 
+            uploadRes = await fetch(
+                `${BACKEND_URL}/api/upload`,
+                {
+                    method: "POST",
+                    headers: { ...authHeaders() },
+                    body: formData
+                }
+            );
+        }
+
+        let uploadData = null;
         try {
             uploadData = await uploadRes.json();
         } catch {
@@ -1340,87 +1072,46 @@ async function selecionarArquivo(event) {
         }
 
         if (!uploadRes.ok) {
-            throw new Error(
-                uploadData?.error ||
-                "Falha no envio do vídeo."
-            );
+            throw new Error(uploadData?.error || "Falha no envio do vídeo.");
         }
 
         if (!uploadData?.uploadId) {
-            throw new Error(
-                "O servidor não retornou o identificador do upload."
-            );
+            throw new Error("O servidor não retornou o identificador do upload.");
         }
 
         uploadIdAtual = uploadData.uploadId;
+        $("uploadFileLabel").textContent = `Arquivo carregado: ${file.name}`;
+        mostrarToast("Upload concluído! Analisando vídeo...", "success");
 
-        $("uploadFileLabel").textContent =
-            `Arquivo carregado: ${file.name}`;
-
-        mostrarToast(
-            "Upload concluído! Analisando vídeo...",
-            "success"
-        );
-
-        $("loadingTitle").textContent =
-            "A IA está analisando os melhores momentos";
-
-        $("loadingText").textContent =
-            "Processando timeline e ganchos narrativos com Gemini...";
-
+        $("loadingTitle").textContent = "A IA está analisando os melhores momentos";
+        $("loadingText").textContent = "Processando timeline e ganchos narrativos com Gemini...";
         $("loadingBar").style.width = "70%";
 
         const analiseData = await fetchJson(
             `${BACKEND_URL}/api/analisar`,
             {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    uploadId: uploadIdAtual
-                })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uploadId: uploadIdAtual })
             }
         );
 
-        if (
-            !analiseData?.clips ||
-            !Array.isArray(analiseData.clips) ||
-            !analiseData.clips.length
-        ) {
-            throw new Error(
-                "A IA não encontrou cortes com os parâmetros informados."
-            );
+        if (!analiseData?.clips || !Array.isArray(analiseData.clips) || !analiseData.clips.length) {
+            throw new Error("A IA não encontrou cortes com os parâmetros informados.");
         }
 
         clipsAtuais = analiseData.clips;
-
         videoAtualId = "";
         videoAtualUrl = "";
-
         $("loadingBar").style.width = "100%";
 
         renderizarCortes(clipsAtuais);
-
-        mostrarToast(
-            `${clipsAtuais.length} cortes gerados com sucesso!`,
-            "success"
-        );
+        mostrarToast(`${clipsAtuais.length} cortes gerados com sucesso!`, "success");
 
     } catch (err) {
-
-        console.error(
-            "Erro no processamento:",
-            err
-        );
-
-        mostrarErro(
-            err.message ||
-            "Erro durante o processamento do vídeo."
-        );
-
+        console.error("Erro no processamento:", err);
+        mostrarErro(err.message || "Erro durante o processamento do vídeo.");
     } finally {
-
         $("loadingArea").classList.add("hidden");
         $("fileInput").value = "";
     }
@@ -1431,10 +1122,7 @@ async function selecionarArquivo(event) {
 ========================================================= */
 
 function extrairYouTubeId(url) {
-    if (!url) {
-        return null;
-    }
-
+    if (!url) return null;
     const value = String(url).trim();
 
     const patterns = [
@@ -1446,39 +1134,26 @@ function extrairYouTubeId(url) {
     ];
 
     for (const pattern of patterns) {
-
         const match = value.match(pattern);
-
-        if (match) {
-            return match[1];
-        }
+        if (match) return match[1];
     }
-
     return null;
 }
 
 async function gerarCortesYoutube() {
     const input = $("videoUrl");
     const url = input.value.trim();
-
     fecharErro();
 
     if (!url) {
-        mostrarErro(
-            "Cole o link de um vídeo do YouTube."
-        );
-
+        mostrarErro("Cole o link de um vídeo do YouTube.");
         input.focus();
         return;
     }
 
     const videoId = extrairYouTubeId(url);
-
     if (!videoId) {
-        mostrarErro(
-            "O link informado não parece ser um link válido do YouTube."
-        );
-
+        mostrarErro("O link informado não parece ser um link válido do YouTube.");
         input.focus();
         return;
     }
@@ -1489,67 +1164,35 @@ async function gerarCortesYoutube() {
 
     $("resultados").classList.add("hidden");
     $("loadingArea").classList.remove("hidden");
-
-    $("loadingTitle").textContent =
-        "A IA está analisando o YouTube";
-
-    $("loadingText").textContent =
-        "Identificando trechos de impacto com a Interactions API...";
-
+    $("loadingTitle").textContent = "A IA está analisando o YouTube";
+    $("loadingText").textContent = "Identificando trechos de impacto com a Interactions API...";
     $("loadingBar").style.width = "45%";
-
     $("btnGerarYoutube").disabled = true;
 
     try {
-
         const data = await fetchJson(
             `${BACKEND_URL}/api/analisar`,
             {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    url: url
-                })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: url })
             }
         );
 
-        if (
-            !data?.clips ||
-            !Array.isArray(data.clips) ||
-            !data.clips.length
-        ) {
-            throw new Error(
-                "A IA não encontrou cortes com o critério solicitado."
-            );
+        if (!data?.clips || !Array.isArray(data.clips) || !data.clips.length) {
+            throw new Error("A IA não encontrou cortes com o critério solicitado.");
         }
 
         $("loadingBar").style.width = "100%";
-
         clipsAtuais = data.clips;
 
         renderizarCortes(clipsAtuais);
-
-        mostrarToast(
-            `${clipsAtuais.length} cortes encontrados!`,
-            "success"
-        );
+        mostrarToast(`${clipsAtuais.length} cortes encontrados!`, "success");
 
     } catch (error) {
-
-        console.error(
-            "Erro na análise do YouTube:",
-            error
-        );
-
-        mostrarErro(
-            error.message ||
-            "Não foi possível analisar o vídeo."
-        );
-
+        console.error("Erro na análise do YouTube:", error);
+        mostrarErro(error.message || "Não foi possível analisar o vídeo.");
     } finally {
-
         $("loadingArea").classList.add("hidden");
         $("btnGerarYoutube").disabled = false;
     }
@@ -1561,194 +1204,76 @@ async function gerarCortesYoutube() {
 
 function renderizarCortes(clips) {
     const container = $("cardsContainer");
-
     container.innerHTML = "";
-
-    $("resultadoSubtitulo").textContent =
-        `${clips.length} cortes encontrados pela IA.`;
+    $("resultadoSubtitulo").textContent = `${clips.length} cortes encontrados pela IA.`;
 
     clips.forEach((clip, index) => {
-
         const rawStart = Number(clip.start) || 0;
+        const start = Math.max(0, rawStart);
 
-        const start = Math.max(
-            0,
-            rawStart
-        );
-
-        let duration = Number(
-            clip.duration
-        );
-
-        if (
-            !Number.isFinite(duration) ||
-            duration <= 0
-        ) {
-
-            const rawEnd =
-                Number(clip.end) || 0;
-
-            duration =
-                rawEnd > start
-                    ? rawEnd - start
-                    : 50;
+        let duration = Number(clip.duration);
+        if (!Number.isFinite(duration) || duration <= 0) {
+            const rawEnd = Number(clip.end) || 0;
+            duration = rawEnd > start ? rawEnd - start : 50;
         }
 
-        duration = Math.min(
-            90,
-            Math.max(
-                10,
-                Math.round(duration)
-            )
-        );
+        duration = Math.min(90, Math.max(10, Math.round(duration)));
+        const end = Number((start + duration).toFixed(2));
 
-        const end = Number(
-            (start + duration).toFixed(2)
-        );
-
-        const title =
-            clip.title ||
-            `Corte #${index + 1}`;
-
-        const description =
-            clip.description ||
-            "Destaque do vídeo";
-
-        const score =
-            clip.score ?? 85;
+        const title = clip.title || `Corte #${index + 1}`;
+        const description = clip.description || "Destaque do vídeo";
+        const score = clip.score ?? 85;
 
         let thumbSrc = "";
-
         if (videoAtualId) {
-
-            thumbSrc =
-                `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`;
-
+            thumbSrc = `[https://i.ytimg.com/vi/$](https://i.ytimg.com/vi/$){encodeURIComponent(videoAtualId)}/hqdefault.jpg`;
         } else {
-
             thumbSrc =
                 "data:image/svg+xml;utf8," +
                 encodeURIComponent(`
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="640"
-                        height="360"
-                        fill="#111217"
-                    >
+                    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="640" height="360" fill="#111217">
                         <rect width="640" height="360"/>
-                        <text
-                            x="50%"
-                            y="50%"
-                            fill="#666"
-                            font-size="24"
-                            font-family="sans-serif"
-                            text-anchor="middle"
-                            dominant-baseline="middle"
-                        >
-                            Vídeo MP4 Carregado
-                        </text>
+                        <text x="50%" y="50%" fill="#666" font-size="24" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">Vídeo MP4 Carregado</text>
                     </svg>
                 `);
         }
 
-        const card =
-            document.createElement("article");
-
-        card.className =
-            "card rounded-2xl overflow-hidden fade-in";
-
-        card.style.animationDelay =
-            `${index * 70}ms`;
+        const card = document.createElement("article");
+        card.className = "card rounded-2xl overflow-hidden fade-in";
+        card.style.animationDelay = `${index * 70}ms`;
 
         card.innerHTML = `
             <div class="relative aspect-video bg-black">
-
-                <img
-                    src="${escapeHtml(thumbSrc)}"
-                    alt=""
-                    class="w-full h-full object-cover opacity-70"
-                    loading="lazy"
-                >
-
+                <img src="${escapeHtml(thumbSrc)}" alt="" class="w-full h-full object-cover opacity-70" loading="lazy">
                 <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-
                 <div class="absolute top-3 left-3">
-                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">
-                        CORTE ${index + 1}
-                    </span>
+                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">CORTE ${index + 1}</span>
                 </div>
-
                 <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
-
                     <div>
-
-                        <div class="text-xs text-zinc-400">
-                            ${formatarTempo(start)} → ${formatarTempo(end)}
-                        </div>
-
-                        <div class="text-sm font-bold mt-1 line-clamp-2">
-                            ${escapeHtml(title)}
-                        </div>
-
+                        <div class="text-xs text-zinc-400">${formatarTempo(start)} → ${formatarTempo(end)}</div>
+                        <div class="text-sm font-bold mt-1 line-clamp-2">${escapeHtml(title)}</div>
                     </div>
-
-                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">
-                        ${escapeHtml(score)}
-                    </div>
-
+                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">${escapeHtml(score)}</div>
                 </div>
-
             </div>
 
             <div class="p-5">
-
-                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">
-                    ${escapeHtml(description)}
-                </p>
-
+                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">${escapeHtml(description)}</p>
                 <div class="grid ${videoAtualId ? "grid-cols-2" : "grid-cols-1"} gap-2 mt-5">
-
-                    ${
-                        videoAtualId
-                            ? `
-                                <button
-                                    onclick="abrirYouTube(${start})"
-                                    class="btn-dark h-11 rounded-xl text-xs font-semibold"
-                                >
-                                    <i class="fa-brands fa-youtube mr-1.5"></i>
-                                    Assistir
-                                </button>
-                            `
-                            : ""
-                    }
-
-                    <button
-                        id="btnDl_${index}"
-                        onclick="baixarCorte(${start}, ${duration}, ${index})"
-                        class="btn-main h-11 rounded-xl text-xs font-bold"
-                    >
-                        <i class="fa-solid fa-download mr-1.5"></i>
-                        Baixar Corte
+                    ${videoAtualId ? `
+                        <button onclick="abrirYouTube(${start})" class="btn-dark h-11 rounded-xl text-xs font-semibold">
+                            <i class="fa-brands fa-youtube mr-1.5"></i> Assistir
+                        </button>
+                    ` : ""}
+                    <button id="btnDl_${index}" onclick="baixarCorte(${start}, ${duration}, ${index})" class="btn-main h-11 rounded-xl text-xs font-bold">
+                        <i class="fa-solid fa-download mr-1.5"></i> Baixar Corte
                     </button>
-
                 </div>
-
                 <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
-
-                    <span>
-                        Duração: ${Math.round(duration)}s
-                    </span>
-
-                    <span>
-                        ${
-                            usuario.isVip
-                                ? "VIP (Ilimitado)"
-                                : "Custo: 50 pontos"
-                        }
-                    </span>
-
+                    <span>Duração: ${Math.round(duration)}s</span>
+                    <span>${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}</span>
                 </div>
-
             </div>
         `;
 
@@ -1756,171 +1281,104 @@ function renderizarCortes(clips) {
     });
 
     $("resultados").classList.remove("hidden");
-
-    $("resultados").scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
+    $("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function abrirYouTube(start) {
-    if (!videoAtualId) {
-        return;
-    }
-
-    const url =
-        `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
-
-    window.open(
-        url,
-        "_blank",
-        "noopener,noreferrer"
-    );
+    if (!videoAtualId) return;
+    const url = `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
+    window.open(url, "_blank", "noopener,noreferrer");
 }
 
 /* =========================================================
-   DOWNLOAD DO CORTE
+   DOWNLOAD DO CORTE (COM AUTO-RETRY SE CAIR A SESSÃO)
 ========================================================= */
 
 async function baixarCorte(start, duration, index) {
-
-    if (
-        !usuario.isVip &&
-        usuario.pontos < 50
-    ) {
-
-        mostrarToast(
-            "Você não possui saldo de pontos suficiente (50 necessários). Ative o VIP!",
-            "error"
-        );
-
+    if (!usuario.isVip && usuario.pontos < 50) {
+        mostrarToast("Você não possui saldo de pontos suficiente (50 necessários). Ative o VIP!", "error");
         abrirPlanos();
-
         return;
     }
 
     const btn = $(`btnDl_${index}`);
+    if (!btn) return;
 
-    if (!btn) {
-        return;
-    }
-
-    const originalText =
-        btn.innerHTML;
-
+    const originalText = btn.innerHTML;
     btn.disabled = true;
+    btn.innerHTML = `<div class="loader"></div>`;
 
-    btn.innerHTML =
-        `<div class="loader"></div>`;
-
-    mostrarToast(
-        "Renderizando corte via FFmpeg... Aguarde.",
-        "normal"
-    );
+    mostrarToast("Renderizando corte via FFmpeg... Aguarde.", "normal");
 
     try {
-
         const payload = {
             start: start,
             duration: duration
         };
 
         if (uploadIdAtual) {
-
-            payload.uploadId =
-                uploadIdAtual;
-
+            payload.uploadId = uploadIdAtual;
         } else {
-
-            payload.url =
-                videoAtualUrl ||
-                `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}`;
+            payload.url = videoAtualUrl || `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){encodeURIComponent(videoAtualId)}`;
         }
 
-        const response = await fetch(
-            `${BACKEND_URL}/api/download`,
-            {
-                method: "POST",
+        let response = await fetch(`${BACKEND_URL}/api/download`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeaders()
+            },
+            body: JSON.stringify(payload)
+        });
 
+        // Se a sessão expirou no backend (após reinício do Render), renova e tenta de novo
+        if (response.status === 401) {
+            sessionToken = "";
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            await iniciarSessao();
+
+            response = await fetch(`${BACKEND_URL}/api/download`, {
+                method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     ...authHeaders()
                 },
-
                 body: JSON.stringify(payload)
-            }
-        );
+            });
+        }
 
         if (!response.ok) {
-
             let errJson = null;
-
             try {
-                errJson =
-                    await response.json();
+                errJson = await response.json();
             } catch {}
-
-            throw new Error(
-                errJson?.error ||
-                `Falha no download (${response.status})`
-            );
+            throw new Error(errJson?.error || `Falha no download (${response.status})`);
         }
 
-        const blob =
-            await response.blob();
-
-        if (
-            !blob ||
-            blob.size === 0
-        ) {
-            throw new Error(
-                "O servidor retornou um arquivo de vídeo vazio."
-            );
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            throw new Error("O servidor retornou um arquivo de vídeo vazio.");
         }
 
-        const objectUrl =
-            URL.createObjectURL(blob);
-
-        const a =
-            document.createElement("a");
-
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
         a.href = objectUrl;
-
-        a.download =
-            `clipforge_${uploadIdAtual ? "corte" : videoAtualId}_${Math.floor(start)}s.mp4`;
-
+        a.download = `clipforge_${uploadIdAtual ? "corte" : videoAtualId}_${Math.floor(start)}s.mp4`;
         document.body.appendChild(a);
-
         a.click();
-
         a.remove();
 
         setTimeout(() => {
             URL.revokeObjectURL(objectUrl);
         }, 10000);
 
-        mostrarToast(
-            "Download concluído com sucesso!",
-            "success"
-        );
-
+        mostrarToast("Download concluído com sucesso!", "success");
         await atualizarUsuario();
 
     } catch (err) {
-
-        console.error(
-            "Erro no download:",
-            err
-        );
-
-        mostrarToast(
-            err.message ||
-            "Erro ao renderizar o vídeo.",
-            "error"
-        );
-
+        console.error("Erro no download:", err);
+        mostrarToast(err.message || "Erro ao renderizar o vídeo.", "error");
     } finally {
-
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
@@ -1931,157 +1389,70 @@ async function baixarCorte(start, duration, index) {
 ========================================================= */
 
 async function iniciarSessao() {
-
     try {
-
         const payload = {};
+        if (usuario.userId) payload.userId = usuario.userId;
 
-        if (usuario.userId) {
-            payload.userId =
-                usuario.userId;
-        }
+        const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
 
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/auth/login`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify(payload)
-                }
-            );
+        const data = await response.json();
 
         if (data.token) {
-
-            sessionToken =
-                data.token;
-
-            localStorage.setItem(
-                SESSION_STORAGE_KEY,
-                sessionToken
-            );
+            sessionToken = data.token;
+            localStorage.setItem(SESSION_STORAGE_KEY, sessionToken);
         }
 
         if (data.user) {
-
-            usuario.userId =
-                data.user.id;
-
-            localStorage.setItem(
-                "clipforge_uid",
-                usuario.userId
-            );
-
-            usuario.pontos =
-                data.user.points ?? 200;
-
-            usuario.isVip =
-                Boolean(data.user.vip);
+            usuario.userId = data.user.id;
+            localStorage.setItem("clipforge_uid", usuario.userId);
+            usuario.pontos = data.user.points ?? 200;
+            usuario.isVip = Boolean(data.user.vip);
         }
 
         atualizarInterfaceUsuario();
-
     } catch (error) {
-
-        console.warn(
-            "Aviso na conexão com o servidor:",
-            error.message
-        );
-
+        console.warn("Aviso na conexão com o servidor:", error.message);
         atualizarInterfaceUsuario();
     }
 }
 
 async function atualizarUsuario() {
-
-    if (!sessionToken) {
-        return;
-    }
-
+    if (!sessionToken) return;
     try {
-
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/auth/me`,
-                {
-                    method: "GET"
-                }
-            );
-
+        const data = await fetchJson(`${BACKEND_URL}/api/auth/me`, { method: "GET" });
         if (data.user) {
-
-            usuario.pontos =
-                data.user.points ??
-                usuario.pontos;
-
-            usuario.isVip =
-                Boolean(data.user.vip);
-
+            usuario.pontos = data.user.points ?? usuario.pontos;
+            usuario.isVip = Boolean(data.user.vip);
             atualizarInterfaceUsuario();
         }
-
     } catch (e) {
-
         if (e.status === 401) {
-
             sessionToken = "";
-
-            localStorage.removeItem(
-                SESSION_STORAGE_KEY
-            );
-
+            localStorage.removeItem(SESSION_STORAGE_KEY);
             await iniciarSessao();
         }
     }
 }
 
 function atualizarInterfaceUsuario() {
-
-    const pontos =
-        Math.max(
-            0,
-            Math.floor(
-                usuario.pontos || 0
-            )
-        );
-
-    $("pointsValue").textContent =
-        pontos;
-
-    $("mobilePointsValue").textContent =
-        pontos;
+    const pontos = Math.max(0, Math.floor(usuario.pontos || 0));
+    $("pointsValue").textContent = pontos;
+    $("mobilePointsValue").textContent = pontos;
 
     if (usuario.isVip) {
-
-        $("planText").textContent =
-            "VIP";
-
-        $("planIcon").className =
-            "fa-solid fa-crown text-xs";
-
-        $("vipHeaderButton").innerHTML =
-            `<i class="fa-solid fa-crown text-[11px]"></i> VIP ativo`;
-
-        $("vipHeaderButton")
-            .classList.add("opacity-70");
-
+        $("planText").textContent = "VIP";
+        $("planIcon").className = "fa-solid fa-crown text-xs";
+        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> VIP ativo`;
+        $("vipHeaderButton").classList.add("opacity-70");
     } else {
-
-        $("planText").textContent =
-            "FREE";
-
-        $("planIcon").className =
-            "fa-regular fa-star text-xs";
-
-        $("vipHeaderButton").innerHTML =
-            `<i class="fa-solid fa-crown text-[11px]"></i> Seja VIP`;
-
-        $("vipHeaderButton")
-            .classList.remove("opacity-70");
+        $("planText").textContent = "FREE";
+        $("planIcon").className = "fa-regular fa-star text-xs";
+        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> Seja VIP`;
+        $("vipHeaderButton").classList.remove("opacity-70");
     }
 }
 
@@ -2090,23 +1461,13 @@ function atualizarInterfaceUsuario() {
 ========================================================= */
 
 function abrirPlanos() {
-    $("planModal")
-        .classList
-        .remove("hidden");
-
-    document.body.classList.add(
-        "overflow-hidden"
-    );
+    $("planModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
 }
 
 function fecharPlanos() {
-    $("planModal")
-        .classList
-        .add("hidden");
-
-    document.body.classList.remove(
-        "overflow-hidden"
-    );
+    $("planModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
 }
 
 /* =========================================================
@@ -2114,289 +1475,125 @@ function fecharPlanos() {
 ========================================================= */
 
 async function criarPagamento() {
-
     fecharPlanos();
-
-    $("pixModal")
-        .classList
-        .remove("hidden");
-
-    document.body.classList.add(
-        "overflow-hidden"
-    );
-
-    $("pixLoading")
-        .classList
-        .remove("hidden");
-
-    $("pixContent")
-        .classList
-        .add("hidden");
+    $("pixModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
+    $("pixLoading").classList.remove("hidden");
+    $("pixContent").classList.add("hidden");
 
     $("pixLoading").innerHTML = `
         <div class="py-10">
-            <div class="flex justify-center mb-4">
-                <div class="loader-light"></div>
-            </div>
-
-            <p class="text-sm text-zinc-400">
-                Gerando seu Pix...
-            </p>
+            <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
+            <p class="text-sm text-zinc-400">Gerando seu Pix...</p>
         </div>
     `;
 
     try {
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/pix/criar`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({})
+            }
+        );
 
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/pix/criar`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify({})
-                }
-            );
-
-        pagamentoAtual =
-            data;
-
-        const qrCode =
-            data.qr_code ||
-            data.qrCode ||
-            "";
-
-        const qrBase64 =
-            data.qr_code_base64 ||
-            data.qrCodeBase64 ||
-            "";
+        pagamentoAtual = data;
+        const qrCode = data.qr_code || data.qrCode || "";
+        const qrBase64 = data.qr_code_base64 || data.qrCodeBase64 || "";
 
         if (qrBase64) {
-
-            $("pixQrImage").src =
-                qrBase64.startsWith("data:")
-                    ? qrBase64
-                    : `data:image/png;base64,${qrBase64}`;
-
+            $("pixQrImage").src = qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`;
         } else if (qrCode) {
-
-            $("pixQrImage").src =
-                `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
-
+            $("pixQrImage").src = `[https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=$](https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=$){encodeURIComponent(qrCode)}`;
         } else {
-
-            throw new Error(
-                "O servidor não retornou o QR Code Pix."
-            );
+            throw new Error("O servidor não retornou o QR Code Pix.");
         }
 
-        const ticketUrl =
-            data.ticket_url ||
-            data.ticketUrl ||
-            "";
-
+        const ticketUrl = data.ticket_url || data.ticketUrl || "";
         if (ticketUrl) {
-
-            $("pixTicketLink").href =
-                ticketUrl;
-
-            $("pixTicketLink")
-                .classList
-                .remove("hidden");
+            $("pixTicketLink").href = ticketUrl;
+            $("pixTicketLink").classList.remove("hidden");
         } else {
-
-            $("pixTicketLink")
-                .classList
-                .add("hidden");
+            $("pixTicketLink").classList.add("hidden");
         }
 
-        $("pixLoading")
-            .classList
-            .add("hidden");
-
-        $("pixContent")
-            .classList
-            .remove("hidden");
-
+        $("pixLoading").classList.add("hidden");
+        $("pixContent").classList.remove("hidden");
         iniciarPollingPix();
 
     } catch (e) {
-
         $("pixLoading").innerHTML = `
             <div class="py-8">
                 <i class="fa-solid fa-circle-exclamation text-xl text-zinc-500"></i>
-
-                <p class="text-xs text-zinc-400 mt-3">
-                    ${escapeHtml(e.message)}
-                </p>
-
-                <button
-                    onclick="criarPagamento()"
-                    class="btn-dark px-4 py-2 rounded-xl text-xs font-semibold mt-4"
-                >
-                    Tentar novamente
-                </button>
+                <p class="text-xs text-zinc-400 mt-3">${escapeHtml(e.message)}</p>
+                <button onclick="criarPagamento()" class="btn-dark px-4 py-2 rounded-xl text-xs font-semibold mt-4">Tentar novamente</button>
             </div>
         `;
     }
 }
 
 function fecharPix() {
-
     if (pollingPix) {
-
-        clearInterval(
-            pollingPix
-        );
-
+        clearInterval(pollingPix);
         pollingPix = null;
     }
-
-    $("pixModal")
-        .classList
-        .add("hidden");
-
-    document.body.classList.remove(
-        "overflow-hidden"
-    );
+    $("pixModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
 }
 
 function copiarPix() {
-
-    const codigo =
-        pagamentoAtual?.qr_code ||
-        pagamentoAtual?.qrCode ||
-        "";
-
+    const codigo = pagamentoAtual?.qr_code || pagamentoAtual?.qrCode || "";
     if (!codigo) {
-
-        mostrarToast(
-            "Código Pix indisponível.",
-            "error"
-        );
-
+        mostrarToast("Código Pix indisponível.", "error");
         return;
     }
 
-    if (
-        navigator.clipboard &&
-        navigator.clipboard.writeText
-    ) {
-
-        navigator.clipboard
-            .writeText(codigo)
-            .then(() => {
-
-                mostrarToast(
-                    "Código Pix copiado!",
-                    "success"
-                );
-
-            })
-            .catch(() => {
-
-                mostrarToast(
-                    "Não foi possível copiar automaticamente.",
-                    "error"
-                );
-            });
-
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(codigo).then(() => {
+            mostrarToast("Código Pix copiado!", "success");
+        }).catch(() => {
+            mostrarToast("Não foi possível copiar automaticamente.", "error");
+        });
     } else {
-
-        mostrarToast(
-            "Seu navegador não permite copiar automaticamente.",
-            "error"
-        );
+        mostrarToast("Seu navegador não permite copiar automaticamente.", "error");
     }
 }
 
 function iniciarPollingPix() {
+    if (pollingPix) clearInterval(pollingPix);
 
-    if (pollingPix) {
+    pollingPix = setInterval(async () => {
+        if (!pagamentoAtual?.id) return;
 
-        clearInterval(
-            pollingPix
-        );
-    }
+        try {
+            const data = await fetchJson(`${BACKEND_URL}/api/pix/status/${encodeURIComponent(pagamentoAtual.id)}`);
 
-    pollingPix =
-        setInterval(
-            async () => {
+            if (data.status === "approved" || data.approved === true) {
+                clearInterval(pollingPix);
+                pollingPix = null;
 
-                if (!pagamentoAtual?.id) {
-                    return;
-                }
+                $("pixStatus").className = "rounded-xl border p-4 mt-5 text-left border-white/[.12] bg-white/[.04]";
+                $("pixStatus").innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-semibold">Pagamento confirmado</div>
+                            <div class="text-xs text-zinc-500 mt-0.5">Seu VIP foi ativado.</div>
+                        </div>
+                    </div>
+                `;
 
-                try {
-
-                    const data =
-                        await fetchJson(
-                            `${BACKEND_URL}/api/pix/status/${encodeURIComponent(pagamentoAtual.id)}`
-                        );
-
-                    if (
-                        data.status === "approved" ||
-                        data.approved === true
-                    ) {
-
-                        clearInterval(
-                            pollingPix
-                        );
-
-                        pollingPix = null;
-
-                        $("pixStatus").className =
-                            "rounded-xl border p-4 mt-5 text-left border-white/[.12] bg-white/[.04]";
-
-                        $("pixStatus").innerHTML = `
-                            <div class="flex items-center gap-3">
-
-                                <div class="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center">
-                                    <i class="fa-solid fa-check"></i>
-                                </div>
-
-                                <div>
-
-                                    <div class="text-sm font-semibold">
-                                        Pagamento confirmado
-                                    </div>
-
-                                    <div class="text-xs text-zinc-500 mt-0.5">
-                                        Seu VIP foi ativado.
-                                    </div>
-
-                                </div>
-
-                            </div>
-                        `;
-
-                        await atualizarUsuario();
-
-                        mostrarToast(
-                            "VIP ativado com sucesso!",
-                            "success"
-                        );
-
-                        setTimeout(
-                            fecharPix,
-                            1500
-                        );
-                    }
-
-                } catch (error) {
-
-                    console.warn(
-                        "Erro no polling Pix:",
-                        error.message
-                    );
-                }
-
-            },
-            4000
-        );
+                await atualizarUsuario();
+                mostrarToast("VIP ativado com sucesso!", "success");
+                setTimeout(fecharPix, 1500);
+            }
+        } catch (error) {
+            console.warn("Erro no polling Pix:", error.message);
+        }
+    }, 4000);
 }
 
 /* =========================================================
@@ -2404,301 +1601,131 @@ function iniciarPollingPix() {
 ========================================================= */
 
 function abrirAdmin() {
-
-    $("adminModal")
-        .classList
-        .remove("hidden");
-
-    document.body.classList.add(
-        "overflow-hidden"
-    );
+    $("adminModal").classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
 
     if (adminToken) {
-
-        $("adminLoginArea")
-            .classList
-            .add("hidden");
-
-        $("adminDashboard")
-            .classList
-            .remove("hidden");
-
+        $("adminLoginArea").classList.add("hidden");
+        $("adminDashboard").classList.remove("hidden");
         carregarDashboard();
     }
 }
 
 function fecharAdmin() {
-
-    $("adminModal")
-        .classList
-        .add("hidden");
-
-    document.body.classList.remove(
-        "overflow-hidden"
-    );
+    $("adminModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
 }
 
 function toggleAdminPassword() {
-
-    const input =
-        $("adminPassword");
-
-    input.type =
-        input.type === "password"
-            ? "text"
-            : "password";
-
-    $("adminEye").className =
-        input.type === "password"
-            ? "fa-regular fa-eye"
-            : "fa-regular fa-eye-slash";
+    const input = $("adminPassword");
+    input.type = input.type === "password" ? "text" : "password";
+    $("adminEye").className = input.type === "password" ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
 }
 
 async function fazerLoginAdmin() {
+    const password = $("adminPassword").value.trim();
+    if (!password) return;
 
-    const password =
-        $("adminPassword").value.trim();
-
-    if (!password) {
-        return;
-    }
-
-    const button =
-        $("btnAdminLogin");
-
-    const originalText =
-        button.innerHTML;
-
+    const button = $("btnAdminLogin");
+    const originalText = button.innerHTML;
     button.disabled = true;
-
-    button.innerHTML =
-        `<div class="loader"></div>`;
-
-    $("adminLoginError")
-        .classList
-        .add("hidden");
+    button.innerHTML = `<div class="loader"></div>`;
+    $("adminLoginError").classList.add("hidden");
 
     try {
-
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/admin/login`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify({
-                        password
-                    })
-                }
-            );
-
-        adminToken =
-            data.token;
-
-        localStorage.setItem(
-            ADMIN_STORAGE_KEY,
-            adminToken
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/admin/login`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password })
+            }
         );
 
-        $("adminLoginArea")
-            .classList
-            .add("hidden");
-
-        $("adminDashboard")
-            .classList
-            .remove("hidden");
-
+        adminToken = data.token;
+        localStorage.setItem(ADMIN_STORAGE_KEY, adminToken);
+        $("adminLoginArea").classList.add("hidden");
+        $("adminDashboard").classList.remove("hidden");
         await carregarDashboard();
-
     } catch (e) {
-
-        $("adminLoginError").textContent =
-            e.message ||
-            "Senha incorreta.";
-
-        $("adminLoginError")
-            .classList
-            .remove("hidden");
-
+        $("adminLoginError").textContent = e.message || "Senha incorreta.";
+        $("adminLoginError").classList.remove("hidden");
     } finally {
-
         button.disabled = false;
-        button.innerHTML =
-            originalText;
+        button.innerHTML = originalText;
     }
 }
 
 async function carregarDashboard() {
-
-    const stats =
-        $("adminStats");
-
-    stats.innerHTML = `
-        <div class="col-span-2 text-center py-4">
-            <div class="loader-light mx-auto"></div>
-        </div>
-    `;
+    const stats = $("adminStats");
+    stats.innerHTML = `<div class="col-span-2 text-center py-4"><div class="loader-light mx-auto"></div></div>`;
 
     try {
-
-        const data =
-            await fetchJson(
-                `${BACKEND_URL}/api/admin/dashboard`,
-                {
-                    headers: {
-                        Authorization:
-                            `Bearer ${adminToken}`
-                    }
-                }
-            );
-
-        const m =
-            data.metrics || {};
-
-        stats.innerHTML = `
-
-            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-
-                <div class="text-[10px] text-zinc-500">
-                    Requisições
-                </div>
-
-                <div class="text-xl font-black mt-1">
-                    ${Number(m.requests) || 0}
-                </div>
-
-            </div>
-
-            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-
-                <div class="text-[10px] text-zinc-500">
-                    Uploads MP4
-                </div>
-
-                <div class="text-xl font-black mt-1">
-                    ${Number(m.uploads) || 0}
-                </div>
-
-            </div>
-
-            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-
-                <div class="text-[10px] text-zinc-500">
-                    Análises IA
-                </div>
-
-                <div class="text-xl font-black mt-1">
-                    ${Number(m.analyses) || 0}
-                </div>
-
-            </div>
-
-            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-
-                <div class="text-[10px] text-zinc-500">
-                    Downloads
-                </div>
-
-                <div class="text-xl font-black mt-1">
-                    ${Number(m.downloads) || 0}
-                </div>
-
-            </div>
-        `;
-
-    } catch (error) {
-
-        console.warn(
-            "Erro no dashboard:",
-            error.message
+        const data = await fetchJson(
+            `${BACKEND_URL}/api/admin/dashboard`,
+            {
+                headers: { Authorization: `Bearer ${adminToken}` }
+            }
         );
 
+        const m = data.metrics || {};
+        stats.innerHTML = `
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] text-zinc-500">Requisições</div>
+                <div class="text-xl font-black mt-1">${Number(m.requests) || 0}</div>
+            </div>
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] text-zinc-500">Uploads MP4</div>
+                <div class="text-xl font-black mt-1">${Number(m.uploads) || 0}</div>
+            </div>
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] text-zinc-500">Análises IA</div>
+                <div class="text-xl font-black mt-1">${Number(m.analyses) || 0}</div>
+            </div>
+            <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
+                <div class="text-[10px] text-zinc-500">Downloads</div>
+                <div class="text-xl font-black mt-1">${Number(m.downloads) || 0}</div>
+            </div>
+        `;
+    } catch (error) {
+        console.warn("Erro no dashboard:", error.message);
         logoutAdmin();
     }
 }
 
 function logoutAdmin() {
-
     adminToken = "";
-
-    localStorage.removeItem(
-        ADMIN_STORAGE_KEY
-    );
-
-    $("adminDashboard")
-        .classList
-        .add("hidden");
-
-    $("adminLoginArea")
-        .classList
-        .remove("hidden");
-
+    localStorage.removeItem(ADMIN_STORAGE_KEY);
+    $("adminDashboard").classList.add("hidden");
+    $("adminLoginArea").classList.remove("hidden");
     $("adminPassword").value = "";
 }
 
-/* =========================================================
-   NOVO VÍDEO
-========================================================= */
-
 function novoVideo() {
-
-    $("resultados")
-        .classList
-        .add("hidden");
-
-    $("cardsContainer")
-        .innerHTML = "";
-
+    $("resultados").classList.add("hidden");
+    $("cardsContainer").innerHTML = "";
     uploadIdAtual = null;
     videoAtualId = "";
     videoAtualUrl = "";
     clipsAtuais = [];
     pagamentoAtual = null;
 
-    $("uploadFileLabel").textContent =
-        "Clique ou arraste um vídeo MP4 aqui";
-
+    $("uploadFileLabel").textContent = "Clique ou arraste um vídeo MP4 aqui";
     $("videoUrl").value = "";
-
     $("fileInput").value = "";
-
     fecharErro();
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* =========================================================
-   ERROS
-========================================================= */
-
 function mostrarErro(mensagem) {
-
-    $("errorText").textContent =
-        mensagem ||
-        "Ocorreu um erro.";
-
-    $("errorArea")
-        .classList
-        .remove("hidden");
-
-    $("errorArea").scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-    });
+    $("errorText").textContent = mensagem || "Ocorreu um erro.";
+    $("errorArea").classList.remove("hidden");
+    $("errorArea").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function fecharErro() {
-
-    $("errorArea")
-        .classList
-        .add("hidden");
+    $("errorArea").classList.add("hidden");
 }
 
 /* =========================================================
@@ -2706,17 +1733,12 @@ function fecharErro() {
 ========================================================= */
 
 async function inicializar() {
-
-    $("anoAtual").textContent =
-        new Date().getFullYear();
-
+    $("anoAtual").textContent = new Date().getFullYear();
     atualizarInterfaceUsuario();
-
     await iniciarSessao();
 }
 
 inicializar();
-
 </script>
 
 </body>
