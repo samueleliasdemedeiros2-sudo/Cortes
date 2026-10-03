@@ -1,23 +1,25 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.3.3
+ * CLIPFORGE PRO — BACKEND 13.3.5 (FINAL)
  * ============================================================
  *
  * Node.js >= 20 + Express
  *
- * PIPELINE:
+ * OTIMIZAÇÕES:
  * 1. Resolução local de binários
  * 2. Upload estritamente MP4
- * 3. Upload MP4 via streaming para Gemini Files API
- * 4. Polling até ACTIVE
- * 5. Gemini Interactions API + Agentic Video Processing
+ * 3. Upload por streaming direto para Gemini Files API
+ * 4. Polling de status até ACTIVE
+ * 5. Inferência via Interactions API
  * 6. Exponential Backoff + Jitter
- * 7. Fallback entre modelos Gemini
- * 8. Detecção de quota dura
- * 9. Corte MP4 via FFmpeg
- * 10. Download em stream
- * 11. PIX Mercado Pago
- * 12. Autenticação por sessão
+ * 7. Fallback automático entre modelos Gemini
+ * 8. Detecção de quota dura (429 / quota_exceeded)
+ * 9. Processamento agentic de vídeo
+ * 10. Renderização ultraleve via Stream Copy (-c copy)
+ * 11. Fallback FFmpeg ultraleve com libx264
+ * 12. Integração PIX Mercado Pago
+ * 13. Autenticação por sessão
+ * 14. Limpeza automática de uploads expirados
  * ============================================================
  */
 
@@ -37,8 +39,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-
-const VERSION = "13.3.3";
+const VERSION = "13.3.5";
 
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 150);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -65,10 +66,6 @@ const UPLOAD_DIR =
 const OUTPUT_DIR =
     process.env.OUTPUT_DIR ||
     path.join(TEMP_ROOT, "outputs");
-
-/* ============================================================
-   GEMINI
-============================================================ */
 
 const GEMINI_API_KEY =
     process.env.GEMINI_API_KEY ||
@@ -106,25 +103,15 @@ const GEMINI_FILES_API_URL =
     process.env.GEMINI_FILES_API_URL ||
     "https://generativelanguage.googleapis.com/v1beta/files";
 
-/* ============================================================
-   MERCADO PAGO
-============================================================ */
-
 const MP_ACCESS_TOKEN =
     process.env.MP_ACCESS_TOKEN ||
     process.env.MERCADO_PAGO_ACCESS_TOKEN ||
     "";
 
-const MP_API = "https://api.mercadopago.com";
-
 const MP_WEBHOOK_URL =
     process.env.MP_WEBHOOK_URL ||
     process.env.MERCADO_PAGO_WEBHOOK_URL ||
     "";
-
-/* ============================================================
-   ADMIN
-============================================================ */
 
 const ADMIN_EMAIL =
     process.env.ADMIN_EMAIL ||
@@ -134,10 +121,6 @@ const ADMIN_PASSWORD =
     process.env.ADMIN_PASSWORD ||
     "";
 
-/* ============================================================
-   YOUTUBE
-============================================================ */
-
 const YTDLP_COOKIES_FILE =
     process.env.YTDLP_COOKIES_FILE ||
     process.env.YOUTUBE_COOKIES_FILE ||
@@ -146,10 +129,6 @@ const YTDLP_COOKIES_FILE =
 let FFMPEG_BIN = "ffmpeg";
 let FFPROBE_BIN = "ffprobe";
 let YTDLP_BIN = path.join(__dirname, "bin", "yt-dlp");
-
-/* ============================================================
-   MEMÓRIA
-============================================================ */
 
 const users = new Map();
 const sessions = new Map();
@@ -172,10 +151,6 @@ const metrics = {
     errors: 0
 };
 
-/* ============================================================
-   EXPRESS
-============================================================ */
-
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
@@ -193,17 +168,30 @@ app.use(
     })
 );
 
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: false, limit: "2mb" }));
+app.use(
+    express.json({
+        limit: "5mb"
+    })
+);
+
+app.use(
+    express.urlencoded({
+        extended: false,
+        limit: "2mb"
+    })
+);
 
 app.use((req, res, next) => {
     metrics.requests++;
-    res.setHeader("X-ClipForge-Version", VERSION);
+    res.setHeader(
+        "X-ClipForge-Version",
+        VERSION
+    );
     next();
 });
 
 /* ============================================================
-   HELPERS
+   UTILITÁRIOS
 ============================================================ */
 
 function now() {
@@ -223,7 +211,10 @@ function randomId(prefix = "") {
 }
 
 function safeString(value, fallback = "") {
-    if (value === null || value === undefined) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
         return fallback;
     }
 
@@ -239,10 +230,18 @@ function parseNumber(value, fallback = 0) {
 }
 
 function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
+    return Math.min(
+        max,
+        Math.max(min, value)
+    );
 }
 
-function jsonError(res, status, message, extra = {}) {
+function jsonError(
+    res,
+    status,
+    message,
+    extra = {}
+) {
     return res.status(status).json({
         ok: false,
         error: message,
@@ -262,55 +261,75 @@ async function safeRemove(filePath) {
 }
 
 async function ensureDirectories() {
-    await fsp.mkdir(TEMP_ROOT, {
-        recursive: true
-    });
+    await fsp.mkdir(
+        TEMP_ROOT,
+        { recursive: true }
+    );
 
-    await fsp.mkdir(UPLOAD_DIR, {
-        recursive: true
-    });
+    await fsp.mkdir(
+        UPLOAD_DIR,
+        { recursive: true }
+    );
 
-    await fsp.mkdir(OUTPUT_DIR, {
-        recursive: true
-    });
+    await fsp.mkdir(
+        OUTPUT_DIR,
+        { recursive: true }
+    );
 }
 
-function spawnCapture(command, args = [], options = {}) {
+function spawnCapture(
+    command,
+    args = [],
+    options = {}
+) {
     return new Promise((resolve, reject) => {
-        const child = spawn(command, args, {
-            windowsHide: true,
-            ...options
-        });
+        const child = spawn(
+            command,
+            args,
+            {
+                windowsHide: true,
+                ...options
+            }
+        );
 
         let stdout = "";
         let stderr = "";
 
-        child.stdout?.on("data", (chunk) => {
-            stdout += chunk.toString();
+        child.stdout?.on(
+            "data",
+            (chunk) => {
+                stdout += chunk.toString();
 
-            if (stdout.length > 150000) {
-                stdout = stdout.slice(-150000);
+                if (stdout.length > 150000) {
+                    stdout = stdout.slice(-150000);
+                }
             }
-        });
+        );
 
-        child.stderr?.on("data", (chunk) => {
-            stderr += chunk.toString();
+        child.stderr?.on(
+            "data",
+            (chunk) => {
+                stderr += chunk.toString();
 
-            if (stderr.length > 250000) {
-                stderr = stderr.slice(-250000);
+                if (stderr.length > 250000) {
+                    stderr = stderr.slice(-250000);
+                }
             }
-        });
+        );
 
         child.on("error", reject);
 
-        child.on("close", (code, signal) => {
-            resolve({
-                code,
-                signal,
-                stdout,
-                stderr
-            });
-        });
+        child.on(
+            "close",
+            (code, signal) => {
+                resolve({
+                    code,
+                    signal,
+                    stdout,
+                    stderr
+                });
+            }
+        );
     });
 }
 
@@ -331,7 +350,7 @@ async function commandExists(
 }
 
 /* ============================================================
-   BINÁRIOS
+   RESOLUÇÃO DE BINÁRIOS
 ============================================================ */
 
 async function resolveBinaries() {
@@ -342,10 +361,13 @@ async function resolveBinaries() {
     ];
 
     try {
-        const staticFfmpeg = require("ffmpeg-static");
+        const staticFfmpeg =
+            require("ffmpeg-static");
 
         if (staticFfmpeg) {
-            ffmpegCandidates.unshift(staticFfmpeg);
+            ffmpegCandidates.unshift(
+                staticFfmpeg
+            );
         }
     } catch (_) {}
 
@@ -367,7 +389,10 @@ async function resolveBinaries() {
 
         if (fs.existsSync(cand)) {
             try {
-                fs.chmodSync(cand, 0o755);
+                fs.chmodSync(
+                    cand,
+                    0o755
+                );
             } catch (_) {}
         }
 
@@ -406,7 +431,10 @@ async function resolveBinaries() {
 
         if (fs.existsSync(cand)) {
             try {
-                fs.chmodSync(cand, 0o755);
+                fs.chmodSync(
+                    cand,
+                    0o755
+                );
             } catch (_) {}
         }
 
@@ -422,13 +450,21 @@ async function resolveBinaries() {
     }
 
     const localYtDlp =
-        path.join(__dirname, "bin", "yt-dlp");
+        path.join(
+            __dirname,
+            "bin",
+            "yt-dlp"
+        );
 
     const ytdlpCandidates = [
         localYtDlp,
         process.env.YTDLP_BIN,
         process.env.YTDLP_PATH,
-        path.join(process.cwd(), "bin", "yt-dlp"),
+        path.join(
+            process.cwd(),
+            "bin",
+            "yt-dlp"
+        ),
         "yt-dlp"
     ];
 
@@ -437,7 +473,10 @@ async function resolveBinaries() {
 
         if (fs.existsSync(cand)) {
             try {
-                fs.chmodSync(cand, 0o755);
+                fs.chmodSync(
+                    cand,
+                    0o755
+                );
             } catch (_) {}
         }
 
@@ -472,19 +511,25 @@ async function resolveBinaries() {
 
     console.log(
         `[Binaries] FFmpeg: ${
-            ffmpegOk ? FFMPEG_BIN : "AUSENTE"
+            ffmpegOk
+                ? FFMPEG_BIN
+                : "AUSENTE"
         }`
     );
 
     console.log(
         `[Binaries] FFprobe: ${
-            ffprobeOk ? FFPROBE_BIN : "AUSENTE"
+            ffprobeOk
+                ? FFPROBE_BIN
+                : "AUSENTE"
         }`
     );
 
     console.log(
         `[Binaries] yt-dlp: ${
-            ytdlpOk ? YTDLP_BIN : "AUSENTE"
+            ytdlpOk
+                ? YTDLP_BIN
+                : "AUSENTE"
         }`
     );
 }
@@ -493,25 +538,28 @@ async function resolveBinaries() {
    VÍDEO / FFPROBE
 ============================================================ */
 
-async function getVideoMetadata(filePath) {
+async function getVideoMetadata(
+    filePath
+) {
     if (!FFPROBE_BIN) {
         throw new Error(
             "FFprobe não está disponível."
         );
     }
 
-    const result = await spawnCapture(
-        FFPROBE_BIN,
-        [
-            "-v",
-            "error",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            filePath
-        ]
-    );
+    const result =
+        await spawnCapture(
+            FFPROBE_BIN,
+            [
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                filePath
+            ]
+        );
 
     if (result.code !== 0) {
         throw new Error(
@@ -534,7 +582,8 @@ async function getVideoMetadata(filePath) {
         );
     }
 
-    const format = data.format || {};
+    const format =
+        data.format || {};
 
     const streams =
         Array.isArray(data.streams)
@@ -544,13 +593,15 @@ async function getVideoMetadata(filePath) {
     const videoStream =
         streams.find(
             (stream) =>
-                stream.codec_type === "video"
+                stream.codec_type ===
+                "video"
         ) || null;
 
     const audioStream =
         streams.find(
             (stream) =>
-                stream.codec_type === "audio"
+                stream.codec_type ===
+                "audio"
         ) || null;
 
     return {
@@ -558,34 +609,45 @@ async function getVideoMetadata(filePath) {
             format.duration,
             0
         ),
+
         size: parseNumber(
             format.size,
             0
         ),
+
         format:
             format.format_name ||
             null,
-        width: parseNumber(
-            videoStream?.width,
-            0
-        ),
-        height: parseNumber(
-            videoStream?.height,
-            0
-        ),
+
+        width:
+            parseNumber(
+                videoStream?.width,
+                0
+            ),
+
+        height:
+            parseNumber(
+                videoStream?.height,
+                0
+            ),
+
         videoCodec:
             videoStream?.codec_name ||
             null,
+
         audioCodec:
             audioStream?.codec_name ||
             null,
+
         fps:
             videoStream?.r_frame_rate ||
             null
     };
 }
 
-async function validateVideoFile(filePath) {
+async function validateVideoFile(
+    filePath
+) {
     if (!filePath) {
         throw new Error(
             "Arquivo de vídeo não informado."
@@ -607,14 +669,19 @@ async function validateVideoFile(filePath) {
         );
     }
 
-    if (stat.size > MAX_UPLOAD_BYTES) {
+    if (
+        stat.size >
+        MAX_UPLOAD_BYTES
+    ) {
         throw new Error(
             `O vídeo excede o limite de ${MAX_UPLOAD_MB} MB.`
         );
     }
 
     const metadata =
-        await getVideoMetadata(filePath);
+        await getVideoMetadata(
+            filePath
+        );
 
     if (
         !metadata.duration ||
@@ -625,82 +692,109 @@ async function validateVideoFile(filePath) {
         );
     }
 
-    if (!metadata.width || !metadata.height) {
-        throw new Error(
-            "O arquivo não contém um stream de vídeo válido."
-        );
-    }
-
     return metadata;
 }
 
 /* ============================================================
-   UPLOAD — SOMENTE MP4
+   UPLOAD — MP4 ESTRITO
 ============================================================ */
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, UPLOAD_DIR);
-    },
-
-    filename: function (req, file, cb) {
-        cb(
-            null,
-            `${randomId("upload_")}.mp4`
-        );
-    }
-});
-
-const uploadMiddleware = multer({
-    storage,
-
-    limits: {
-        fileSize: MAX_UPLOAD_BYTES,
-        files: 1
-    },
-
-    fileFilter: function (req, file, cb) {
-        const mime =
-            safeString(
-                file.mimetype
-            ).toLowerCase();
-
-        const name =
-            safeString(
-                file.originalname
-            ).toLowerCase();
-
-        const validMime =
-            mime === "video/mp4";
-
-        const validExtension =
-            /\.mp4$/i.test(name);
-
-        if (
-            !validMime ||
-            !validExtension
+const storage =
+    multer.diskStorage({
+        destination: function (
+            req,
+            file,
+            cb
         ) {
-            return cb(
-                new Error(
-                    "Apenas arquivos MP4 são suportados."
-                )
+            cb(
+                null,
+                UPLOAD_DIR
+            );
+        },
+
+        filename: function (
+            req,
+            file,
+            cb
+        ) {
+            cb(
+                null,
+                `${randomId(
+                    "upload_"
+                )}.mp4`
             );
         }
+    });
 
-        cb(null, true);
-    }
-});
+const uploadMiddleware =
+    multer({
+        storage,
+
+        limits: {
+            fileSize:
+                MAX_UPLOAD_BYTES,
+            files: 1
+        },
+
+        fileFilter:
+            function (
+                req,
+                file,
+                cb
+            ) {
+                const mime =
+                    safeString(
+                        file.mimetype
+                    ).toLowerCase();
+
+                const name =
+                    safeString(
+                        file.originalname
+                    ).toLowerCase();
+
+                const validMime =
+                    mime ===
+                    "video/mp4";
+
+                const validExtension =
+                    /\.mp4$/i.test(
+                        name
+                    );
+
+                /*
+                 * Os dois precisam ser válidos.
+                 * MIME errado OU extensão errada = rejeitado.
+                 */
+
+                if (
+                    !validMime ||
+                    !validExtension
+                ) {
+                    return cb(
+                        new Error(
+                            "Apenas arquivos MP4 são suportados."
+                        )
+                    );
+                }
+
+                cb(null, true);
+            }
+    });
 
 /* ============================================================
    YOUTUBE
 ============================================================ */
 
-function getYouTubeId(value) {
+function getYouTubeId(
+    value
+) {
     const input =
         safeString(value).trim();
 
     if (
-        /^[A-Za-z0-9_-]{11}$/.test(input)
+        /^[A-Za-z0-9_-]{11}$/.test(
+            input
+        )
     ) {
         return input;
     }
@@ -712,24 +806,40 @@ function getYouTubeId(value) {
         const host =
             url.hostname.toLowerCase();
 
-        if (host === "youtu.be") {
+        if (
+            host ===
+            "youtu.be"
+        ) {
             const id =
                 url.pathname
-                    .replace(/^\//, "")
+                    .replace(
+                        /^\//,
+                        ""
+                    )
                     .split("/")[0];
 
-            return /^[A-Za-z0-9_-]{11}$/.test(id)
+            return /^[A-Za-z0-9_-]{11}$/.test(
+                id
+            )
                 ? id
                 : null;
         }
 
-        if (host.includes("youtube.com")) {
+        if (
+            host.includes(
+                "youtube.com"
+            )
+        ) {
             const v =
-                url.searchParams.get("v");
+                url.searchParams.get(
+                    "v"
+                );
 
             if (
                 v &&
-                /^[A-Za-z0-9_-]{11}$/.test(v)
+                /^[A-Za-z0-9_-]{11}$/.test(
+                    v
+                )
             ) {
                 return v;
             }
@@ -757,7 +867,9 @@ function getYouTubeId(value) {
                     parts[index + 1];
 
                 if (
-                    /^[A-Za-z0-9_-]{11}$/.test(id)
+                    /^[A-Za-z0-9_-]{11}$/.test(
+                        id
+                    )
                 ) {
                     return id;
                 }
@@ -768,7 +880,9 @@ function getYouTubeId(value) {
     return null;
 }
 
-function normalizeYouTubeUrl(value) {
+function normalizeYouTubeUrl(
+    value
+) {
     const id =
         getYouTubeId(value);
 
@@ -777,7 +891,9 @@ function normalizeYouTubeUrl(value) {
         : null;
 }
 
-async function getYouTubeInfo(url) {
+async function getYouTubeInfo(
+    url
+) {
     const args = [
         "--no-playlist",
         "--skip-download",
@@ -829,12 +945,16 @@ async function downloadYouTubeVideo(
         "--no-warnings",
         "--no-mtime",
         "--restrict-filenames",
+
         "-f",
-        "bv*+ba/b",
+        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
+
         "--merge-output-format",
         "mp4",
+
         "-o",
         outputTemplate,
+
         url
     ];
 
@@ -862,15 +982,25 @@ async function downloadYouTubeVideo(
     }
 
     const directory =
-        path.dirname(outputTemplate);
+        path.dirname(
+            outputTemplate
+        );
 
     const files =
-        await fsp.readdir(directory);
+        await fsp.readdir(
+            directory
+        );
 
     const candidates = [];
 
-    for (const filename of files) {
-        if (!/^source\./i.test(filename)) {
+    for (
+        const filename of files
+    ) {
+        if (
+            !/^source\.mp4$/i.test(
+                filename
+            )
+        ) {
             continue;
         }
 
@@ -882,20 +1012,24 @@ async function downloadYouTubeVideo(
 
         try {
             const stat =
-                await fsp.stat(fullPath);
+                await fsp.stat(
+                    fullPath
+                );
 
             if (
                 stat.isFile() &&
                 stat.size > 0
             ) {
-                candidates.push(fullPath);
+                candidates.push(
+                    fullPath
+                );
             }
         } catch (_) {}
     }
 
     if (!candidates.length) {
         throw new Error(
-            "yt-dlp terminou sem produzir o arquivo de vídeo."
+            "yt-dlp terminou sem produzir um arquivo MP4."
         );
     }
 
@@ -906,7 +1040,9 @@ async function downloadYouTubeVideo(
    USUÁRIOS / SESSÕES
 ============================================================ */
 
-function ensureUser(requestedId) {
+function ensureUser(
+    requestedId
+) {
     let userId =
         safeString(
             requestedId
@@ -942,7 +1078,9 @@ function ensureUser(requestedId) {
     return user;
 }
 
-function claimDailyPoints(user) {
+function claimDailyPoints(
+    user
+) {
     if (!user) return 0;
 
     const today =
@@ -953,13 +1091,15 @@ function claimDailyPoints(user) {
     const previous =
         user.lastDailyClaim
             ? new Date(
-                user.lastDailyClaim
-            )
-                .toISOString()
-                .slice(0, 10)
+                  user.lastDailyClaim
+              )
+                  .toISOString()
+                  .slice(0, 10)
             : "";
 
-    if (today !== previous) {
+    if (
+        today !== previous
+    ) {
         user.points +=
             DAILY_POINTS;
 
@@ -972,24 +1112,38 @@ function claimDailyPoints(user) {
     return 0;
 }
 
-function publicUser(user) {
+function publicUser(
+    user
+) {
     return {
         id: user.id,
         userId: user.id,
+
         pontos: Math.max(
             0,
-            Math.floor(user.points)
+            Math.floor(
+                user.points
+            )
         ),
+
         points: Math.max(
             0,
-            Math.floor(user.points)
+            Math.floor(
+                user.points
+            )
         ),
-        isVip: Boolean(user.vip),
-        vip: Boolean(user.vip)
+
+        isVip:
+            Boolean(user.vip),
+
+        vip:
+            Boolean(user.vip)
     };
 }
 
-function getBearerToken(req) {
+function getBearerToken(
+    req
+) {
     const header =
         safeString(
             req.headers.authorization
@@ -1008,22 +1162,29 @@ function getBearerToken(req) {
     return "";
 }
 
-function createUserSession(user) {
+function createUserSession(
+    user
+) {
     const token =
         randomToken(48);
 
-    sessions.set(token, {
-        userId: user.id,
-        createdAt: now(),
-        expiresAt:
-            now() +
-            SESSION_TTL_MS
-    });
+    sessions.set(
+        token,
+        {
+            userId: user.id,
+            createdAt: now(),
+            expiresAt:
+                now() +
+                SESSION_TTL_MS
+        }
+    );
 
     return token;
 }
 
-function getAuthenticatedUser(req) {
+function getAuthenticatedUser(
+    req
+) {
     const token =
         getBearerToken(req);
 
@@ -1033,7 +1194,8 @@ function getAuthenticatedUser(req) {
 
         if (
             session &&
-            session.expiresAt > now()
+            session.expiresAt >
+                now()
         ) {
             return (
                 users.get(
@@ -1043,19 +1205,24 @@ function getAuthenticatedUser(req) {
         }
 
         if (session) {
-            sessions.delete(token);
+            sessions.delete(
+                token
+            );
         }
     }
 
     const headerUser =
         safeString(
-            req.headers["x-user-id"]
+            req.headers[
+                "x-user-id"
+            ]
         ).trim();
 
     if (headerUser) {
         return (
-            users.get(headerUser) ||
-            null
+            users.get(
+                headerUser
+            ) || null
         );
     }
 
@@ -1068,7 +1235,9 @@ function requireUser(
     next
 ) {
     const user =
-        getAuthenticatedUser(req);
+        getAuthenticatedUser(
+            req
+        );
 
     if (!user) {
         return jsonError(
@@ -1078,7 +1247,9 @@ function requireUser(
         );
     }
 
-    claimDailyPoints(user);
+    claimDailyPoints(
+        user
+    );
 
     req.user = user;
 
@@ -1090,7 +1261,9 @@ function getOwnedUpload(
     uploadId
 ) {
     const upload =
-        uploads.get(uploadId);
+        uploads.get(
+            uploadId
+        );
 
     if (
         !upload ||
@@ -1103,7 +1276,7 @@ function getOwnedUpload(
 }
 
 /* ============================================================
-   GEMINI SCHEMA
+   GEMINI SCHEMA / PARSER
 ============================================================ */
 
 const CLIPS_SCHEMA = {
@@ -1159,35 +1332,44 @@ const CLIPS_SCHEMA = {
     ]
 };
 
-/* ============================================================
-   NORMALIZAÇÃO DOS CORTES
-============================================================ */
-
 function normalizeGeminiClips(
     value,
     videoDuration = null
 ) {
     let rawClips = [];
 
-    if (Array.isArray(value)) {
+    if (
+        Array.isArray(value)
+    ) {
         rawClips = value;
     } else if (
-        Array.isArray(value?.clips)
+        Array.isArray(
+            value?.clips
+        )
     ) {
-        rawClips = value.clips;
+        rawClips =
+            value.clips;
     } else if (
-        Array.isArray(value?.cortes)
+        Array.isArray(
+            value?.cortes
+        )
     ) {
-        rawClips = value.cortes;
+        rawClips =
+            value.cortes;
     } else if (
-        Array.isArray(value?.results)
+        Array.isArray(
+            value?.results
+        )
     ) {
-        rawClips = value.results;
+        rawClips =
+            value.results;
     }
 
     const result = [];
 
-    for (const item of rawClips) {
+    for (
+        const item of rawClips
+    ) {
         if (!item) continue;
 
         let start =
@@ -1213,7 +1395,11 @@ function normalizeGeminiClips(
                 NaN
             );
 
-        if (!Number.isFinite(start)) {
+        if (
+            !Number.isFinite(
+                start
+            )
+        ) {
             start = 0;
         }
 
@@ -1224,7 +1410,9 @@ function normalizeGeminiClips(
             );
 
         if (
-            !Number.isFinite(duration) ||
+            !Number.isFinite(
+                duration
+            ) ||
             duration <= 0
         ) {
             duration =
@@ -1246,11 +1434,14 @@ function normalizeGeminiClips(
             duration;
 
         if (
-            Number.isFinite(videoDuration) &&
+            Number.isFinite(
+                videoDuration
+            ) &&
             videoDuration > 0
         ) {
             if (
-                start >= videoDuration
+                start >=
+                videoDuration
             ) {
                 continue;
             }
@@ -1330,11 +1521,9 @@ function normalizeGeminiClips(
     );
 }
 
-/* ============================================================
-   PARSER GEMINI
-============================================================ */
-
-function parseGeminiOutput(data) {
+function parseGeminiOutput(
+    data
+) {
     if (!data) {
         throw new Error(
             "Resposta vazia do Gemini."
@@ -1348,29 +1537,75 @@ function parseGeminiOutput(data) {
 
     if (
         !primaryText &&
-        Array.isArray(data.steps)
+        Array.isArray(
+            data.outputs
+        )
     ) {
-        for (const step of data.steps) {
+        for (
+            const output of data.outputs
+        ) {
             if (
-                step?.type === "model_output" ||
-                Array.isArray(step?.content)
+                output?.type ===
+                    "text" &&
+                output.text
             ) {
-                const contents =
-                    Array.isArray(step.content)
-                        ? step.content
-                        : [];
+                primaryText +=
+                    output.text +
+                    "\n";
+            }
 
-                for (const c of contents) {
+            if (
+                Array.isArray(
+                    output?.content
+                )
+            ) {
+                for (
+                    const content of
+                        output.content
+                ) {
                     if (
-                        c?.type === "text" &&
-                        c.text
+                        content?.type ===
+                            "text" &&
+                        content.text
                     ) {
                         primaryText +=
-                            c.text + "\n";
-                    } else if (c?.text) {
-                        primaryText +=
-                            c.text + "\n";
+                            content.text +
+                            "\n";
                     }
+                }
+            }
+        }
+    }
+
+    if (
+        !primaryText &&
+        Array.isArray(
+            data.steps
+        )
+    ) {
+        for (
+            const step of data.steps
+        ) {
+            if (
+                !Array.isArray(
+                    step?.content
+                )
+            ) {
+                continue;
+            }
+
+            for (
+                const content of
+                    step.content
+            ) {
+                if (
+                    content?.type ===
+                        "text" &&
+                    content.text
+                ) {
+                    primaryText +=
+                        content.text +
+                        "\n";
                 }
             }
         }
@@ -1386,7 +1621,9 @@ function parseGeminiOutput(data) {
         data
     ];
 
-    function inspect(value) {
+    function inspect(
+        value
+    ) {
         if (
             value === null ||
             value === undefined
@@ -1395,26 +1632,38 @@ function parseGeminiOutput(data) {
         }
 
         if (
-            typeof value === "object"
+            typeof value ===
+            "object"
         ) {
             if (
-                Array.isArray(value.clips) ||
-                Array.isArray(value.cortes) ||
-                Array.isArray(value.results)
+                Array.isArray(
+                    value.clips
+                ) ||
+                Array.isArray(
+                    value.cortes
+                ) ||
+                Array.isArray(
+                    value.results
+                )
             ) {
                 return value;
             }
 
             if (
-                typeof value.text === "string"
+                typeof value.text ===
+                "string"
             ) {
                 return inspect(
                     value.text
                 );
             }
 
-            if (Array.isArray(value)) {
-                for (const item of value) {
+            if (
+                Array.isArray(value)
+            ) {
+                for (
+                    const item of value
+                ) {
                     const found =
                         inspect(item);
 
@@ -1426,7 +1675,8 @@ function parseGeminiOutput(data) {
         }
 
         if (
-            typeof value === "string"
+            typeof value ===
+            "string"
         ) {
             let text =
                 value
@@ -1446,7 +1696,9 @@ function parseGeminiOutput(data) {
                     .trim();
 
             try {
-                return JSON.parse(text);
+                return JSON.parse(
+                    text
+                );
             } catch (_) {}
 
             const firstBrace =
@@ -1457,7 +1709,8 @@ function parseGeminiOutput(data) {
 
             if (
                 firstBrace >= 0 &&
-                lastBrace > firstBrace
+                lastBrace >
+                    firstBrace
             ) {
                 try {
                     return JSON.parse(
@@ -1477,7 +1730,8 @@ function parseGeminiOutput(data) {
 
             if (
                 firstBracket >= 0 &&
-                lastBracket > firstBracket
+                lastBracket >
+                    firstBracket
             ) {
                 try {
                     return JSON.parse(
@@ -1493,7 +1747,9 @@ function parseGeminiOutput(data) {
         return null;
     }
 
-    for (const candidate of possible) {
+    for (
+        const candidate of possible
+    ) {
         const parsed =
             inspect(candidate);
 
@@ -1507,16 +1763,16 @@ function parseGeminiOutput(data) {
     );
 }
 
-/* ============================================================
-   PROMPT
-============================================================ */
-
 function buildClipPrompt(
     videoDuration
 ) {
     const durationText =
-        Number.isFinite(videoDuration)
-            ? `${videoDuration.toFixed(1)} segundos`
+        Number.isFinite(
+            videoDuration
+        )
+            ? `${videoDuration.toFixed(
+                  1
+              )} segundos`
             : "desconhecida";
 
     return `
@@ -1534,18 +1790,21 @@ Regras:
 `.trim();
 }
 
-/* ============================================================
-   GEMINI FILES
-============================================================ */
-
-function normalizeGeminiFileId(name) {
+function normalizeGeminiFileId(
+    name
+) {
     let value =
         safeString(name)
             .trim()
-            .replace(/^\/+/, "");
+            .replace(
+                /^\/+/,
+                ""
+            );
 
     if (
-        value.startsWith("files/")
+        value.startsWith(
+            "files/"
+        )
     ) {
         value =
             value.slice(
@@ -1557,10 +1816,15 @@ function normalizeGeminiFileId(name) {
         value.split("/");
 
     return (
-        parts[parts.length - 1] ||
-        ""
+        parts[
+            parts.length - 1
+        ] || ""
     );
 }
+
+/* ============================================================
+   GEMINI FILES API
+============================================================ */
 
 async function uploadVideoToGemini(
     filePath
@@ -1572,7 +1836,9 @@ async function uploadVideoToGemini(
     }
 
     const stat =
-        await fsp.stat(filePath);
+        await fsp.stat(
+            filePath
+        );
 
     if (!stat.isFile()) {
         throw new Error(
@@ -1581,7 +1847,11 @@ async function uploadVideoToGemini(
     }
 
     console.log(
-        `[Gemini Files] Preparando upload: ${(stat.size / 1024 / 1024).toFixed(2)} MB`
+        `[Gemini Files] Preparando upload: ${(
+            stat.size /
+            1024 /
+            1024
+        ).toFixed(2)} MB`
     );
 
     const initResponse =
@@ -1631,7 +1901,10 @@ async function uploadVideoToGemini(
             await initResponse.text();
 
         throw new Error(
-            `Gemini Files init HTTP ${initResponse.status}: ${text.slice(0, 3000)}`
+            `Gemini Files init HTTP ${initResponse.status}: ${text.slice(
+                0,
+                3000
+            )}`
         );
     }
 
@@ -1669,7 +1942,9 @@ async function uploadVideoToGemini(
 
                     headers: {
                         "Content-Length":
-                            String(stat.size),
+                            String(
+                                stat.size
+                            ),
 
                         "X-Goog-Upload-Offset":
                             "0",
@@ -1701,7 +1976,10 @@ async function uploadVideoToGemini(
             await uploadResponse.text();
 
         throw new Error(
-            `Gemini Files upload HTTP ${uploadResponse.status}: ${text.slice(0, 3000)}`
+            `Gemini Files upload HTTP ${uploadResponse.status}: ${text.slice(
+                0,
+                3000
+            )}`
         );
     }
 
@@ -1728,7 +2006,12 @@ async function uploadVideoToGemini(
 
     if (!fileUri) {
         throw new Error(
-            `Gemini não retornou file.uri. Resposta: ${JSON.stringify(uploadData).slice(0, 3000)}`
+            `Gemini não retornou file.uri. Resposta: ${JSON.stringify(
+                uploadData
+            ).slice(
+                0,
+                3000
+            )}`
         );
     }
 
@@ -1743,13 +2026,14 @@ async function uploadVideoToGemini(
 
     console.log(
         "[Gemini Files] Name:",
-        fileName || "(não informado)"
+        fileName ||
+            "(não informado)"
     );
 
     const fileId =
         normalizeGeminiFileId(
             fileName ||
-            fileUri
+                fileUri
         );
 
     if (!fileId) {
@@ -1759,7 +2043,9 @@ async function uploadVideoToGemini(
     }
 
     const statusUrl =
-        `${GEMINI_FILES_API_URL}/${encodeURIComponent(fileId)}`;
+        `${GEMINI_FILES_API_URL}/${encodeURIComponent(
+            fileId
+        )}`;
 
     console.log(
         "[Gemini Files] Polling:",
@@ -1775,7 +2061,8 @@ async function uploadVideoToGemini(
     let activeFile = null;
 
     while (
-        now() - pollingStarted <
+        now() -
+            pollingStarted <
         pollingTimeout
     ) {
         await sleep(5000);
@@ -1790,7 +2077,7 @@ async function uploadVideoToGemini(
                         "x-goog-api-key":
                             GEMINI_API_KEY,
 
-                        "Accept":
+                        Accept:
                             "application/json"
                     },
 
@@ -1809,16 +2096,24 @@ async function uploadVideoToGemini(
 
             try {
                 const parsed =
-                    JSON.parse(text);
+                    JSON.parse(
+                        text
+                    );
 
                 detail =
-                    parsed?.error?.message ||
+                    parsed?.error
+                        ?.message ||
                     parsed?.message ||
                     text;
             } catch (_) {}
 
             throw new Error(
-                `Gemini Files polling HTTP ${checkResponse.status}: ${safeString(detail).slice(0, 3000)}`
+                `Gemini Files polling HTTP ${checkResponse.status}: ${safeString(
+                    detail
+                ).slice(
+                    0,
+                    3000
+                )}`
             );
         }
 
@@ -1844,13 +2139,17 @@ async function uploadVideoToGemini(
 
         const elapsed =
             Math.round(
-                (now() -
-                    pollingStarted) /
-                    1000
+                (
+                    now() -
+                    pollingStarted
+                ) / 1000
             );
 
         console.log(
-            `[Gemini Files] Estado: ${state || "DESCONHECIDO"} | ${elapsed}s`
+            `[Gemini Files] Estado: ${
+                state ||
+                "DESCONHECIDO"
+            } | ${elapsed}s`
         );
 
         if (
@@ -1858,7 +2157,6 @@ async function uploadVideoToGemini(
         ) {
             activeFile =
                 currentFile;
-
             break;
         }
 
@@ -1866,14 +2164,18 @@ async function uploadVideoToGemini(
             state === "FAILED"
         ) {
             const reason =
-                currentFile?.error?.message ||
-                checkData?.error?.message ||
+                currentFile?.error
+                    ?.message ||
+                checkData?.error
+                    ?.message ||
                 currentFile?.error ||
                 checkData?.error ||
                 "Gemini Files informou FAILED.";
 
             throw new Error(
-                `Gemini Files FAILED: ${safeString(reason)}`
+                `Gemini Files FAILED: ${safeString(
+                    reason
+                )}`
             );
         }
     }
@@ -1923,7 +2225,8 @@ async function requestGeminiInteraction(
 
     const timeout =
         setTimeout(
-            () => controller.abort(),
+            () =>
+                controller.abort(),
             120000
         );
 
@@ -1933,7 +2236,8 @@ async function requestGeminiInteraction(
             input,
 
             generation_config: {
-                thinking_level: "low"
+                thinking_level:
+                    "low"
             },
 
             response_format: [
@@ -1978,7 +2282,9 @@ async function requestGeminiInteraction(
 
         try {
             data =
-                JSON.parse(text);
+                JSON.parse(
+                    text
+                );
         } catch (_) {
             data = {
                 raw: text
@@ -1988,16 +2294,21 @@ async function requestGeminiInteraction(
         if (!response.ok) {
             const err =
                 new Error(
-                    data?.error?.message ||
+                    data?.error
+                        ?.message ||
                     data?.message ||
-                    `Gemini Interactions HTTP ${response.status}: ${text.slice(0, 1000)}`
+                    `Gemini Interactions HTTP ${response.status}: ${text.slice(
+                        0,
+                        1000
+                    )}`
                 );
 
             err.status =
                 response.status;
 
             err.code =
-                data?.error?.code ||
+                data?.error
+                    ?.code ||
                 "";
 
             throw err;
@@ -2005,22 +2316,11 @@ async function requestGeminiInteraction(
 
         return data;
     } finally {
-        clearTimeout(timeout);
+        clearTimeout(
+            timeout
+        );
     }
 }
-
-/* ============================================================
-   RETRY
-============================================================ */
-
-const GEMINI_TRANSIENT_STATUSES = [
-    500,
-    502,
-    503,
-    504,
-    408,
-    429
-];
 
 async function executeModelWithRetry(
     model,
@@ -2030,12 +2330,15 @@ async function executeModelWithRetry(
     let attempt = 0;
 
     while (
-        attempt <= maxRetries
+        attempt <=
+        maxRetries
     ) {
         try {
             if (attempt > 0) {
                 console.log(
-                    `[Gemini] Tentando novamente ${model} (tentativa ${attempt + 1}/${maxRetries + 1})...`
+                    `[Gemini] Tentando novamente ${model} (tentativa ${
+                        attempt + 1
+                    }/${maxRetries + 1})...`
                 );
             }
 
@@ -2045,11 +2348,13 @@ async function executeModelWithRetry(
             );
         } catch (error) {
             const status =
-                error.status || 0;
+                error.status ||
+                0;
 
             const message =
                 String(
-                    error.message || ""
+                    error.message ||
+                        ""
                 ).toLowerCase();
 
             const isHardQuota =
@@ -2058,11 +2363,9 @@ async function executeModelWithRetry(
                     message.includes(
                         "exceeded a quota"
                     ) ||
-                    message.includes(
-                        "quota exceeded"
-                    ) ||
                     String(
-                        error.code || ""
+                        error.code ||
+                            ""
                     )
                         .toLowerCase() ===
                         "quota_exceeded"
@@ -2070,22 +2373,31 @@ async function executeModelWithRetry(
 
             if (isHardQuota) {
                 console.error(
-                    `[Gemini Quota] Quota dura do projeto esgotada em ${model}. Interrompendo retries.`
+                    `[Gemini Quota] Quota dura do projeto esgotada em ${model}. Interrompendo retries imediatos.`
                 );
 
-                error.isFatalQuota = true;
+                error.isFatalQuota =
+                    true;
 
                 throw error;
             }
 
             const isTransient =
-                GEMINI_TRANSIENT_STATUSES.includes(
+                [
+                    500,
+                    502,
+                    503,
+                    504,
+                    408,
+                    429
+                ].includes(
                     status
                 );
 
             if (
                 isTransient &&
-                attempt < maxRetries
+                attempt <
+                    maxRetries
             ) {
                 attempt++;
 
@@ -2099,7 +2411,8 @@ async function executeModelWithRetry(
 
                 const jitter =
                     Math.floor(
-                        Math.random() * 700
+                        Math.random() *
+                            700
                     ) + 100;
 
                 const delayMs =
@@ -2107,7 +2420,12 @@ async function executeModelWithRetry(
                     jitter;
 
                 console.warn(
-                    `[Gemini Retry] ${model} retornou HTTP ${status}. Aguardando ${(delayMs / 1000).toFixed(2)}s com backoff + jitter...`
+                    `[Gemini Retry] ${model} retornou HTTP ${status} (${error.message.slice(
+                        0,
+                        80
+                    )}...). Aguardando ${(delayMs / 1000).toFixed(
+                        2
+                    )}s com backoff + jitter...`
                 );
 
                 await sleep(
@@ -2122,14 +2440,12 @@ async function executeModelWithRetry(
     }
 }
 
-/* ============================================================
-   FALLBACK GEMINI
-============================================================ */
-
-async function analyzeWithGeminiFallback({
-    input,
-    videoDuration
-}) {
+async function analyzeWithGeminiFallback(
+    {
+        input,
+        videoDuration
+    }
+) {
     if (!GEMINI_API_KEY) {
         throw new Error(
             "GEMINI_API_KEY não configurada no Render."
@@ -2140,6 +2456,15 @@ async function analyzeWithGeminiFallback({
 
     let onlyTransientErrors =
         true;
+
+    const transientStatuses = [
+        500,
+        502,
+        503,
+        504,
+        408,
+        429
+    ];
 
     for (
         let i = 0;
@@ -2198,8 +2523,8 @@ async function analyzeWithGeminiFallback({
             );
 
             if (
-                !GEMINI_TRANSIENT_STATUSES.includes(
-                    error.status || 0
+                !transientStatuses.includes(
+                    error.status
                 )
             ) {
                 onlyTransientErrors =
@@ -2220,18 +2545,22 @@ async function analyzeWithGeminiFallback({
 
             if (
                 i <
-                GEMINI_MODELS.length - 1
+                GEMINI_MODELS.length -
+                    1
             ) {
                 metrics.geminiFallbacks++;
 
                 const fallbackCooldown =
                     1500 +
                     Math.floor(
-                        Math.random() * 800
+                        Math.random() *
+                            800
                     );
 
                 console.log(
-                    `[Gemini Fallback] Transição para próximo modelo em ${(fallbackCooldown / 1000).toFixed(2)}s...`
+                    `[Gemini Fallback] Transição para próximo modelo em ${(fallbackCooldown / 1000).toFixed(
+                        2
+                    )}s...`
                 );
 
                 await sleep(
@@ -2251,15 +2580,19 @@ async function analyzeWithGeminiFallback({
     }
 
     throw new Error(
-        `Todos os modelos Gemini falharam.\n${errors.join("\n")}`
+        `Todos os modelos Gemini falharam.\n${errors.join(
+            "\n"
+        )}`
     );
 }
 
 /* ============================================================
-   ANÁLISE YOUTUBE
+   ANÁLISE YOUTUBE / UPLOAD
 ============================================================ */
 
-async function analyzeYouTube(url) {
+async function analyzeYouTube(
+    url
+) {
     let duration = null;
 
     try {
@@ -2277,13 +2610,13 @@ async function analyzeYouTube(url) {
         console.log(
             "[YouTube] Título:",
             info?.title ||
-            "(sem título)"
+                "(sem título)"
         );
 
         console.log(
             "[YouTube] Duração:",
             duration ||
-            "desconhecida"
+                "desconhecida"
         );
     } catch (error) {
         console.warn(
@@ -2302,21 +2635,22 @@ async function analyzeYouTube(url) {
             type: "text",
             text: prompt
         },
+
         {
             type: "video",
-            uri: url
+            uri: url,
+            processing: "agentic"
         }
     ];
 
-    return analyzeWithGeminiFallback({
-        input,
-        videoDuration: duration
-    });
+    return analyzeWithGeminiFallback(
+        {
+            input,
+            videoDuration:
+                duration
+        }
+    );
 }
-
-/* ============================================================
-   ANÁLISE UPLOAD
-============================================================ */
 
 async function analyzeUpload(
     upload
@@ -2370,24 +2704,31 @@ async function analyzeUpload(
 
         {
             type: "video",
-            uri: upload.geminiFile.uri,
-            mime_type: "video/mp4",
-            processing: "agentic"
+            uri:
+                upload
+                    .geminiFile
+                    .uri,
+
+            mime_type:
+                "video/mp4",
+
+            processing:
+                "agentic"
         }
     ];
 
-    return analyzeWithGeminiFallback({
-        input,
-        videoDuration:
-            metadata.duration
-    });
+    return analyzeWithGeminiFallback(
+        {
+            input,
+            videoDuration:
+                metadata.duration
+        }
+    );
 }
 
-/* ============================================================
-   COBRANÇA
-============================================================ */
-
-function chargeAnalysis(user) {
+function chargeAnalysis(
+    user
+) {
     if (user.vip) {
         return 0;
     }
@@ -2476,7 +2817,9 @@ app.get(
 app.post(
     "/api/upload",
     requireUser,
-    uploadMiddleware.single("video"),
+    uploadMiddleware.single(
+        "video"
+    ),
     async (req, res) => {
         try {
             if (!req.file) {
@@ -2488,7 +2831,9 @@ app.post(
             }
 
             console.log(
-                `[Upload] ${req.file.originalname} — ${(req.file.size / 1024 / 1024).toFixed(2)} MB`
+                `[Upload] ${req.file.originalname} — ${(req.file.size / 1024 / 1024).toFixed(
+                    2
+                )} MB`
             );
 
             const metadata =
@@ -2505,17 +2850,25 @@ app.post(
                 id: uploadId,
                 userId:
                     req.user.id,
+
                 filePath:
                     req.file.path,
+
                 originalName:
-                    req.file.originalname,
+                    req.file
+                        .originalname,
+
                 mimeType:
                     req.file.mimetype,
+
                 size:
                     req.file.size,
+
                 createdAt:
                     now(),
+
                 metadata,
+
                 geminiFile:
                     null
             };
@@ -2529,17 +2882,23 @@ app.post(
 
             return res.json({
                 ok: true,
+
                 uploadId,
+
                 id: uploadId,
+
                 duration:
                     metadata.duration,
 
                 file: {
                     id: uploadId,
+
                     name:
                         item.originalName,
+
                     size:
                         item.size,
+
                     mimeType:
                         item.mimeType
                 },
@@ -2549,7 +2908,9 @@ app.post(
         } catch (error) {
             metrics.errors++;
 
-            if (req.file?.path) {
+            if (
+                req.file?.path
+            ) {
                 await safeRemove(
                     req.file.path
                 );
@@ -2608,7 +2969,8 @@ app.get(
                         upload.createdAt,
 
                     duration:
-                        upload.metadata
+                        upload
+                            .metadata
                             ?.duration ||
                         null,
 
@@ -2679,25 +3041,35 @@ app.post(
 
                     return res.json({
                         ok: true,
-                        type: "upload",
+                        type:
+                            "upload",
+
                         uploadId,
+
                         clips:
                             result.clips,
+
                         model:
                             result.model,
+
                         fallback:
                             result.model !==
                             GEMINI_MODEL,
+
                         user:
                             publicUser(
                                 req.user
                             ),
+
                         charged,
+
                         version:
                             VERSION
                     });
                 } catch (error) {
-                    if (charged > 0) {
+                    if (
+                        charged > 0
+                    ) {
                         req.user.points +=
                             charged;
                     }
@@ -2741,25 +3113,37 @@ app.post(
 
                     return res.json({
                         ok: true,
-                        type: "youtube",
-                        url: normalized,
+
+                        type:
+                            "youtube",
+
+                        url:
+                            normalized,
+
                         clips:
                             result.clips,
+
                         model:
                             result.model,
+
                         fallback:
                             result.model !==
                             GEMINI_MODEL,
+
                         user:
                             publicUser(
                                 req.user
                             ),
+
                         charged,
+
                         version:
                             VERSION
                     });
                 } catch (error) {
-                    if (charged > 0) {
+                    if (
+                        charged > 0
+                    ) {
                         req.user.points +=
                             charged;
                     }
@@ -2786,7 +3170,7 @@ app.post(
                 res,
                 500,
                 error.message ||
-                "Não foi possível analisar o vídeo."
+                    "Não foi possível analisar o vídeo."
             );
         }
     }
@@ -2845,25 +3229,36 @@ app.post(
 
                 return res.json({
                     ok: true,
-                    type: "upload",
+
+                    type:
+                        "upload",
+
                     uploadId,
+
                     clips:
                         result.clips,
+
                     model:
                         result.model,
+
                     fallback:
                         result.model !==
                         GEMINI_MODEL,
+
                     user:
                         publicUser(
                             req.user
                         ),
+
                     charged,
+
                     version:
                         VERSION
                 });
             } catch (error) {
-                if (charged > 0) {
+                if (
+                    charged > 0
+                ) {
                     req.user.points +=
                         charged;
                 }
@@ -2883,14 +3278,14 @@ app.post(
                 res,
                 500,
                 error.message ||
-                "Não foi possível analisar o vídeo."
+                    "Não foi possível analisar o vídeo."
             );
         }
     }
 );
 
 /* ============================================================
-   FFMPEG — CORTE
+   RENDERIZAÇÃO MP4
 ============================================================ */
 
 async function renderClip(
@@ -2919,40 +3314,14 @@ async function renderClip(
         "-t",
         String(duration),
 
-        "-map",
-        "0:v:0",
-
-        "-map",
-        "0:a:0?",
-
-        "-sn",
-        "-dn",
-
-        "-c:v",
-        "libx264",
-
-        "-preset",
-        process.env.FFMPEG_PRESET ||
-            "veryfast",
-
-        "-crf",
-        process.env.FFMPEG_CRF ||
-            "22",
-
-        "-pix_fmt",
-        "yuv420p",
-
-        "-c:a",
-        "aac",
-
-        "-b:a",
-        "128k",
-
-        "-movflags",
-        "+faststart",
+        "-c",
+        "copy",
 
         "-avoid_negative_ts",
         "make_zero",
+
+        "-movflags",
+        "+faststart",
 
         "-y",
         outputFile
@@ -2964,14 +3333,65 @@ async function renderClip(
             args
         );
 
-    if (result.code !== 0) {
-        throw new Error(
-            `FFmpeg falhou: ${
-                result.stderr ||
-                result.stdout ||
-                "erro desconhecido"
-            }`
-        );
+    if (
+        result.code !== 0
+    ) {
+        const fallbackArgs = [
+            "-hide_banner",
+            "-loglevel",
+            "error",
+
+            "-ss",
+            String(start),
+
+            "-i",
+            sourceFile,
+
+            "-t",
+            String(duration),
+
+            "-c:v",
+            "libx264",
+
+            "-preset",
+            "ultrafast",
+
+            "-threads",
+            "1",
+
+            "-crf",
+            "26",
+
+            "-c:a",
+            "aac",
+
+            "-b:a",
+            "96k",
+
+            "-movflags",
+            "+faststart",
+
+            "-y",
+            outputFile
+        ];
+
+        const fallbackResult =
+            await spawnCapture(
+                FFMPEG_BIN,
+                fallbackArgs
+            );
+
+        if (
+            fallbackResult.code !==
+            0
+        ) {
+            throw new Error(
+                `FFmpeg falhou: ${
+                    fallbackResult.stderr ||
+                    result.stderr
+                }`
+            );
+        }
     }
 
     const stat =
@@ -2999,8 +3419,11 @@ app.post(
     "/api/download",
     requireUser,
     async (req, res) => {
-        let temporarySource = null;
-        let outputFile = null;
+        let temporarySource =
+            null;
+
+        let outputFile =
+            null;
 
         try {
             const {
@@ -3059,8 +3482,10 @@ app.post(
                 !Number.isFinite(
                     requestedDuration
                 ) ||
-                requestedDuration <= 0 ||
-                requestedDuration > 90
+                requestedDuration <=
+                    0 ||
+                requestedDuration >
+                    90
             ) {
                 return jsonError(
                     res,
@@ -3081,8 +3506,11 @@ app.post(
                 );
             }
 
-            let sourceFile = null;
-            let sourceDuration = 0;
+            let sourceFile =
+                null;
+
+            let sourceDuration =
+                0;
 
             if (uploadId) {
                 const upload =
@@ -3104,7 +3532,8 @@ app.post(
 
                 sourceDuration =
                     parseNumber(
-                        upload.metadata
+                        upload
+                            .metadata
                             ?.duration,
                         0
                     );
@@ -3243,7 +3672,9 @@ app.post(
             outputFile =
                 path.join(
                     OUTPUT_DIR,
-                    `${randomId("clip_")}.mp4`
+                    `${randomId(
+                        "clip_"
+                    )}.mp4`
                 );
 
             await renderClip(
@@ -3264,6 +3695,7 @@ app.post(
             }
 
             req.user.downloads++;
+
             metrics.downloads++;
 
             const filename =
@@ -3318,11 +3750,14 @@ app.post(
                     outputFile
                 );
 
-            let cleaned = false;
+            let cleaned =
+                false;
 
             const cleanupAfterStream =
                 async () => {
-                    if (cleaned) return;
+                    if (cleaned) {
+                        return;
+                    }
 
                     cleaned = true;
 
@@ -3352,7 +3787,9 @@ app.post(
                     if (
                         !res.headersSent
                     ) {
-                        res.status(500).json({
+                        res.status(
+                            500
+                        ).json({
                             ok: false,
                             error:
                                 "Erro ao transmitir o MP4."
@@ -3374,7 +3811,9 @@ app.post(
                 "close",
                 () => {
                     cleanupAfterStream()
-                        .catch(() => {});
+                        .catch(
+                            () => {}
+                        );
                 }
             );
 
@@ -3408,7 +3847,7 @@ app.post(
                     res,
                     500,
                     error.message ||
-                    "Não foi possível gerar o corte MP4."
+                        "Não foi possível gerar o corte MP4."
                 );
             }
         }
@@ -3431,7 +3870,7 @@ async function mercadoPagoRequest(
 
     const response =
         await fetch(
-            `${MP_API}${endpoint}`,
+            `https://api.mercadopago.com${endpoint}`,
             {
                 ...options,
 
@@ -3442,7 +3881,8 @@ async function mercadoPagoRequest(
                     "Content-Type":
                         "application/json",
 
-                    ...(options.headers || {})
+                    ...(options.headers ||
+                        {})
                 },
 
                 signal:
@@ -3460,7 +3900,9 @@ async function mercadoPagoRequest(
     try {
         data =
             text
-                ? JSON.parse(text)
+                ? JSON.parse(
+                      text
+                  )
                 : null;
     } catch (_) {
         data = {
@@ -3471,8 +3913,8 @@ async function mercadoPagoRequest(
     if (!response.ok) {
         throw new Error(
             data?.message ||
-            data?.error ||
-            `Mercado Pago HTTP ${response.status}`
+                data?.error ||
+                `Mercado Pago HTTP ${response.status}`
         );
     }
 
@@ -3494,7 +3936,9 @@ app.post(
         try {
             const amount =
                 Number(
-                    VIP_PRICE.toFixed(2)
+                    VIP_PRICE.toFixed(
+                        2
+                    )
                 );
 
             const reference =
@@ -3512,7 +3956,8 @@ app.post(
 
                 payer: {
                     email:
-                        process.env.MP_PAYER_EMAIL ||
+                        process.env
+                            .MP_PAYER_EMAIL ||
                         `cliente-${req.user.id}@clipforge.local`
                 },
 
@@ -3520,7 +3965,9 @@ app.post(
                     reference
             };
 
-            if (MP_WEBHOOK_URL) {
+            if (
+                MP_WEBHOOK_URL
+            ) {
                 body.notification_url =
                     MP_WEBHOOK_URL;
             }
@@ -3529,7 +3976,8 @@ app.post(
                 await mercadoPagoRequest(
                     "/v1/payments",
                     {
-                        method: "POST",
+                        method:
+                            "POST",
 
                         headers: {
                             "X-Idempotency-Key":
@@ -3557,8 +4005,7 @@ app.post(
             payments.set(
                 paymentId,
                 {
-                    id:
-                        paymentId,
+                    id: paymentId,
 
                     userId:
                         req.user.id,
@@ -3649,9 +4096,12 @@ app.get(
 
             const payment =
                 await mercadoPagoRequest(
-                    `/v1/payments/${encodeURIComponent(paymentId)}`,
+                    `/v1/payments/${encodeURIComponent(
+                        paymentId
+                    )}`,
                     {
-                        method: "GET"
+                        method:
+                            "GET"
                     }
                 );
 
@@ -3659,7 +4109,9 @@ app.get(
                 payment.status ===
                 "approved";
 
-            if (localPayment) {
+            if (
+                localPayment
+            ) {
                 localPayment.status =
                     payment.status;
             }
@@ -3668,17 +4120,23 @@ app.get(
                 approved &&
                 !req.user.vip
             ) {
-                req.user.vip = true;
+                req.user.vip =
+                    true;
+
                 metrics.pixApproved++;
             }
 
             return res.json({
                 ok: true,
+
                 id:
                     paymentId,
+
                 status:
                     payment.status,
+
                 approved,
+
                 user:
                     publicUser(
                         req.user
@@ -3850,7 +4308,9 @@ app.get(
 
         return res.json({
             ok: true,
-            version: VERSION,
+
+            version:
+                VERSION,
 
             metrics: {
                 requests:
@@ -3948,7 +4408,10 @@ app.get(
 
         return res.json({
             ok: true,
-            status: "online",
+
+            status:
+                "online",
+
             service:
                 "clipforge-server",
 
@@ -3980,16 +4443,6 @@ app.get(
                     GEMINI_FILES_API_URL
             },
 
-            mercadoPago: {
-                configured:
-                    Boolean(
-                        MP_ACCESS_TOKEN
-                    ),
-
-                api:
-                    MP_API
-            },
-
             binaries: {
                 ffmpeg,
                 ffprobe,
@@ -4001,8 +4454,15 @@ app.get(
                 maxMB:
                     MAX_UPLOAD_MB,
 
-                accepted:
-                    "video/mp4"
+                format:
+                    "MP4"
+            },
+
+            mercadoPago: {
+                configured:
+                    Boolean(
+                        MP_ACCESS_TOKEN
+                    )
             },
 
             metrics
@@ -4019,6 +4479,7 @@ app.get(
     (req, res) => {
         return res.json({
             ok: true,
+
             service:
                 "ClipForge Pro",
 
@@ -4050,7 +4511,7 @@ app.get(
 );
 
 /* ============================================================
-   LIMPEZA
+   LIMPEZA AUTOMÁTICA
 ============================================================ */
 
 async function cleanupExpiredUploads() {
@@ -4201,20 +4662,22 @@ app.use(
         if (
             res.headersSent
         ) {
-            return next(error);
+            return next(
+                error
+            );
         }
 
         return jsonError(
             res,
             500,
             error.message ||
-            "Erro interno do servidor."
+                "Erro interno do servidor."
         );
     }
 );
 
 /* ============================================================
-   START SERVER
+   START
 ============================================================ */
 
 async function startServer() {
@@ -4222,6 +4685,11 @@ async function startServer() {
         await ensureDirectories();
 
         await resolveBinaries();
+
+        /*
+         * Limpeza inicial antes de abrir a porta.
+         */
+        await cleanupExpiredUploads();
 
         console.log("");
 
@@ -4254,7 +4722,9 @@ async function startServer() {
         );
 
         console.log(
-            `[Gemini] Fallbacks: ${GEMINI_FALLBACK_MODELS.join(", ")}`
+            `[Gemini] Fallbacks: ${GEMINI_FALLBACK_MODELS.join(
+                ", "
+            )}`
         );
 
         console.log(
@@ -4290,11 +4760,7 @@ async function startServer() {
         );
 
         console.log(
-            "[Upload] Formato aceito: MP4"
-        );
-
-        console.log(
-            "[Gemini] Agentic Video Processing ativo para uploads."
+            "[Upload] Formato obrigatório: MP4"
         );
 
         console.log(
@@ -4306,6 +4772,10 @@ async function startServer() {
         );
 
         console.log(
+            "[Gemini] Agentic Video Processing ativo."
+        );
+
+        console.log(
             "[Gemini] Upload MP4 por STREAM ativo."
         );
 
@@ -4314,7 +4784,11 @@ async function startServer() {
         );
 
         console.log(
-            "[Download] MP4 direto via stream ativo."
+            "[Download] Stream Copy ultra-leve ativo."
+        );
+
+        console.log(
+            "[Mercado Pago] URL API corrigida."
         );
 
         console.log(
