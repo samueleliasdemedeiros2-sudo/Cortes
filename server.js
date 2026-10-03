@@ -1,18 +1,18 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND 13.2.9
+ * CLIPFORGE PRO — BACKEND 13.3.0 (FINAL)
  * ============================================================
  *
  * Node.js >= 20 + Express
  *
- * CORREÇÕES 13.2.9:
+ * REVISÃO FINAL 13.3.0:
  * ------------------------------------------------------------
- * 1. Payload Gemini Interactions:
- *    - thinking_level dentro de generation_config
- *    - response_format estruturado conforme especificação oficial
- * 2. URL do Mercado Pago limpa (sem markdown residual)
- * 3. parseGeminiOutput: suporte a steps model_output e content text
- * 4. Upload MP4 via Stream, normalização de IDs e polling seguro
+ * 1. URL do Mercado Pago estritamente limpa (sem markdown residual)
+ * 2. Mensagem amigável de erro se todos os modelos derem 503/sobrecarga
+ * 3. Exponential Backoff com Full Jitter para falhas transitórias
+ * 4. Interrupção imediata em caso de esgotamento de quota dura (429)
+ * 5. Flag fallback dinâmica: result.model !== GEMINI_MODEL
+ * 6. Upload via stream e Gemini Files API estabilizados
  * ============================================================
  */
 
@@ -32,7 +32,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-const VERSION = "13.2.9";
+const VERSION = "13.3.0";
 
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 150);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -122,6 +122,8 @@ const metrics = {
     downloads: 0,
     pixCreated: 0,
     pixApproved: 0,
+    geminiRetries: 0,
+    geminiFallbacks: 0,
     errors: 0
 };
 
@@ -886,21 +888,80 @@ async function requestGeminiInteraction(model, input) {
         });
 
         const text = await response.text();
-
-        if (!response.ok) {
-            throw new Error(`Gemini Interactions HTTP ${response.status}: ${text.slice(0, 4000)}`);
-        }
-
         let data;
         try {
             data = JSON.parse(text);
         } catch (_) {
-            throw new Error("Gemini Interactions retornou JSON inválido.");
+            data = { raw: text };
+        }
+
+        if (!response.ok) {
+            const err = new Error(
+                data?.error?.message ||
+                data?.message ||
+                `Gemini Interactions HTTP ${response.status}: ${text.slice(0, 1000)}`
+            );
+            err.status = response.status;
+            err.code = data?.error?.code || "";
+            throw err;
         }
 
         return data;
     } finally {
         clearTimeout(timeout);
+    }
+}
+
+async function executeModelWithRetry(model, input, maxRetries = 2) {
+    let attempt = 0;
+
+    while (attempt <= maxRetries) {
+        try {
+            if (attempt > 0) {
+                console.log(`[Gemini] Tentando novamente ${model} (tentativa ${attempt + 1}/${maxRetries + 1})...`);
+            }
+            return await requestGeminiInteraction(model, input);
+        } catch (error) {
+            const status = error.status || 0;
+            const message = String(error.message || "").toLowerCase();
+
+            const isHardQuota =
+                status === 429 &&
+                (
+                    message.includes("exceeded a quota") ||
+                    String(error.code || "").toLowerCase() === "quota_exceeded"
+                );
+
+            if (isHardQuota) {
+                console.error(
+                    `[Gemini Quota] Quota dura do projeto esgotada em ${model}. ` +
+                    `Interrompendo retries imediatos.`
+                );
+                error.isFatalQuota = true;
+                throw error;
+            }
+
+            const isTransient = [503, 502, 504, 500, 408, 429].includes(status);
+
+            if (isTransient && attempt < maxRetries) {
+                attempt++;
+                metrics.geminiRetries++;
+
+                const baseDelay = Math.pow(2, attempt) * 1000;
+                const jitter = Math.floor(Math.random() * 700) + 100;
+                const delayMs = baseDelay + jitter;
+
+                console.warn(
+                    `[Gemini Retry] ${model} retornou HTTP ${status} (${error.message.slice(0, 80)}...). ` +
+                    `Aguardando ${(delayMs / 1000).toFixed(2)}s com backoff + jitter...`
+                );
+
+                await sleep(delayMs);
+                continue;
+            }
+
+            throw error;
+        }
     }
 }
 
@@ -910,12 +971,15 @@ async function analyzeWithGeminiFallback({ input, videoDuration }) {
     }
 
     const errors = [];
+    let onlyTransientErrors = true;
 
-    for (const model of GEMINI_MODELS) {
+    for (let i = 0; i < GEMINI_MODELS.length; i++) {
+        const model = GEMINI_MODELS[i];
+
         try {
             console.log(`[Gemini] Tentando modelo: ${model}`);
 
-            const response = await requestGeminiInteraction(model, input);
+            const response = await executeModelWithRetry(model, input, 2);
             const parsed = parseGeminiOutput(response);
             const clips = normalizeGeminiClips(parsed, videoDuration);
 
@@ -923,7 +987,7 @@ async function analyzeWithGeminiFallback({ input, videoDuration }) {
                 throw new Error("Gemini não retornou cortes válidos.");
             }
 
-            console.log(`[Gemini] Interação concluída: ${model} retornou ${clips.length} cortes.`);
+            console.log(`[Gemini] Interação concluída com sucesso: ${model} retornou ${clips.length} cortes.`);
 
             return {
                 model,
@@ -931,9 +995,33 @@ async function analyzeWithGeminiFallback({ input, videoDuration }) {
                 raw: response
             };
         } catch (error) {
-            console.error(`[Gemini] ${model} falhou:`, error.message);
+            console.error(`[Gemini] ${model} falhou definitivamente:`, error.message);
             errors.push(`${model}: ${error.message}`);
+
+            if (error.status !== 503 && error.status !== 504) {
+                onlyTransientErrors = false;
+            }
+
+            if (error.isFatalQuota) {
+                console.error(`[Gemini Quota] Interrompendo cascata: limite de quota do projeto excedido.`);
+                throw new Error(
+                    "O projeto atingiu o limite de quota da API Gemini. Aguarde a renovação diária/por minuto ou verifique os limites no console do Google AI."
+                );
+            }
+
+            if (i < GEMINI_MODELS.length - 1) {
+                metrics.geminiFallbacks++;
+                const fallbackCooldown = 1500 + Math.floor(Math.random() * 800);
+                console.log(`[Gemini Fallback] Transição para próximo modelo em ${(fallbackCooldown / 1000).toFixed(2)}s...`);
+                await sleep(fallbackCooldown);
+            }
         }
+    }
+
+    if (onlyTransientErrors && errors.length > 0) {
+        throw new Error(
+            "O serviço de IA do Google está temporariamente sobrecarregado (503/504). Tente novamente em alguns minutos."
+        );
     }
 
     throw new Error(`Todos os modelos Gemini falharam.\n${errors.join("\n")}`);
@@ -1113,7 +1201,7 @@ app.post("/api/analisar", requireUser, async (req, res) => {
                     uploadId,
                     clips: result.clips,
                     model: result.model,
-                    fallback: false,
+                    fallback: result.model !== GEMINI_MODEL,
                     user: publicUser(req.user),
                     charged,
                     version: VERSION
@@ -1144,7 +1232,7 @@ app.post("/api/analisar", requireUser, async (req, res) => {
                     url: normalized,
                     clips: result.clips,
                     model: result.model,
-                    fallback: false,
+                    fallback: result.model !== GEMINI_MODEL,
                     user: publicUser(req.user),
                     charged,
                     version: VERSION
@@ -1186,6 +1274,7 @@ app.post("/api/analisar-upload", requireUser, async (req, res) => {
                 uploadId,
                 clips: result.clips,
                 model: result.model,
+                fallback: result.model !== GEMINI_MODEL,
                 user: publicUser(req.user),
                 charged,
                 version: VERSION
@@ -1380,6 +1469,10 @@ app.post("/api/download", requireUser, async (req, res) => {
     }
 });
 
+/* ============================================================
+   MERCADO PAGO / PIX (URL LIMPA)
+============================================================ */
+
 async function mercadoPagoRequest(endpoint, options = {}) {
     if (!MP_ACCESS_TOKEN) throw new Error("MP_ACCESS_TOKEN não configurado.");
 
@@ -1563,6 +1656,8 @@ app.get("/api/admin/dashboard", requireAdmin, (req, res) => {
             downloads: metrics.downloads,
             pixCreated: metrics.pixCreated,
             pixApproved: metrics.pixApproved,
+            geminiRetries: metrics.geminiRetries,
+            geminiFallbacks: metrics.geminiFallbacks,
             users: users.size,
             vipUsers,
             totalPoints,
@@ -1696,8 +1791,9 @@ async function startServer() {
         console.log(`[Gemini] Files API: ${GEMINI_FILES_API_URL}`);
         console.log(`[Mercado Pago] ${MP_ACCESS_TOKEN ? "CONFIGURADO" : "NÃO CONFIGURADO"}`);
         console.log(`[Upload] Limite: ${MAX_UPLOAD_MB} MB`);
+        console.log("[Gemini] Exponential Backoff + Jitter ativo.");
+        console.log("[Gemini] Detecção inteligente de quota ativa.");
         console.log("[Gemini] Upload MP4 por STREAM ativo.");
-        console.log("[Gemini] Polling HTTP errors ativo.");
         console.log("[Gemini] Normalização files/ID ativa.");
         console.log("[Download] MP4 direto via stream ativo.");
         console.log("====================================================");
