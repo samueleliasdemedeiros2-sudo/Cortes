@@ -1,9 +1,10 @@
 {
   "name": "clipforge-server",
-  "version": "13.2.8",
+  "version": "13.3.1",
   "description": "ClipForge Pro - Backend de cortes com IA Gemini e upload direto de vídeos",
   "main": "server.js",
   "scripts": {
+    "postinstall": "mkdir -p bin && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o bin/yt-dlp && chmod a+rx bin/yt-dlp",
     "start": "node server.js"
   },
   "engines": {
