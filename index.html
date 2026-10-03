@@ -9,15 +9,15 @@
     <meta name="description" content="Crie cortes profissionais enviando arquivos MP4 ou via YouTube com inteligência artificial.">
     <meta name="theme-color" content="#08090d">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
+    <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap)" rel="stylesheet">
 
     <link
         rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css)"
     >
 
     <style>
@@ -464,7 +464,7 @@
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v13.2.2</span>
+                    <span>v13.3.2</span>
                 </div>
             </div>
         </div>
@@ -612,10 +612,10 @@
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V13.2.2 — FRONTEND TOTALMENTE INTEGRADO
+   CLIPFORGE PRO V13.3.2 — FRONTEND TOTALMENTE INTEGRADO
 ========================================================= */
 
-const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
+const BACKEND_URL = "[https://clipforge-server-ikai.onrender.com](https://clipforge-server-ikai.onrender.com)";
 
 const SESSION_STORAGE_KEY = "clipforge_session_v13";
 const ADMIN_STORAGE_KEY = "clipforge_admin_session_v13";
@@ -893,8 +893,8 @@ function renderizarCortes(clips) {
         const score = clip.score ?? 85;
 
         const thumbSrc = videoAtualId
-            ? `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`
-            : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' fill='%23111217'><rect width='640' height='360'/><text x='50%' y='50%' fill='%23666' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'>Vídeo MP4 Carregado</text></svg>";
+            ? `[https://i.ytimg.com/vi/$](https://i.ytimg.com/vi/$){encodeURIComponent(videoAtualId)}/hqdefault.jpg`
+            : "data:image/svg+xml;utf8,<svg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' width='640' height='360' fill='%23111217'><rect width='640' height='360'/><text x='50%' y='50%' fill='%23666' font-size='24' font-family='sans-serif' text-anchor='middle' dominant-baseline='middle'>Vídeo MP4 Carregado</text></svg>";
 
         const card = document.createElement("article");
         card.className = "card rounded-2xl overflow-hidden fade-in";
@@ -941,7 +941,7 @@ function renderizarCortes(clips) {
 
 function abrirYouTube(start) {
     if (!videoAtualId) return;
-    window.open(`https://www.youtube.com/watch?v=${videoAtualId}&t=${Math.floor(start)}s`, "_blank");
+    window.open(`[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){videoAtualId}&t=${Math.floor(start)}s`, "_blank");
 }
 
 /* =========================================================
@@ -971,7 +971,7 @@ async function baixarCorte(start, duration, index) {
         if (uploadIdAtual) {
             payload.uploadId = uploadIdAtual;
         } else {
-            payload.url = videoAtualUrl || `https://www.youtube.com/watch?v=${videoAtualId}`;
+            payload.url = videoAtualUrl || `[https://www.youtube.com/watch?v=$](https://www.youtube.com/watch?v=$){videoAtualId}`;
         }
 
         const response = await fetch(`${BACKEND_URL}/api/download`, {
@@ -1102,7 +1102,7 @@ async function criarPagamento() {
         const data = await fetchJson(`${BACKEND_URL}/api/pix/criar`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: 19.90, userId: usuario.userId })
+            body: JSON.stringify({})
         });
 
         pagamentoAtual = data;
@@ -1112,7 +1112,7 @@ async function criarPagamento() {
         if (qrBase64) {
             $("pixQrImage").src = qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`;
         } else if (qrCode) {
-            $("pixQrImage").src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
+            $("pixQrImage").src = `[https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=$](https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=$){encodeURIComponent(qrCode)}`;
         }
 
         if (data.ticket_url || data.ticketUrl) {
@@ -1151,9 +1151,8 @@ function iniciarPollingPix() {
             if (data.status === "approved" || data.approved) {
                 clearInterval(pollingPix);
                 pollingPix = null;
+                await atualizarUsuario();
                 mostrarToast("VIP ativado com sucesso!", "success");
-                usuario.isVip = true;
-                atualizarInterfaceUsuario();
                 setTimeout(fecharPix, 1500);
             }
         } catch {}
