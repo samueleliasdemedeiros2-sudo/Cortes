@@ -24,7 +24,6 @@
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        /* Fallback vital para garantir que áreas ocultas nunca vazem */
         .hidden, [hidden] {
             display: none !important;
         }
@@ -208,6 +207,11 @@
             border-color: rgba(255,255,255,.1);
             background: rgba(255,255,255,.025);
         }
+
+        .drop-active {
+            border-color: rgba(255,255,255,.5) !important;
+            background: rgba(255,255,255,.08) !important;
+        }
     </style>
 </head>
 
@@ -341,7 +345,7 @@
 
                     <div class="glass rounded-2xl p-3 sm:p-4 shadow-2xl">
 
-                        <!-- MODO UPLOAD -->
+                        <!-- MODO UPLOAD (COM DRAG & DROP NATIVO) -->
                         <div
                             id="modoUploadArea"
                             class="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-xl p-8 text-center transition cursor-pointer"
@@ -353,21 +357,21 @@
                                 type="file"
                                 accept=".mp4,video/mp4"
                                 class="hidden"
-                                onchange="selecionarArquivo(event)"
+                                onchange="selecionarArquivo(event.target.files[0])"
                             >
 
-                            <div class="w-14 h-14 rounded-2xl bg-white/[.05] flex items-center justify-center mb-3 text-zinc-300">
+                            <div class="w-14 h-14 rounded-2xl bg-white/[.05] flex items-center justify-center mb-3 text-zinc-300 pointer-events-none">
                                 <i class="fa-solid fa-file-video text-2xl"></i>
                             </div>
 
                             <div
                                 id="uploadFileLabel"
-                                class="text-sm font-bold"
+                                class="text-sm font-bold pointer-events-none"
                             >
                                 Clique ou arraste um vídeo MP4 aqui
                             </div>
 
-                            <div class="text-xs text-zinc-500 mt-1">
+                            <div class="text-xs text-zinc-500 mt-1 pointer-events-none">
                                 Limite de 150 MB • Formato MP4
                             </div>
 
@@ -384,7 +388,7 @@
                         <!-- MODO YOUTUBE -->
                         <div
                             id="modoYoutubeArea"
-                            class="hidden flex flex-col sm:flex-row gap-2"
+                            class="hidden flex-col sm:flex-row gap-2"
                         >
 
                             <div class="relative flex-1">
@@ -595,7 +599,7 @@
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v13.3.5</span>
+                    <span>v13.3.6</span>
                 </div>
             </div>
         </div>
@@ -855,7 +859,7 @@
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V13.3.5 — FRONTEND FINAL INTEGRADO
+   CLIPFORGE PRO V13.3.6 — FRONTEND CONSOLIDADO
 ========================================================= */
 
 const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
@@ -934,28 +938,30 @@ function authHeaders() {
     return headers;
 }
 
+// Suporta skipAuthRefresh para não poluir rotas administrativas
 async function fetchJson(url, options = {}) {
+    const { skipAuthRefresh = false, ...fetchOpts } = options;
+
     let response = await fetch(url, {
-        ...options,
+        ...fetchOpts,
         headers: {
             "Accept": "application/json",
             ...authHeaders(),
-            ...(options.headers || {})
+            ...(fetchOpts.headers || {})
         }
     });
 
-    // Se o backend reiniciou ou a sessão caiu, renova automaticamente
-    if (response.status === 401) {
+    if (response.status === 401 && !skipAuthRefresh) {
         sessionToken = "";
         localStorage.removeItem(SESSION_STORAGE_KEY);
         await iniciarSessao();
 
         response = await fetch(url, {
-            ...options,
+            ...fetchOpts,
             headers: {
                 "Accept": "application/json",
                 ...authHeaders(),
-                ...(options.headers || {})
+                ...(fetchOpts.headers || {})
             }
         });
     }
@@ -1007,29 +1013,22 @@ function alternarModo(modo) {
 }
 
 /* =========================================================
-   UPLOAD DIRETO MP4
+   UPLOAD DIRETO MP4 (VALIDAÇÃO TOLERANTE A CLIENTE MÓVEL)
 ========================================================= */
 
-async function selecionarArquivo(event) {
-    const file = event.target.files[0];
+async function selecionarArquivo(file) {
     if (!file) return;
 
     const nome = String(file.name || "").toLowerCase();
     if (!nome.endsWith(".mp4")) {
-        mostrarErro("Apenas vídeos no formato MP4 são aceitos.");
-        event.target.value = "";
-        return;
-    }
-
-    if (file.type && file.type !== "video/mp4") {
-        mostrarErro("O arquivo precisa ser identificado como video/mp4.");
-        event.target.value = "";
+        mostrarErro("Apenas vídeos no formato MP4 (.mp4) são aceitos.");
+        $("fileInput").value = "";
         return;
     }
 
     if (file.size > 150 * 1024 * 1024) {
         mostrarErro("O arquivo ultrapassa o limite permitido de 150 MB.");
-        event.target.value = "";
+        $("fileInput").value = "";
         return;
     }
 
@@ -1121,6 +1120,39 @@ async function selecionarArquivo(event) {
         $("loadingArea").classList.add("hidden");
         $("fileInput").value = "";
     }
+}
+
+/* =========================================================
+   DRAG & DROP REAL
+========================================================= */
+
+function inicializarDragAndDrop() {
+    const dropArea = $("modoUploadArea");
+    if (!dropArea) return;
+
+    ["dragenter", "dragover"].forEach(eventName => {
+        dropArea.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.add("drop-active");
+        }, false);
+    });
+
+    ["dragleave", "drop"].forEach(eventName => {
+        dropArea.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove("drop-active");
+        }, false);
+    });
+
+    dropArea.addEventListener("drop", (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+            selecionarArquivo(files[0]);
+        }
+    }, false);
 }
 
 /* =========================================================
@@ -1297,7 +1329,7 @@ function abrirYouTube(start) {
 }
 
 /* =========================================================
-   DOWNLOAD DO CORTE (COM AUTO-RETRY SE CAIR A SESSÃO)
+   DOWNLOAD DO CORTE
 ========================================================= */
 
 async function baixarCorte(start, duration, index) {
@@ -1337,7 +1369,6 @@ async function baixarCorte(start, duration, index) {
             body: JSON.stringify(payload)
         });
 
-        // Se a sessão expirou no backend (após reinício do Render), renova e tenta de novo
         if (response.status === 401) {
             sessionToken = "";
             localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -1391,7 +1422,7 @@ async function baixarCorte(start, duration, index) {
 }
 
 /* =========================================================
-   SESSÃO
+   SESSÃO DE CLIENTE
 ========================================================= */
 
 async function iniciarSessao() {
@@ -1513,7 +1544,7 @@ async function criarPagamento() {
         } else if (qrCode) {
             $("pixQrImage").src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
         } else {
-            throw new Error("O servidor não retornou o QR Code Pix.");
+            throw new Error("O servidor não retornou os dados de QR Code Pix.");
         }
 
         const ticketUrl = data.ticket_url || data.ticketUrl || "";
@@ -1603,7 +1634,7 @@ function iniciarPollingPix() {
 }
 
 /* =========================================================
-   ADMINISTRATIVO
+   ADMINISTRATIVO (SESSÃO ISOLADA DE CLIENTE)
 ========================================================= */
 
 function abrirAdmin() {
@@ -1644,7 +1675,8 @@ async function fazerLoginAdmin() {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password })
+                body: JSON.stringify({ password }),
+                skipAuthRefresh: true
             }
         );
 
@@ -1670,7 +1702,11 @@ async function carregarDashboard() {
         const data = await fetchJson(
             `${BACKEND_URL}/api/admin/dashboard`,
             {
-                headers: { Authorization: `Bearer ${adminToken}` }
+                headers: { 
+                    Authorization: `Bearer ${adminToken}`,
+                    "X-Admin-Session": adminToken
+                },
+                skipAuthRefresh: true
             }
         );
 
@@ -1694,7 +1730,7 @@ async function carregarDashboard() {
             </div>
         `;
     } catch (error) {
-        console.warn("Erro no dashboard:", error.message);
+        console.warn("Sessão administrativa encerrada:", error.message);
         logoutAdmin();
     }
 }
@@ -1740,6 +1776,7 @@ function fecharErro() {
 
 async function inicializar() {
     $("anoAtual").textContent = new Date().getFullYear();
+    inicializarDragAndDrop();
     atualizarInterfaceUsuario();
     await iniciarSessao();
 }
