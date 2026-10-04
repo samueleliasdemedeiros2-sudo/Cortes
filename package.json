@@ -1,10 +1,14 @@
 {
-  "name": "clipforge-server",
-  "version": "16.0.1",
-  "description": "Backend comercial de processamento e cortes de video para ClipForge Pro",
+  "name": "clipforge-pro-backend",
+  "version": "16.1.0",
+  "description": "Backend comercial consolidado para corte e processamento de videos com IA",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -12,11 +16,10 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "ffmpeg-static": "^5.2.0",
-    "mercadopago": "^2.0.11",
     "multer": "^1.4.5-lts.1",
     "pg": "^8.11.5"
   },
-  "engines": {
-    "node": ">=20.0.0"
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
