@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND V15.3.1
+ * CLIPFORGE PRO — BACKEND V15.3.4
  * CONSOLIDADO + RANGE/HEAD + FILA PROTEGIDA + RESERVAS
  * ============================================================
  */
@@ -22,7 +22,7 @@ const { criarPagamentoPix, consultarPagamentoPix } = require("./mercadoPago");
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
-const VERSION = "15.3.1-production-engine";
+const VERSION = "15.3.4-production-engine";
 
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 150);
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -99,8 +99,11 @@ app.set("trust proxy", 1);
 app.use(cors({
     origin: true, credentials: false,
     methods: ["GET", "POST", "HEAD", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Session", "Range"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-User-Id", "X-Admin-Session", "Range"],
+    exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition", "X-ClipForge-Version"]
 }));
+app.options("*", cors());
+
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 app.use((req, res, next) => {
@@ -353,7 +356,7 @@ async function downloadRemoteVideo(url, outputFile) {
         const res = await fetch(url, {
             redirect: "follow",
             signal: controller.signal,
-            headers: { "User-Agent": "ClipForge-Pro/15.3.1", Accept: "video/mp4,video/*;q=0.9,*/*;q=0.8" }
+            headers: { "User-Agent": "ClipForge-Pro/15.3.4", Accept: "video/mp4,video/*;q=0.9,*/*;q=0.8" }
         });
         if (!res.ok || !res.body) throw new Error(`Download HTTP ${res.status}`);
         const length = Number(res.headers.get("content-length") || 0);
@@ -396,8 +399,11 @@ async function downloadYouTubeWithYtDlp(url, outputTemplate) {
     if (result.code !== 0) throw new Error(result.stderr || result.stdout || "yt-dlp falhou.");
     const directory = path.dirname(outputTemplate);
     const files = await fsp.readdir(directory);
-    const candidate = files.find(f => /^source\.mp4$/i.test(f) || /\.mp4$/i.test(f));
-    if (!candidate) throw new Error("yt-dlp terminou sem gerar MP4.");
+    // Prioridade absoluta para o arquivo esperado pelo pipeline.
+    let candidate = files.find(f => f === "source.mp4");
+    if (!candidate) candidate = files.find(f => /^source\.mp4$/i.test(f));
+    if (!candidate) candidate = files.find(f => /\.mp4$/i.test(f));
+    if (!candidate) throw new Error(`yt-dlp terminou sem gerar MP4. Arquivos encontrados: ${files.join(", ") || "nenhum"}`);
     const filePath = path.join(directory, candidate);
     const metadata = await validateVideoFile(filePath);
     return { filePath, title: "", duration: metadata.duration, source: "yt-dlp" };
@@ -408,7 +414,7 @@ async function tryPipedDownload(videoId, outputFile) {
     for (const base of PIPED_API_URLS) {
         try {
             const res = await fetch(`${base}/streams/${encodeURIComponent(videoId)}`, {
-                headers: { Accept: "application/json", "User-Agent": "ClipForge-Pro/15.3.1" },
+                headers: { Accept: "application/json", "User-Agent": "ClipForge-Pro/15.3.4" },
                 signal: AbortSignal.timeout(YOUTUBE_SOURCE_TIMEOUT_MS)
             });
             if (!res.ok) continue;
@@ -431,7 +437,7 @@ async function tryInvidiousDownload(videoId, outputFile) {
     for (const base of INVIDIOUS_API_URLS) {
         try {
             const res = await fetch(`${base}/api/v1/videos/${encodeURIComponent(videoId)}?region=BR`, {
-                headers: { Accept: "application/json", "User-Agent": "ClipForge-Pro/15.3.1" },
+                headers: { Accept: "application/json", "User-Agent": "ClipForge-Pro/15.3.4" },
                 signal: AbortSignal.timeout(YOUTUBE_SOURCE_TIMEOUT_MS)
             });
             if (!res.ok) continue;
@@ -452,29 +458,48 @@ async function tryInvidiousDownload(videoId, outputFile) {
 async function downloadYouTubeVideo(url, outputTemplate) {
     const id = getYouTubeId(url);
     if (!id) throw new Error("ID do YouTube inválido.");
+
+    console.log(`[YouTube] URL recebida: ${url}`);
+    console.log(`[YouTube] ID identificado: ${id}`);
+
     const dir = path.dirname(outputTemplate);
     await fsp.mkdir(dir, { recursive: true });
     const outputFile = path.join(dir, "source.mp4");
     const errors = [];
+
     try {
-        console.log("[YouTube] Tentativa 1: yt-dlp");
-        return await downloadYouTubeWithYtDlp(url, outputTemplate);
+        console.log("[YouTube] Tentativa 1/3: yt-dlp...");
+        const result = await downloadYouTubeWithYtDlp(url, outputTemplate);
+        console.log(`[YouTube] yt-dlp OK! Arquivo: ${path.basename(result.filePath)} | Duração: ${result.duration}s`);
+        return result;
     } catch (e) {
-        errors.push(`yt-dlp: ${e.message}`);
-        metrics.openRouterRetries++;
-        console.warn("[YouTube] yt-dlp falhou; Piped...");
+        const detail = safeString(e?.message, "Erro desconhecido");
+        errors.push(`yt-dlp: ${detail}`);
+        console.warn(`[YouTube] yt-dlp falhou: ${detail.slice(0, 1200)}`);
     }
+
     try {
-        console.log("[YouTube] Tentativa 2: Piped");
-        return await tryPipedDownload(id, outputFile);
+        console.log("[YouTube] Tentativa 2/3: Piped...");
+        const result = await tryPipedDownload(id, outputFile);
+        console.log(`[YouTube] Piped OK! Duração: ${result.duration}s`);
+        return result;
     } catch (e) {
-        errors.push(`Piped: ${e.message}`);
-        console.warn("[YouTube] Piped falhou; Invidious...");
+        const detail = safeString(e?.message, "Erro desconhecido");
+        errors.push(`Piped: ${detail}`);
+        console.warn(`[YouTube] Piped falhou: ${detail.slice(0, 1200)}`);
     }
+
     try {
-        console.log("[YouTube] Tentativa 3: Invidious");
-        return await tryInvidiousDownload(id, outputFile);
-    } catch (e) { errors.push(`Invidious: ${e.message}`); }
+        console.log("[YouTube] Tentativa 3/3: Invidious...");
+        const result = await tryInvidiousDownload(id, outputFile);
+        console.log(`[YouTube] Invidious OK! Duração: ${result.duration}s`);
+        return result;
+    } catch (e) {
+        const detail = safeString(e?.message, "Erro desconhecido");
+        errors.push(`Invidious: ${detail}`);
+        console.warn(`[YouTube] Invidious falhou: ${detail.slice(0, 1200)}`);
+    }
+
     throw new Error(`Todas as tentativas de download falharam:\n${errors.join("\n")}`);
 }
 
@@ -727,9 +752,17 @@ function getBearerToken(req) {
 function requireUser(req, res, next) {
     const token = getBearerToken(req);
     const session = token ? sessions.get(token) : null;
-    const user = session && session.expiresAt > now() ? users.get(session.userId) : null;
+    let user = session && session.expiresAt > now() ? users.get(session.userId) : null;
+
+    // Compatibilidade com o frontend atual: aceita X-User-Id quando não houver Bearer válido.
+    if (!user) {
+        const headerId = safeString(req.headers["x-user-id"]).trim();
+        if (headerId) user = ensureUser(headerId);
+    }
+
     if (!user) return jsonError(res, 401, "Sessão inválida ou não autenticada.");
-    req.user = user; next();
+    req.user = user;
+    next();
 }
 function requireAdmin(req, res, next) {
     const token = safeString(req.headers["x-admin-session"]).trim() || getBearerToken(req);
