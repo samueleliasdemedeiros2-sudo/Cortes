@@ -168,18 +168,21 @@
         }
 
         .fade-in { animation: fadeIn .35s ease both; }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .slide-up { animation: slideUp .3s ease both; }
+
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .toast { animation: toastIn .25s ease both; }
+
         @keyframes toastIn {
             from { opacity: 0; transform: translateY(12px) scale(.97); }
             to { opacity: 1; transform: translateY(0) scale(1); }
@@ -345,7 +348,7 @@
 
                     <div class="glass rounded-2xl p-3 sm:p-4 shadow-2xl">
 
-                        <!-- MODO UPLOAD (COM DRAG & DROP NATIVO) -->
+                        <!-- MODO UPLOAD -->
                         <div
                             id="modoUploadArea"
                             class="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-white/20 rounded-xl p-8 text-center transition cursor-pointer"
@@ -420,7 +423,7 @@
                     </div>
 
                     <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise Gemini</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise com IA</span>
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cortes automáticos</span>
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> Exportação em MP4</span>
                     </div>
@@ -938,7 +941,6 @@ function authHeaders() {
     return headers;
 }
 
-// Suporta skipAuthRefresh para não poluir rotas administrativas
 async function fetchJson(url, options = {}) {
     const { skipAuthRefresh = false, ...fetchOpts } = options;
 
@@ -967,6 +969,7 @@ async function fetchJson(url, options = {}) {
     }
 
     let data = null;
+
     try {
         data = await response.json();
     } catch {
@@ -979,8 +982,10 @@ async function fetchJson(url, options = {}) {
             data?.message ||
             `Erro HTTP ${response.status}`
         );
+
         error.status = response.status;
         error.data = data;
+
         throw error;
     }
 
@@ -998,28 +1003,35 @@ function alternarModo(modo) {
     if (modo === "upload") {
         $("tabUpload").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
+
         $("tabYoutube").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
+
         $("modoUploadArea").classList.remove("hidden");
         $("modoYoutubeArea").classList.add("hidden");
+
     } else {
+
         $("tabYoutube").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
+
         $("tabUpload").className =
             "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
+
         $("modoUploadArea").classList.add("hidden");
         $("modoYoutubeArea").classList.remove("hidden");
     }
 }
 
 /* =========================================================
-   UPLOAD DIRETO MP4 (VALIDAÇÃO TOLERANTE A CLIENTE MÓVEL)
+   UPLOAD DIRETO MP4
 ========================================================= */
 
 async function selecionarArquivo(file) {
     if (!file) return;
 
     const nome = String(file.name || "").toLowerCase();
+
     if (!nome.endsWith(".mp4")) {
         mostrarErro("Apenas vídeos no formato MP4 (.mp4) são aceitos.");
         $("fileInput").value = "";
@@ -1037,11 +1049,14 @@ async function selecionarArquivo(file) {
     $("resultados").classList.add("hidden");
     $("loadingArea").classList.remove("hidden");
     $("loadingTitle").textContent = "Enviando arquivo ao servidor";
+
     $("loadingText").textContent =
         `Carregando ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`;
+
     $("loadingBar").style.width = "25%";
 
     try {
+
         const formData = new FormData();
         formData.append("video", file);
 
@@ -1057,6 +1072,7 @@ async function selecionarArquivo(file) {
         if (uploadRes.status === 401) {
             sessionToken = "";
             localStorage.removeItem(SESSION_STORAGE_KEY);
+
             await iniciarSessao();
 
             uploadRes = await fetch(
@@ -1070,6 +1086,7 @@ async function selecionarArquivo(file) {
         }
 
         let uploadData = null;
+
         try {
             uploadData = await uploadRes.json();
         } catch {
@@ -1085,38 +1102,74 @@ async function selecionarArquivo(file) {
         }
 
         uploadIdAtual = uploadData.uploadId;
-        $("uploadFileLabel").textContent = `Arquivo carregado: ${file.name}`;
-        mostrarToast("Upload concluído! Analisando vídeo...", "success");
 
-        $("loadingTitle").textContent = "A IA está analisando os melhores momentos";
-        $("loadingText").textContent = "Processando timeline e ganchos narrativos com Gemini...";
+        $("uploadFileLabel").textContent =
+            `Arquivo carregado: ${file.name}`;
+
+        mostrarToast(
+            "Upload concluído! Analisando vídeo...",
+            "success"
+        );
+
+        $("loadingTitle").textContent =
+            "A IA está analisando os melhores momentos";
+
+        /* ALTERADO: Gemini → IA */
+        $("loadingText").textContent =
+            "Processando timeline e ganchos narrativos com IA...";
+
         $("loadingBar").style.width = "70%";
 
         const analiseData = await fetchJson(
             `${BACKEND_URL}/api/analisar`,
             {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ uploadId: uploadIdAtual })
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    uploadId: uploadIdAtual
+                })
             }
         );
 
-        if (!analiseData?.clips || !Array.isArray(analiseData.clips) || !analiseData.clips.length) {
-            throw new Error("A IA não encontrou cortes com os parâmetros informados.");
+        if (
+            !analiseData?.clips ||
+            !Array.isArray(analiseData.clips) ||
+            !analiseData.clips.length
+        ) {
+            throw new Error(
+                "A IA não encontrou cortes com os parâmetros informados."
+            );
         }
 
         clipsAtuais = analiseData.clips;
         videoAtualId = "";
         videoAtualUrl = "";
+
         $("loadingBar").style.width = "100%";
 
         renderizarCortes(clipsAtuais);
-        mostrarToast(`${clipsAtuais.length} cortes gerados com sucesso!`, "success");
+
+        mostrarToast(
+            `${clipsAtuais.length} cortes gerados com sucesso!`,
+            "success"
+        );
 
     } catch (err) {
-        console.error("Erro no processamento:", err);
-        mostrarErro(err.message || "Erro durante o processamento do vídeo.");
+
+        console.error(
+            "Erro no processamento:",
+            err
+        );
+
+        mostrarErro(
+            err.message ||
+            "Erro durante o processamento do vídeo."
+        );
+
     } finally {
+
         $("loadingArea").classList.add("hidden");
         $("fileInput").value = "";
     }
@@ -1131,27 +1184,38 @@ function inicializarDragAndDrop() {
     if (!dropArea) return;
 
     ["dragenter", "dragover"].forEach(eventName => {
+
         dropArea.addEventListener(eventName, (e) => {
+
             e.preventDefault();
             e.stopPropagation();
+
             dropArea.classList.add("drop-active");
+
         }, false);
     });
 
     ["dragleave", "drop"].forEach(eventName => {
+
         dropArea.addEventListener(eventName, (e) => {
+
             e.preventDefault();
             e.stopPropagation();
+
             dropArea.classList.remove("drop-active");
+
         }, false);
     });
 
     dropArea.addEventListener("drop", (e) => {
+
         const dt = e.dataTransfer;
         const files = dt.files;
+
         if (files && files.length > 0) {
             selecionarArquivo(files[0]);
         }
+
     }, false);
 }
 
@@ -1161,6 +1225,7 @@ function inicializarDragAndDrop() {
 
 function extrairYouTubeId(url) {
     if (!url) return null;
+
     const value = String(url).trim();
 
     const patterns = [
@@ -1172,15 +1237,22 @@ function extrairYouTubeId(url) {
     ];
 
     for (const pattern of patterns) {
+
         const match = value.match(pattern);
-        if (match) return match[1];
+
+        if (match) {
+            return match[1];
+        }
     }
+
     return null;
 }
 
 async function gerarCortesYoutube() {
+
     const input = $("videoUrl");
     const url = input.value.trim();
+
     fecharErro();
 
     if (!url) {
@@ -1190,8 +1262,12 @@ async function gerarCortesYoutube() {
     }
 
     const videoId = extrairYouTubeId(url);
+
     if (!videoId) {
-        mostrarErro("O link informado não parece ser um link válido do YouTube.");
+        mostrarErro(
+            "O link informado não parece ser um link válido do YouTube."
+        );
+
         input.focus();
         return;
     }
@@ -1202,35 +1278,68 @@ async function gerarCortesYoutube() {
 
     $("resultados").classList.add("hidden");
     $("loadingArea").classList.remove("hidden");
-    $("loadingTitle").textContent = "A IA está analisando o YouTube";
-    $("loadingText").textContent = "Identificando trechos de impacto com a Interactions API...";
+
+    $("loadingTitle").textContent =
+        "A IA está analisando o YouTube";
+
+    /* ALTERADO: Interactions API → IA */
+    $("loadingText").textContent =
+        "Identificando trechos de impacto com inteligência artificial...";
+
     $("loadingBar").style.width = "45%";
+
     $("btnGerarYoutube").disabled = true;
 
     try {
+
         const data = await fetchJson(
             `${BACKEND_URL}/api/analisar`,
             {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: url })
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    url: url
+                })
             }
         );
 
-        if (!data?.clips || !Array.isArray(data.clips) || !data.clips.length) {
-            throw new Error("A IA não encontrou cortes com o critério solicitado.");
+        if (
+            !data?.clips ||
+            !Array.isArray(data.clips) ||
+            !data.clips.length
+        ) {
+            throw new Error(
+                "A IA não encontrou cortes com o critério solicitado."
+            );
         }
 
         $("loadingBar").style.width = "100%";
+
         clipsAtuais = data.clips;
 
         renderizarCortes(clipsAtuais);
-        mostrarToast(`${clipsAtuais.length} cortes encontrados!`, "success");
+
+        mostrarToast(
+            `${clipsAtuais.length} cortes encontrados!`,
+            "success"
+        );
 
     } catch (error) {
-        console.error("Erro na análise do YouTube:", error);
-        mostrarErro(error.message || "Não foi possível analisar o vídeo.");
+
+        console.error(
+            "Erro na análise do YouTube:",
+            error
+        );
+
+        mostrarErro(
+            error.message ||
+            "Não foi possível analisar o vídeo."
+        );
+
     } finally {
+
         $("loadingArea").classList.add("hidden");
         $("btnGerarYoutube").disabled = false;
     }
@@ -1241,31 +1350,66 @@ async function gerarCortesYoutube() {
 ========================================================= */
 
 function renderizarCortes(clips) {
+
     const container = $("cardsContainer");
+
     container.innerHTML = "";
-    $("resultadoSubtitulo").textContent = `${clips.length} cortes encontrados pela IA.`;
+
+    $("resultadoSubtitulo").textContent =
+        `${clips.length} cortes encontrados pela IA.`;
 
     clips.forEach((clip, index) => {
+
         const rawStart = Number(clip.start) || 0;
         const start = Math.max(0, rawStart);
 
         let duration = Number(clip.duration);
+
         if (!Number.isFinite(duration) || duration <= 0) {
+
             const rawEnd = Number(clip.end) || 0;
-            duration = rawEnd > start ? rawEnd - start : 50;
+
+            duration =
+                rawEnd > start
+                    ? rawEnd - start
+                    : 50;
         }
 
-        duration = Math.min(90, Math.max(10, Math.round(duration)));
-        const end = Number((start + duration).toFixed(2));
+        duration =
+            Math.min(
+                90,
+                Math.max(
+                    10,
+                    Math.round(duration)
+                )
+            );
 
-        const title = clip.title || `Corte #${index + 1}`;
-        const description = clip.description || "Destaque do vídeo";
-        const score = clip.score ?? 85;
+        const end =
+            Number(
+                (start + duration).toFixed(2)
+            );
+
+        const title =
+            clip.title ||
+            `Corte #${index + 1}`;
+
+        const description =
+            clip.description ||
+            "Destaque do vídeo";
+
+        const score =
+            clip.score ??
+            85;
 
         let thumbSrc = "";
+
         if (videoAtualId) {
-            thumbSrc = `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`;
+
+            thumbSrc =
+                `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`;
+
         } else {
+
             thumbSrc =
                 "data:image/svg+xml;utf8," +
                 encodeURIComponent(`
@@ -1276,42 +1420,83 @@ function renderizarCortes(clips) {
                 `);
         }
 
-        const card = document.createElement("article");
-        card.className = "card rounded-2xl overflow-hidden fade-in";
-        card.style.animationDelay = `${index * 70}ms`;
+        const card =
+            document.createElement("article");
+
+        card.className =
+            "card rounded-2xl overflow-hidden fade-in";
+
+        card.style.animationDelay =
+            `${index * 70}ms`;
 
         card.innerHTML = `
             <div class="relative aspect-video bg-black">
                 <img src="${escapeHtml(thumbSrc)}" alt="" class="w-full h-full object-cover opacity-70" loading="lazy">
                 <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+
                 <div class="absolute top-3 left-3">
-                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">CORTE ${index + 1}</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur text-[10px] font-bold text-white border border-white/10">
+                        CORTE ${index + 1}
+                    </span>
                 </div>
+
                 <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
+
                     <div>
-                        <div class="text-xs text-zinc-400">${formatarTempo(start)} → ${formatarTempo(end)}</div>
-                        <div class="text-sm font-bold mt-1 line-clamp-2">${escapeHtml(title)}</div>
+
+                        <div class="text-xs text-zinc-400">
+                            ${formatarTempo(start)} → ${formatarTempo(end)}
+                        </div>
+
+                        <div class="text-sm font-bold mt-1 line-clamp-2">
+                            ${escapeHtml(title)}
+                        </div>
+
                     </div>
-                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">${escapeHtml(score)}</div>
+
+                    <div class="shrink-0 px-2 py-1 rounded-lg bg-white text-black text-[10px] font-black">
+                        ${escapeHtml(score)}
+                    </div>
+
                 </div>
             </div>
 
             <div class="p-5">
-                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">${escapeHtml(description)}</p>
+
+                <p class="text-xs text-zinc-500 leading-5 line-clamp-2 min-h-[40px]">
+                    ${escapeHtml(description)}
+                </p>
+
                 <div class="grid ${videoAtualId ? "grid-cols-2" : "grid-cols-1"} gap-2 mt-5">
+
                     ${videoAtualId ? `
-                        <button onclick="abrirYouTube(${start})" class="btn-dark h-11 rounded-xl text-xs font-semibold">
-                            <i class="fa-brands fa-youtube mr-1.5"></i> Assistir
+                        <button
+                            onclick="abrirYouTube(${start})"
+                            class="btn-dark h-11 rounded-xl text-xs font-semibold"
+                        >
+                            <i class="fa-brands fa-youtube mr-1.5"></i>
+                            Assistir
                         </button>
                     ` : ""}
-                    <button id="btnDl_${index}" onclick="baixarCorte(${start}, ${duration}, ${index})" class="btn-main h-11 rounded-xl text-xs font-bold">
-                        <i class="fa-solid fa-download mr-1.5"></i> Baixar Corte
+
+                    <button
+                        id="btnDl_${index}"
+                        onclick="baixarCorte(${start}, ${duration}, ${index})"
+                        class="btn-main h-11 rounded-xl text-xs font-bold"
+                    >
+                        <i class="fa-solid fa-download mr-1.5"></i>
+                        Baixar Corte
                     </button>
+
                 </div>
+
                 <div class="flex items-center justify-between mt-4 text-[10px] text-zinc-600">
                     <span>Duração: ${Math.round(duration)}s</span>
-                    <span>${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}</span>
+                    <span>
+                        ${usuario.isVip ? "VIP (Ilimitado)" : "Custo: 50 pontos"}
+                    </span>
                 </div>
+
             </div>
         `;
 
@@ -1319,13 +1504,25 @@ function renderizarCortes(clips) {
     });
 
     $("resultados").classList.remove("hidden");
-    $("resultados").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    $("resultados").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
 }
 
 function abrirYouTube(start) {
+
     if (!videoAtualId) return;
-    const url = `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
-    window.open(url, "_blank", "noopener,noreferrer");
+
+    const url =
+        `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
+
+    window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+    );
 }
 
 /* =========================================================
@@ -1333,89 +1530,165 @@ function abrirYouTube(start) {
 ========================================================= */
 
 async function baixarCorte(start, duration, index) {
+
     if (!usuario.isVip && usuario.pontos < 50) {
-        mostrarToast("Você não possui saldo de pontos suficiente (50 necessários). Ative o VIP!", "error");
+
+        mostrarToast(
+            "Você não possui saldo de pontos suficiente (50 necessários). Ative o VIP!",
+            "error"
+        );
+
         abrirPlanos();
         return;
     }
 
     const btn = $(`btnDl_${index}`);
+
     if (!btn) return;
 
     const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<div class="loader"></div>`;
 
-    mostrarToast("Renderizando corte via FFmpeg... Aguarde.", "normal");
+    btn.disabled = true;
+    btn.innerHTML =
+        `<div class="loader"></div>`;
+
+    mostrarToast(
+        "Renderizando corte via FFmpeg... Aguarde.",
+        "normal"
+    );
 
     try {
+
         const payload = {
             start: start,
             duration: duration
         };
 
         if (uploadIdAtual) {
-            payload.uploadId = uploadIdAtual;
+
+            payload.uploadId =
+                uploadIdAtual;
+
         } else {
-            payload.url = videoAtualUrl || `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}`;
+
+            payload.url =
+                videoAtualUrl ||
+                `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}`;
         }
 
-        let response = await fetch(`${BACKEND_URL}/api/download`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeaders()
-            },
-            body: JSON.stringify(payload)
-        });
+        let response =
+            await fetch(
+                `${BACKEND_URL}/api/download`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...authHeaders()
+                    },
+
+                    body: JSON.stringify(payload)
+                }
+            );
 
         if (response.status === 401) {
+
             sessionToken = "";
-            localStorage.removeItem(SESSION_STORAGE_KEY);
+
+            localStorage.removeItem(
+                SESSION_STORAGE_KEY
+            );
+
             await iniciarSessao();
 
-            response = await fetch(`${BACKEND_URL}/api/download`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...authHeaders()
-                },
-                body: JSON.stringify(payload)
-            });
+            response =
+                await fetch(
+                    `${BACKEND_URL}/api/download`,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...authHeaders()
+                        },
+
+                        body: JSON.stringify(payload)
+                    }
+                );
         }
 
         if (!response.ok) {
+
             let errJson = null;
+
             try {
-                errJson = await response.json();
+                errJson =
+                    await response.json();
             } catch {}
-            throw new Error(errJson?.error || `Falha no download (${response.status})`);
+
+            throw new Error(
+                errJson?.error ||
+                `Falha no download (${response.status})`
+            );
         }
 
-        const blob = await response.blob();
+        const blob =
+            await response.blob();
+
         if (!blob || blob.size === 0) {
-            throw new Error("O servidor retornou um arquivo de vídeo vazio.");
+
+            throw new Error(
+                "O servidor retornou um arquivo de vídeo vazio."
+            );
         }
 
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const objectUrl =
+            URL.createObjectURL(blob);
+
+        const a =
+            document.createElement("a");
+
         a.href = objectUrl;
-        a.download = `clipforge_${uploadIdAtual ? "corte" : videoAtualId}_${Math.floor(start)}s.mp4`;
+
+        a.download =
+            `clipforge_${uploadIdAtual ? "corte" : videoAtualId}_${Math.floor(start)}s.mp4`;
+
         document.body.appendChild(a);
+
         a.click();
+
         a.remove();
 
         setTimeout(() => {
-            URL.revokeObjectURL(objectUrl);
+
+            URL.revokeObjectURL(
+                objectUrl
+            );
+
         }, 10000);
 
-        mostrarToast("Download concluído com sucesso!", "success");
+        mostrarToast(
+            "Download concluído com sucesso!",
+            "success"
+        );
+
         await atualizarUsuario();
 
     } catch (err) {
-        console.error("Erro no download:", err);
-        mostrarToast(err.message || "Erro ao renderizar o vídeo.", "error");
+
+        console.error(
+            "Erro no download:",
+            err
+        );
+
+        mostrarToast(
+            err.message ||
+            "Erro ao renderizar o vídeo.",
+            "error"
+        );
+
     } finally {
+
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
@@ -1426,70 +1699,162 @@ async function baixarCorte(start, duration, index) {
 ========================================================= */
 
 async function iniciarSessao() {
+
     try {
+
         const payload = {};
-        if (usuario.userId) payload.userId = usuario.userId;
 
-        const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        if (usuario.userId) {
+            payload.userId =
+                usuario.userId;
+        }
 
-        const data = await response.json();
+        const response =
+            await fetch(
+                `${BACKEND_URL}/api/auth/login`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(payload)
+                }
+            );
+
+        const data =
+            await response.json();
 
         if (data.token) {
-            sessionToken = data.token;
-            localStorage.setItem(SESSION_STORAGE_KEY, sessionToken);
+
+            sessionToken =
+                data.token;
+
+            localStorage.setItem(
+                SESSION_STORAGE_KEY,
+                sessionToken
+            );
         }
 
         if (data.user) {
-            usuario.userId = data.user.id;
-            localStorage.setItem("clipforge_uid", usuario.userId);
-            usuario.pontos = data.user.points ?? 200;
-            usuario.isVip = Boolean(data.user.vip);
+
+            usuario.userId =
+                data.user.id;
+
+            localStorage.setItem(
+                "clipforge_uid",
+                usuario.userId
+            );
+
+            usuario.pontos =
+                data.user.points ?? 200;
+
+            usuario.isVip =
+                Boolean(data.user.vip);
         }
 
         atualizarInterfaceUsuario();
+
     } catch (error) {
-        console.warn("Aviso na conexão com o servidor:", error.message);
+
+        console.warn(
+            "Aviso na conexão com o servidor:",
+            error.message
+        );
+
         atualizarInterfaceUsuario();
     }
 }
 
 async function atualizarUsuario() {
+
     if (!sessionToken) return;
+
     try {
-        const data = await fetchJson(`${BACKEND_URL}/api/auth/me`, { method: "GET" });
+
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/auth/me`,
+                {
+                    method: "GET"
+                }
+            );
+
         if (data.user) {
-            usuario.pontos = data.user.points ?? usuario.pontos;
-            usuario.isVip = Boolean(data.user.vip);
+
+            usuario.pontos =
+                data.user.points ??
+                usuario.pontos;
+
+            usuario.isVip =
+                Boolean(data.user.vip);
+
             atualizarInterfaceUsuario();
         }
+
     } catch (e) {
+
         if (e.status === 401) {
+
             sessionToken = "";
-            localStorage.removeItem(SESSION_STORAGE_KEY);
+
+            localStorage.removeItem(
+                SESSION_STORAGE_KEY
+            );
+
             await iniciarSessao();
         }
     }
 }
 
 function atualizarInterfaceUsuario() {
-    const pontos = Math.max(0, Math.floor(usuario.pontos || 0));
-    $("pointsValue").textContent = pontos;
-    $("mobilePointsValue").textContent = pontos;
+
+    const pontos =
+        Math.max(
+            0,
+            Math.floor(
+                usuario.pontos || 0
+            )
+        );
+
+    $("pointsValue").textContent =
+        pontos;
+
+    $("mobilePointsValue").textContent =
+        pontos;
 
     if (usuario.isVip) {
-        $("planText").textContent = "VIP";
-        $("planIcon").className = "fa-solid fa-crown text-xs";
-        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> VIP ativo`;
-        $("vipHeaderButton").classList.add("opacity-70");
+
+        $("planText").textContent =
+            "VIP";
+
+        $("planIcon").className =
+            "fa-solid fa-crown text-xs";
+
+        $("vipHeaderButton").innerHTML =
+            `<i class="fa-solid fa-crown text-[11px]"></i> VIP ativo`;
+
+        $("vipHeaderButton")
+            .classList
+            .add("opacity-70");
+
     } else {
-        $("planText").textContent = "FREE";
-        $("planIcon").className = "fa-regular fa-star text-xs";
-        $("vipHeaderButton").innerHTML = `<i class="fa-solid fa-crown text-[11px]"></i> Seja VIP`;
-        $("vipHeaderButton").classList.remove("opacity-70");
+
+        $("planText").textContent =
+            "FREE";
+
+        $("planIcon").className =
+            "fa-regular fa-star text-xs";
+
+        $("vipHeaderButton").innerHTML =
+            `<i class="fa-solid fa-crown text-[11px]"></i> Seja VIP`;
+
+        $("vipHeaderButton")
+            .classList
+            .remove("opacity-70");
     }
 }
 
@@ -1498,13 +1863,25 @@ function atualizarInterfaceUsuario() {
 ========================================================= */
 
 function abrirPlanos() {
-    $("planModal").classList.remove("hidden");
-    document.body.classList.add("overflow-hidden");
+
+    $("planModal")
+        .classList
+        .remove("hidden");
+
+    document.body
+        .classList
+        .add("overflow-hidden");
 }
 
 function fecharPlanos() {
-    $("planModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
+
+    $("planModal")
+        .classList
+        .add("hidden");
+
+    document.body
+        .classList
+        .remove("overflow-hidden");
 }
 
 /* =========================================================
@@ -1512,262 +1889,588 @@ function fecharPlanos() {
 ========================================================= */
 
 async function criarPagamento() {
+
     fecharPlanos();
-    $("pixModal").classList.remove("hidden");
-    document.body.classList.add("overflow-hidden");
-    $("pixLoading").classList.remove("hidden");
-    $("pixContent").classList.add("hidden");
+
+    $("pixModal")
+        .classList
+        .remove("hidden");
+
+    document.body
+        .classList
+        .add("overflow-hidden");
+
+    $("pixLoading")
+        .classList
+        .remove("hidden");
+
+    $("pixContent")
+        .classList
+        .add("hidden");
 
     $("pixLoading").innerHTML = `
         <div class="py-10">
-            <div class="flex justify-center mb-4"><div class="loader-light"></div></div>
-            <p class="text-sm text-zinc-400">Gerando seu Pix...</p>
+            <div class="flex justify-center mb-4">
+                <div class="loader-light"></div>
+            </div>
+
+            <p class="text-sm text-zinc-400">
+                Gerando seu Pix...
+            </p>
         </div>
     `;
 
     try {
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/pix/criar`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({})
-            }
-        );
 
-        pagamentoAtual = data;
-        const qrCode = data.qr_code || data.qrCode || "";
-        const qrBase64 = data.qr_code_base64 || data.qrCodeBase64 || "";
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/pix/criar`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({})
+                }
+            );
+
+        pagamentoAtual =
+            data;
+
+        const qrCode =
+            data.qr_code ||
+            data.qrCode ||
+            "";
+
+        const qrBase64 =
+            data.qr_code_base64 ||
+            data.qrCodeBase64 ||
+            "";
 
         if (qrBase64) {
-            $("pixQrImage").src = qrBase64.startsWith("data:") ? qrBase64 : `data:image/png;base64,${qrBase64}`;
+
+            $("pixQrImage").src =
+                qrBase64.startsWith("data:")
+                    ? qrBase64
+                    : `data:image/png;base64,${qrBase64}`;
+
         } else if (qrCode) {
-            $("pixQrImage").src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
+
+            $("pixQrImage").src =
+                `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=10&data=${encodeURIComponent(qrCode)}`;
+
         } else {
-            throw new Error("O servidor não retornou os dados de QR Code Pix.");
+
+            throw new Error(
+                "O servidor não retornou os dados de QR Code Pix."
+            );
         }
 
-        const ticketUrl = data.ticket_url || data.ticketUrl || "";
+        const ticketUrl =
+            data.ticket_url ||
+            data.ticketUrl ||
+            "";
+
         if (ticketUrl) {
-            $("pixTicketLink").href = ticketUrl;
-            $("pixTicketLink").classList.remove("hidden");
+
+            $("pixTicketLink").href =
+                ticketUrl;
+
+            $("pixTicketLink")
+                .classList
+                .remove("hidden");
+
         } else {
-            $("pixTicketLink").classList.add("hidden");
+
+            $("pixTicketLink")
+                .classList
+                .add("hidden");
         }
 
-        $("pixLoading").classList.add("hidden");
-        $("pixContent").classList.remove("hidden");
+        $("pixLoading")
+            .classList
+            .add("hidden");
+
+        $("pixContent")
+            .classList
+            .remove("hidden");
+
         iniciarPollingPix();
 
     } catch (e) {
+
         $("pixLoading").innerHTML = `
             <div class="py-8">
+
                 <i class="fa-solid fa-circle-exclamation text-xl text-zinc-500"></i>
-                <p class="text-xs text-zinc-400 mt-3">${escapeHtml(e.message)}</p>
-                <button onclick="criarPagamento()" class="btn-dark px-4 py-2 rounded-xl text-xs font-semibold mt-4">Tentar novamente</button>
+
+                <p class="text-xs text-zinc-400 mt-3">
+                    ${escapeHtml(e.message)}
+                </p>
+
+                <button
+                    onclick="criarPagamento()"
+                    class="btn-dark px-4 py-2 rounded-xl text-xs font-semibold mt-4"
+                >
+                    Tentar novamente
+                </button>
+
             </div>
         `;
     }
 }
 
 function fecharPix() {
+
     if (pollingPix) {
-        clearInterval(pollingPix);
+
+        clearInterval(
+            pollingPix
+        );
+
         pollingPix = null;
     }
-    $("pixModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
+
+    $("pixModal")
+        .classList
+        .add("hidden");
+
+    document.body
+        .classList
+        .remove("overflow-hidden");
 }
 
 function copiarPix() {
-    const codigo = pagamentoAtual?.qr_code || pagamentoAtual?.qrCode || "";
+
+    const codigo =
+        pagamentoAtual?.qr_code ||
+        pagamentoAtual?.qrCode ||
+        "";
+
     if (!codigo) {
-        mostrarToast("Código Pix indisponível.", "error");
+
+        mostrarToast(
+            "Código Pix indisponível.",
+            "error"
+        );
+
         return;
     }
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(codigo).then(() => {
-            mostrarToast("Código Pix copiado!", "success");
-        }).catch(() => {
-            mostrarToast("Não foi possível copiar automaticamente.", "error");
-        });
+    if (
+        navigator.clipboard &&
+        navigator.clipboard.writeText
+    ) {
+
+        navigator.clipboard
+            .writeText(codigo)
+            .then(() => {
+
+                mostrarToast(
+                    "Código Pix copiado!",
+                    "success"
+                );
+
+            })
+            .catch(() => {
+
+                mostrarToast(
+                    "Não foi possível copiar automaticamente.",
+                    "error"
+                );
+            });
+
     } else {
-        mostrarToast("Seu navegador não permite copiar automaticamente.", "error");
+
+        mostrarToast(
+            "Seu navegador não permite copiar automaticamente.",
+            "error"
+        );
     }
 }
 
 function iniciarPollingPix() {
-    if (pollingPix) clearInterval(pollingPix);
 
-    pollingPix = setInterval(async () => {
-        if (!pagamentoAtual?.id) return;
+    if (pollingPix) {
+        clearInterval(pollingPix);
+    }
 
-        try {
-            const data = await fetchJson(`${BACKEND_URL}/api/pix/status/${encodeURIComponent(pagamentoAtual.id)}`);
+    pollingPix =
+        setInterval(
+            async () => {
 
-            if (data.status === "approved" || data.approved === true) {
-                clearInterval(pollingPix);
-                pollingPix = null;
+                if (!pagamentoAtual?.id) {
+                    return;
+                }
 
-                $("pixStatus").className = "rounded-xl border p-4 mt-5 text-left border-white/[.12] bg-white/[.04]";
-                $("pixStatus").innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center">
-                            <i class="fa-solid fa-check"></i>
-                        </div>
-                        <div>
-                            <div class="text-sm font-semibold">Pagamento confirmado</div>
-                            <div class="text-xs text-zinc-500 mt-0.5">Seu VIP foi ativado.</div>
-                        </div>
-                    </div>
-                `;
+                try {
 
-                await atualizarUsuario();
-                mostrarToast("VIP ativado com sucesso!", "success");
-                setTimeout(fecharPix, 1500);
-            }
-        } catch (error) {
-            console.warn("Erro no polling Pix:", error.message);
-        }
-    }, 4000);
+                    const data =
+                        await fetchJson(
+                            `${BACKEND_URL}/api/pix/status/${encodeURIComponent(pagamentoAtual.id)}`
+                        );
+
+                    if (
+                        data.status === "approved" ||
+                        data.approved === true
+                    ) {
+
+                        clearInterval(
+                            pollingPix
+                        );
+
+                        pollingPix = null;
+
+                        $("pixStatus").className =
+                            "rounded-xl border p-4 mt-5 text-left border-white/[.12] bg-white/[.04]";
+
+                        $("pixStatus").innerHTML = `
+                            <div class="flex items-center gap-3">
+
+                                <div class="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+
+                                <div>
+
+                                    <div class="text-sm font-semibold">
+                                        Pagamento confirmado
+                                    </div>
+
+                                    <div class="text-xs text-zinc-500 mt-0.5">
+                                        Seu VIP foi ativado.
+                                    </div>
+
+                                </div>
+                            </div>
+                        `;
+
+                        await atualizarUsuario();
+
+                        mostrarToast(
+                            "VIP ativado com sucesso!",
+                            "success"
+                        );
+
+                        setTimeout(
+                            fecharPix,
+                            1500
+                        );
+                    }
+
+                } catch (error) {
+
+                    console.warn(
+                        "Erro no polling Pix:",
+                        error.message
+                    );
+                }
+
+            },
+            4000
+        );
 }
 
 /* =========================================================
-   ADMINISTRATIVO (SESSÃO ISOLADA DE CLIENTE)
+   ADMINISTRATIVO
 ========================================================= */
 
 function abrirAdmin() {
-    $("adminModal").classList.remove("hidden");
-    document.body.classList.add("overflow-hidden");
+
+    $("adminModal")
+        .classList
+        .remove("hidden");
+
+    document.body
+        .classList
+        .add("overflow-hidden");
 
     if (adminToken) {
-        $("adminLoginArea").classList.add("hidden");
-        $("adminDashboard").classList.remove("hidden");
+
+        $("adminLoginArea")
+            .classList
+            .add("hidden");
+
+        $("adminDashboard")
+            .classList
+            .remove("hidden");
+
         carregarDashboard();
     }
 }
 
 function fecharAdmin() {
-    $("adminModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
+
+    $("adminModal")
+        .classList
+        .add("hidden");
+
+    document.body
+        .classList
+        .remove("overflow-hidden");
 }
 
 function toggleAdminPassword() {
-    const input = $("adminPassword");
-    input.type = input.type === "password" ? "text" : "password";
-    $("adminEye").className = input.type === "password" ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
+
+    const input =
+        $("adminPassword");
+
+    input.type =
+        input.type === "password"
+            ? "text"
+            : "password";
+
+    $("adminEye").className =
+        input.type === "password"
+            ? "fa-regular fa-eye"
+            : "fa-regular fa-eye-slash";
 }
 
 async function fazerLoginAdmin() {
-    const password = $("adminPassword").value.trim();
+
+    const password =
+        $("adminPassword")
+            .value
+            .trim();
+
     if (!password) return;
 
-    const button = $("btnAdminLogin");
-    const originalText = button.innerHTML;
+    const button =
+        $("btnAdminLogin");
+
+    const originalText =
+        button.innerHTML;
+
     button.disabled = true;
-    button.innerHTML = `<div class="loader"></div>`;
-    $("adminLoginError").classList.add("hidden");
+
+    button.innerHTML =
+        `<div class="loader"></div>`;
+
+    $("adminLoginError")
+        .classList
+        .add("hidden");
 
     try {
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/admin/login`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password }),
-                skipAuthRefresh: true
-            }
+
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/admin/login`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            password
+                        }),
+
+                    skipAuthRefresh: true
+                }
+            );
+
+        adminToken =
+            data.token;
+
+        localStorage.setItem(
+            ADMIN_STORAGE_KEY,
+            adminToken
         );
 
-        adminToken = data.token;
-        localStorage.setItem(ADMIN_STORAGE_KEY, adminToken);
-        $("adminLoginArea").classList.add("hidden");
-        $("adminDashboard").classList.remove("hidden");
+        $("adminLoginArea")
+            .classList
+            .add("hidden");
+
+        $("adminDashboard")
+            .classList
+            .remove("hidden");
+
         await carregarDashboard();
+
     } catch (e) {
-        $("adminLoginError").textContent = e.message || "Senha incorreta.";
-        $("adminLoginError").classList.remove("hidden");
+
+        $("adminLoginError").textContent =
+            e.message ||
+            "Senha incorreta.";
+
+        $("adminLoginError")
+            .classList
+            .remove("hidden");
+
     } finally {
+
         button.disabled = false;
-        button.innerHTML = originalText;
+
+        button.innerHTML =
+            originalText;
     }
 }
 
 async function carregarDashboard() {
-    const stats = $("adminStats");
-    stats.innerHTML = `<div class="col-span-2 text-center py-4"><div class="loader-light mx-auto"></div></div>`;
+
+    const stats =
+        $("adminStats");
+
+    stats.innerHTML =
+        `<div class="col-span-2 text-center py-4"><div class="loader-light mx-auto"></div></div>`;
 
     try {
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/admin/dashboard`,
-            {
-                headers: { 
-                    Authorization: `Bearer ${adminToken}`,
-                    "X-Admin-Session": adminToken
-                },
-                skipAuthRefresh: true
-            }
-        );
 
-        const m = data.metrics || {};
+        const data =
+            await fetchJson(
+                `${BACKEND_URL}/api/admin/dashboard`,
+                {
+                    headers: {
+                        Authorization:
+                            `Bearer ${adminToken}`,
+
+                        "X-Admin-Session":
+                            adminToken
+                    },
+
+                    skipAuthRefresh: true
+                }
+            );
+
+        const m =
+            data.metrics ||
+            {};
+
         stats.innerHTML = `
+
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] text-zinc-500">Requisições</div>
-                <div class="text-xl font-black mt-1">${Number(m.requests) || 0}</div>
+                <div class="text-[10px] text-zinc-500">
+                    Requisições
+                </div>
+
+                <div class="text-xl font-black mt-1">
+                    ${Number(m.requests) || 0}
+                </div>
             </div>
+
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] text-zinc-500">Uploads MP4</div>
-                <div class="text-xl font-black mt-1">${Number(m.uploads) || 0}</div>
+                <div class="text-[10px] text-zinc-500">
+                    Uploads MP4
+                </div>
+
+                <div class="text-xl font-black mt-1">
+                    ${Number(m.uploads) || 0}
+                </div>
             </div>
+
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] text-zinc-500">Análises IA</div>
-                <div class="text-xl font-black mt-1">${Number(m.analyses) || 0}</div>
+                <div class="text-[10px] text-zinc-500">
+                    Análises IA
+                </div>
+
+                <div class="text-xl font-black mt-1">
+                    ${Number(m.analyses) || 0}
+                </div>
             </div>
+
             <div class="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <div class="text-[10px] text-zinc-500">Downloads</div>
-                <div class="text-xl font-black mt-1">${Number(m.downloads) || 0}</div>
+                <div class="text-[10px] text-zinc-500">
+                    Downloads
+                </div>
+
+                <div class="text-xl font-black mt-1">
+                    ${Number(m.downloads) || 0}
+                </div>
             </div>
         `;
+
     } catch (error) {
-        console.warn("Sessão administrativa encerrada:", error.message);
+
+        console.warn(
+            "Sessão administrativa encerrada:",
+            error.message
+        );
+
         logoutAdmin();
     }
 }
 
 function logoutAdmin() {
+
     adminToken = "";
-    localStorage.removeItem(ADMIN_STORAGE_KEY);
-    $("adminDashboard").classList.add("hidden");
-    $("adminLoginArea").classList.remove("hidden");
-    $("adminPassword").value = "";
+
+    localStorage.removeItem(
+        ADMIN_STORAGE_KEY
+    );
+
+    $("adminDashboard")
+        .classList
+        .add("hidden");
+
+    $("adminLoginArea")
+        .classList
+        .remove("hidden");
+
+    $("adminPassword").value =
+        "";
 }
 
 function novoVideo() {
-    $("resultados").classList.add("hidden");
-    $("cardsContainer").innerHTML = "";
+
+    $("resultados")
+        .classList
+        .add("hidden");
+
+    $("cardsContainer")
+        .innerHTML = "";
+
     uploadIdAtual = null;
     videoAtualId = "";
     videoAtualUrl = "";
     clipsAtuais = [];
     pagamentoAtual = null;
 
-    $("uploadFileLabel").textContent = "Clique ou arraste um vídeo MP4 aqui";
-    $("videoUrl").value = "";
-    $("fileInput").value = "";
+    $("uploadFileLabel").textContent =
+        "Clique ou arraste um vídeo MP4 aqui";
+
+    $("videoUrl").value =
+        "";
+
+    $("fileInput").value =
+        "";
+
     fecharErro();
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
 }
 
 function mostrarErro(mensagem) {
-    $("errorText").textContent = mensagem || "Ocorreu um erro.";
-    $("errorArea").classList.remove("hidden");
-    $("errorArea").scrollIntoView({ behavior: "smooth", block: "center" });
+
+    $("errorText").textContent =
+        mensagem ||
+        "Ocorreu um erro.";
+
+    $("errorArea")
+        .classList
+        .remove("hidden");
+
+    $("errorArea")
+        .scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
 }
 
 function fecharErro() {
-    $("errorArea").classList.add("hidden");
+
+    $("errorArea")
+        .classList
+        .add("hidden");
 }
 
 /* =========================================================
@@ -1775,13 +2478,19 @@ function fecharErro() {
 ========================================================= */
 
 async function inicializar() {
-    $("anoAtual").textContent = new Date().getFullYear();
+
+    $("anoAtual").textContent =
+        new Date().getFullYear();
+
     inicializarDragAndDrop();
+
     atualizarInterfaceUsuario();
+
     await iniciarSessao();
 }
 
 inicializar();
+
 </script>
 
 </body>
