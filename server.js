@@ -425,23 +425,6 @@ async function ensureDirectories() {
    SPAWN CAPTURE — COM TIMEOUT REAL
 ============================================================ */
 
-/*
- * IMPORTANTE:
- *
- * Na 13.4.3, timeoutMs era simplesmente ignorado pelo
- * child_process.spawn().
- *
- * Agora o timeout é controlado pelo próprio backend.
- *
- * Quando o tempo acaba:
- *
- * 1. marcamos o processo como timedOut;
- * 2. enviamos SIGTERM;
- * 3. aguardamos uma pequena janela;
- * 4. se ainda estiver vivo, enviamos SIGKILL;
- * 5. o Promise termina com ETIMEDOUT.
- */
-
 function spawnCapture(
     command,
     args = [],
@@ -3146,7 +3129,7 @@ setInterval(
 ).unref();
 
 /* ============================================================
-   OPENROUTER
+   OPENROUTER (ATUALIZADO COM GOOGLE VERTEX + ZDR)
 ============================================================ */
 
 async function requestOpenRouter(
@@ -3211,6 +3194,15 @@ async function requestOpenRouter(
             response_format: {
                 type:
                     "json_object"
+            },
+
+            provider: {
+                order: [
+                    "google-vertex"
+                ],
+                allow_fallbacks: false,
+                zdr: true,
+                data_collection: "deny"
             }
         };
 
