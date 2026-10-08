@@ -91,7 +91,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.0.2-commercial-engine";
+const VERSION = "16.0.3-commercial-engine-watermark";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -222,6 +222,32 @@ const OPENROUTER_SITE_URL =
 const OPENROUTER_SITE_NAME =
     process.env.OPENROUTER_SITE_NAME ||
     "ClipForge Pro";
+
+/* ============================================================
+   MARCA D'AGUA CLIPFORGE
+============================================================ */
+
+const WATERMARK_ENABLED =
+    String(process.env.WATERMARK_ENABLED || "true").toLowerCase() !== "false";
+
+const WATERMARK_TEXT =
+    process.env.WATERMARK_TEXT || "ClipForge";
+
+const WATERMARK_OPACITY = clamp(
+    parseNumber(process.env.WATERMARK_OPACITY, 0.82),
+    0.1,
+    1
+);
+
+const WATERMARK_FONT_SIZE = Math.max(
+    18,
+    Number(process.env.WATERMARK_FONT_SIZE || 34)
+);
+
+const WATERMARK_MARGIN = Math.max(
+    10,
+    Number(process.env.WATERMARK_MARGIN || 42)
+);
 
 /* ============================================================
    MERCADO PAGO
@@ -4279,6 +4305,16 @@ async function renderClip(
         throw new Error(
             `Formato '${format}' invalido. Escolha entre 9:16, 1:1 ou 16:9.`
         );
+    }
+
+    if (WATERMARK_ENABLED) {
+        const escapedText = WATERMARK_TEXT
+            .replace(/\\/g, "\\\\")
+            .replace(/:/g, "\\:")
+            .replace(/'/g, "\\'");
+
+        vf +=
+            `,drawtext=font='DejaVu Sans':text='${escapedText}':fontsize=${WATERMARK_FONT_SIZE}:fontcolor=white@${WATERMARK_OPACITY}:x=w-tw-${WATERMARK_MARGIN}:y=h-th-${WATERMARK_MARGIN}:shadowcolor=black@0.65:shadowx=2:shadowy=2`;
     }
 
     const args = [
