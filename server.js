@@ -55,10 +55,123 @@ try {
 ============================================================ */
 
 let pgPool = null;
+let DATABASE_URL = String(
+    process.env.DATABASE_URL || ""
+).trim();
 
-const DATABASE_URL = process.env.DATABASE_URL || "";
+/*
+ * Protecao contra valores quebrados no Render.
+ * Exemplos de valores que NAO sao URLs PostgreSQL validas:
+ *   base
+ *   "base"
+ *   postgres
+ *   undefined
+ *   null
+ *
+ * Um valor invalido nao pode ser entregue ao pg.Pool, pois isso
+ * provoca erros como: getaddrinfo ENOTFOUND base.
+ */
+function sanitizeDatabaseUrl(value) {
+    let url = String(value || "").trim();
 
-if (DATABASE_URL) {
+    if (!url) {
+        return {
+            valid: false,
+            value: "",
+            reason: "DATABASE_URL ausente."
+        };
+    }
+
+    // Remove aspas acidentais adicionadas no painel do Render.
+    if (
+        (url.startsWith("\"") && url.endsWith("\"")) ||
+        (url.startsWith("'") && url.endsWith("'"))
+    ) {
+        url = url.slice(1, -1).trim();
+    }
+
+    const lowered = url.toLowerCase();
+
+    const invalidPlaceholders = new Set([
+        "base",
+        "undefined",
+        "null",
+        "none",
+        "postgres",
+        "postgresql"
+    ]);
+
+    if (invalidPlaceholders.has(lowered)) {
+        return {
+            valid: false,
+            value: "",
+            reason: `DATABASE_URL invalida: valor placeholder '${url}'.`
+        };
+    }
+
+    try {
+        const parsed = new URL(url);
+
+        if (
+            parsed.protocol !== "postgres:" &&
+            parsed.protocol !== "postgresql:"
+        ) {
+            return {
+                valid: false,
+                value: "",
+                reason: "DATABASE_URL deve usar postgres:// ou postgresql://."
+            };
+        }
+
+        if (!parsed.hostname) {
+            return {
+                valid: false,
+                value: "",
+                reason: "DATABASE_URL sem hostname."
+            };
+        }
+
+        if (
+            parsed.hostname.toLowerCase() === "base" ||
+            parsed.hostname.toLowerCase() === "undefined" ||
+            parsed.hostname.toLowerCase() === "null"
+        ) {
+            return {
+                valid: false,
+                value: "",
+                reason: `DATABASE_URL aponta para hostname invalido '${parsed.hostname}'.`
+            };
+        }
+
+        return {
+            valid: true,
+            value: url,
+            reason: ""
+        };
+    } catch (error) {
+        return {
+            valid: false,
+            value: "",
+            reason: `DATABASE_URL invalida: ${error.message}`
+        };
+    }
+}
+
+const DATABASE_CONFIG =
+    sanitizeDatabaseUrl(DATABASE_URL);
+
+DATABASE_URL = DATABASE_CONFIG.value;
+
+if (!DATABASE_CONFIG.valid) {
+    console.warn(
+        `[Database] ${DATABASE_CONFIG.reason}`
+    );
+    console.warn(
+        "[Database] PostgreSQL sera desativado para esta inicializacao. O backend entrara em modo de contingencia local quando permitido."
+    );
+}
+
+if (DATABASE_CONFIG.valid) {
     try {
         const { Pool } = require("pg");
 
@@ -91,7 +204,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.0.3-commercial-engine-watermark";
+const VERSION = "16.1.2-commercial-engine-watermark";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -1765,8 +1878,12 @@ async function initDatabase() {
             );
 
             if (IS_PROD) {
+                // Uma URL explicitamente configurada, mas com banco
+                // indisponivel, continua sendo erro operacional.
+                // O tratamento especial para placeholders como `base`
+                // ocorre antes, no sanitizeDatabaseUrl().
                 throw new Error(
-                    "Falha critica ao conectar no PostgreSQL em producao. Abortando inicializacao."
+                    "Falha critica ao conectar no PostgreSQL em producao. Verifique a DATABASE_URL no Render."
                 );
             }
 
@@ -1774,9 +1891,15 @@ async function initDatabase() {
         }
     }
 
-    if (IS_PROD) {
+    if (IS_PROD && DATABASE_CONFIG.valid) {
         throw new Error(
-            "DATABASE_URL obrigatoria em producao. O Render necessita de PostgreSQL para dados comerciais."
+            "DATABASE_URL configurada, mas o PostgreSQL nao esta disponivel. Verifique a conexao do banco no Render."
+        );
+    }
+
+    if (IS_PROD && !DATABASE_CONFIG.valid) {
+        console.warn(
+            "[Database] Modo de contingencia local ativado porque DATABASE_URL esta ausente ou invalida."
         );
     }
 
@@ -2746,7 +2869,7 @@ async function downloadRemoteVideo(
             {
                 headers: {
                     "User-Agent":
-                        "ClipForge-Pro/16.0.2",
+                        "ClipForge-Pro/16.1.2",
                     Accept:
                         "video/mp4,video/*,*/*"
                 },
@@ -3002,7 +3125,7 @@ async function tryPipedDownload(
                             Accept:
                                 "application/json",
                             "User-Agent":
-                                "ClipForge-Pro/16.0.2"
+                                "ClipForge-Pro/16.1.2"
                         },
                         signal:
                             AbortSignal.timeout(
@@ -3131,7 +3254,7 @@ async function tryInvidiousDownload(
                             Accept:
                                 "application/json",
                             "User-Agent":
-                                "ClipForge-Pro/16.0.2"
+                                "ClipForge-Pro/16.1.2"
                         },
                         signal:
                             AbortSignal.timeout(
