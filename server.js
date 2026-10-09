@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND V16.0.2 COMERCIAL CONSOLIDADO
+ * CLIPFORGE PRO — BACKEND V16.2.0 MOTOR LOCAL CONSOLIDADO
  * ============================================================
  * Base: V16.0.1
  *
@@ -4620,6 +4620,93 @@ function enqueueJob(
 }
 
 /* ============================================================
+   MOTOR LOCAL DE MELHORES MOMENTOS (SEM IA EXTERNA)
+   Usa detecção de mudanças de cena do FFmpeg e diversidade temporal.
+   É uma heurística de edição: não compreende semanticamente piadas/falas.
+============================================================ */
+async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
+    const total = Number(duration) || 0;
+    if (!sourceFile || total <= 0) throw new Error("Vídeo inválido para análise local.");
+
+    const count = Math.min(MAX_CLIPS, Math.max(1, Number(requestedCount) || 5));
+    const clipLength = Math.min(60, Math.max(10, Math.min(35, Math.floor(total / Math.max(1, Math.min(count, Math.floor(total / 10)))))));
+    const usableLength = Math.min(total, clipLength);
+    if (total <= usableLength + 1) {
+        return [{ start: 0, end: Number(total.toFixed(2)), duration: Number(total.toFixed(2)), title: "Melhor momento", description: "O vídeo é curto; trecho completo selecionado automaticamente.", score: 82 }];
+    }
+
+    let sceneTimes = [];
+    try {
+        // Reduz a análise para 2 quadros/segundo para limitar o custo no Render.
+        const result = await spawnCapture(FFMPEG_BIN, [
+            "-hide_banner", "-nostats", "-loglevel", "info", "-i", sourceFile,
+            "-vf", "fps=2,select='gt(scene,0.20)',showinfo",
+            "-an", "-f", "null", "-"
+        ], { timeoutMs: Math.min(180000, Math.max(30000, total * 250)) });
+        const log = `${result.stderr || ""}\n${result.stdout || ""}`;
+        const re = /pts_time:([0-9]+(?:\.[0-9]+)?)/g;
+        let match;
+        while ((match = re.exec(log)) !== null) {
+            const t = Number(match[1]);
+            if (Number.isFinite(t) && t >= 0 && t <= total) sceneTimes.push(t);
+        }
+    } catch (error) {
+        console.warn(`[MotorLocal] Detecção de cenas indisponível; usando distribuição inteligente: ${error.message}`);
+    }
+
+    sceneTimes = [...new Set(sceneTimes.map(t => Math.round(t * 2) / 2))].sort((a, b) => a - b);
+    const maxStart = Math.max(0, total - usableLength);
+    const candidateStarts = new Set([0, maxStart / 2, maxStart]);
+    for (const t of sceneTimes) {
+        candidateStarts.add(Math.max(0, Math.min(maxStart, t - usableLength * 0.35)));
+        candidateStarts.add(Math.max(0, Math.min(maxStart, t - usableLength * 0.65)));
+    }
+    // Sempre considerar uma grade temporal para vídeos com poucas mudanças de cena.
+    const gridCount = Math.max(count * 4, 8);
+    for (let i = 0; i <= gridCount; i++) candidateStarts.add(maxStart * i / gridCount);
+
+    const candidates = [...candidateStarts].map(start => {
+        const end = Math.min(total, start + usableLength);
+        const inWindow = sceneTimes.filter(t => t >= start && t <= end);
+        const density = inWindow.length / Math.max(1, usableLength / 10);
+        const middle = (start + end) / 2;
+        const nearest = sceneTimes.reduce((best, t) => Math.min(best, Math.abs(t - middle)), Infinity);
+        const centerBonus = Number.isFinite(nearest) ? Math.max(0, 1 - nearest / Math.max(1, usableLength / 2)) : 0;
+        const score = Math.min(98, 60 + Math.min(25, density * 8) + centerBonus * 8 + (sceneTimes.length ? 5 : 0));
+        return { start, end, duration: end - start, score, sceneCount: inWindow.length };
+    }).filter(c => c.duration >= Math.min(5, total));
+
+    candidates.sort((a, b) => b.score - a.score || a.start - b.start);
+    const selected = [];
+    const minGap = usableLength * 0.65;
+    for (const candidate of candidates) {
+        if (selected.every(item => Math.abs(item.start - candidate.start) >= minGap)) selected.push(candidate);
+        if (selected.length >= count) break;
+    }
+    // If there are not enough distinct candidates, fill gaps across the full timeline.
+    if (selected.length < count) {
+        for (let i = 0; i < count * 3 && selected.length < count; i++) {
+            const start = count <= 1 ? maxStart / 2 : maxStart * i / Math.max(1, count * 3 - 1);
+            if (selected.every(item => Math.abs(item.start - start) >= minGap * 0.75)) {
+                selected.push({ start, end: Math.min(total, start + usableLength), duration: Math.min(total, start + usableLength) - start, score: 68, sceneCount: 0 });
+            }
+        }
+    }
+
+    selected.sort((a, b) => a.start - b.start);
+    return selected.slice(0, count).map((item, i) => ({
+        start: Number(item.start.toFixed(2)),
+        end: Number(item.end.toFixed(2)),
+        duration: Number(item.duration.toFixed(2)),
+        title: `Destaque ${i + 1}`,
+        description: item.sceneCount
+            ? `Trecho selecionado por mudanças de cena e distribuição temporal (${Math.round(item.sceneCount)} mudanças detectadas).`
+            : "Trecho selecionado automaticamente com distribuição temporal para evitar cortes repetidos.",
+        score: Math.round(item.score)
+    }));
+}
+
+/* ============================================================
    WORKER
 ============================================================ */
 
@@ -4735,99 +4822,28 @@ async function runAnalysisWorker(
 
         setStage(
             "analyzing",
-            "IA analisando momentos de retencao...",
+            "Analisando cenas e escolhendo os melhores trechos...",
             60
         );
 
-        aiToken =
-            randomToken(32);
+        let aiModel = "clipforge-local-scene-v1";
+        let aiUsed = false;
+        let fallbackReason = "Motor local heurístico: sem dependência do OpenRouter.";
 
-        aiVideoTokens.set(
-            aiToken,
-            {
-                filePath:
-                    sourceFile,
-
-                expiresAt:
-                    now() +
-                    15 *
-                        60 *
-                        1000
-            }
+        const requestedCount = Number(
+            payload.clipCount || payload.quantity || process.env.DEFAULT_CLIP_COUNT || 5
+        );
+        let clips = await analyzeLocalMoments(
+            sourceFile,
+            duration,
+            requestedCount
         );
 
-        const proxy =
-            PUBLIC_BASE_URL
-                ? `${PUBLIC_BASE_URL}/api/ai-video/${aiToken}`
-                : "";
+        clips = completeClipsWithFallback(clips, duration);
 
-        let aiModel =
-            "fallback";
-
-        let aiUsed =
-            false;
-
-        let fallbackReason =
-            null;
-
-        let clips = [];
-
-        try {
-            if (!proxy) {
-                throw new Error(
-                    "PUBLIC_BASE_URL nao configurada no ambiente."
-                );
-            }
-
-            const aiResult =
-                await analyzeWithOpenRouterFallback(
-                    buildClipPrompt(
-                        duration
-                    ) +
-                        `\nTitulo: ${title}`,
-                    proxy,
-                    duration
-                );
-
-            aiModel =
-                aiResult.model;
-
-            clips =
-                aiResult.clips ||
-                [];
-
-            aiUsed =
-                true;
-
-            console.log(
-                `[IA] ${aiModel} retornou ${clips.length} corte(s).`
-            );
-        } catch (aiError) {
-            fallbackReason =
-                aiError.message;
-
-            console.warn(
-                `[IA] Falha semantica: ${aiError.message}`
-            );
-
-            console.log(
-                "[IA] Ativando fallback algoritmico local..."
-            );
-
-            clips = [];
-
-            aiModel =
-                "automatic-fallback";
-
-            aiUsed =
-                false;
-        }
-
-        clips =
-            completeClipsWithFallback(
-                clips,
-                duration
-            );
+        console.log(
+            `[MotorLocal] ${clips.length} corte(s) selecionado(s) para ${duration.toFixed(1)}s de vídeo.`
+        );
 
         if (!clips.length) {
             throw new Error(
@@ -7996,18 +8012,8 @@ app.use(
 
 async function startServer() {
     try {
-        if (IS_PROD) {
-            if (
-                !PUBLIC_BASE_URL ||
-                !PUBLIC_BASE_URL.startsWith(
-                    "https://"
-                )
-            ) {
-                throw new Error(
-                    "PUBLIC_BASE_URL obrigatoria com HTTPS em producao para que a IA consiga inspecionar os videos."
-                );
-            }
-        }
+        // O motor local não depende de proxy público nem de OpenRouter.
+        // PUBLIC_BASE_URL continua sendo usada quando configurada para webhooks/links.
 
         await ensureDirectories();
 
