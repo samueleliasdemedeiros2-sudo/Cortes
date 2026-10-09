@@ -1,6 +1,6 @@
 {
   "name": "clipforge-pro-backend",
-  "version": "16.1.0",
+  "version": "16.2.0",
   "description": "Backend comercial consolidado para corte e processamento de videos com IA",
   "main": "server.js",
   "scripts": {
