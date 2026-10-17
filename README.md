@@ -1,25 +1,32 @@
-# ClipForge Pro — Backend 16.2.0 (Motor Local)
+# ClipForge Pro Backend V16.2.1 — MP4 Only
 
-Esta versão substitui a chamada de análise do OpenRouter por um motor heurístico local baseado em mudanças de cena detectadas pelo FFmpeg. O objetivo é remover a dependência de IA generativa para a seleção inicial dos trechos.
+Esta versão remove a origem por URL do YouTube e aceita apenas arquivos MP4 enviados por `/api/upload`.
 
-## O que mudou
-- Análise local de cenas com FFmpeg, sem chamada ao OpenRouter durante a análise.
-- Seleção de trechos com diversidade temporal para reduzir cortes quase iguais.
-- Fallback distribuído se a detecção de cenas não encontrar mudanças suficientes.
-- Mantém os endpoints e o fluxo de análise/download existentes no backend.
-- A inicialização não exige mais `PUBLIC_BASE_URL` apenas para análise de vídeo.
-- PostgreSQL continua obrigatório em produção, para não iniciar com armazenamento comercial volátil.
+## Alterações
+- Removidos `yt-dlp`, cookies do YouTube e fallbacks Piped/Invidious do backend.
+- `/api/analisar` exige `uploadId` de um MP4 previamente enviado.
+- `/api/download` exige `uploadId`; URLs não são usadas como origem.
+- Modo padrão `smart`: seleção local de trechos por detecção de mudanças de cena e distribuição temporal.
+- Modo `minute`: cortes sequenciais de até 60 segundos. Envie `cutMode: "minute"` ou `mode: "minute"` junto com `uploadId` em `/api/analisar`.
+- Cortes exportados pelo endpoint de download são limitados a no máximo 60 segundos.
+- Mantidos usuários, pontos, VIP, Mercado Pago, administração e PostgreSQL.
 
-## Implantação no Render
-1. Faça backup do backend atual.
-2. Substitua `server.js` e `package.json` pelos arquivos deste pacote no repositório do backend.
-3. Mantenha Build Command `npm install` e Start Command `npm start`.
-4. Configure `DATABASE_URL` com a URL real do PostgreSQL do Render (normalmente começa com `postgres://` ou `postgresql://`). Não use a palavra `base` como valor.
-5. Mantenha as demais variáveis de ambiente que o seu serviço atual usa, incluindo segredos de autenticação/pagamento.
-6. Faça deploy e confira os logs e `/health` antes de testar um vídeo MP4.
+## API de vídeo
+1. `POST /api/upload` com `multipart/form-data`, campo `video` contendo um MP4.
+2. Guarde o `uploadId` retornado.
+3. `POST /api/analisar` com JSON, por exemplo:
+   ```json
+   { "uploadId": "UPLOAD_ID", "cutMode": "minute", "clipCount": 5 }
+   ```
+   Para cortes inteligentes, use `cutMode: "smart"` ou omita `cutMode`.
+4. `POST /api/download` com `uploadId`, `start`, `duration` (máximo 60), e `format` (`9:16`, `1:1` ou `16:9`).
 
-## Limitações honestas
-- Este é um algoritmo de análise visual, não uma IA semântica: não entende piadas, contexto, fala ou significado. Ele usa mudanças de cena e distribuição temporal como sinais de seleção.
-- A legenda automática não é adicionada por esta alteração.
-- A obtenção de vídeos do YouTube continua dependendo do downloader e dos acessos/cookies configurados no serviço; esta alteração não remove bloqueios do YouTube.
-- O ZIP contém o backend (`server.js`, `package.json`) e estas instruções. Não contém o frontend `index.html` nem credenciais.
+## Render / PostgreSQL
+- `npm start` inicia `server.js`.
+- Em produção, configure `DATABASE_URL` com a URL real do PostgreSQL do Render. Um valor placeholder como `base` não é uma URL válida; a proteção de produção não deve ser desativada para esconder esse erro.
+- Configure `MP_ACCESS_TOKEN` (ou `MERCADO_PAGO_ACCESS_TOKEN`) e mantenha o arquivo `mercadoPago.js` no repositório para habilitar os pagamentos PIX.
+- `MAX_UPLOAD_MB` define o limite do upload; o padrão é 150 MB.
+- Verifique `/health` e os logs do Render após deploy.
+
+## Limitação importante
+O modo `smart` é uma heurística local baseada em mudanças de cena e distribuição temporal. Ele não entende semanticamente o áudio/fala nem substitui um modelo de IA multimodal. A validação sintática do código não comprova que o processamento real, o banco ou o pagamento funcionam no Render; esses itens precisam ser testados no ambiente publicado.
