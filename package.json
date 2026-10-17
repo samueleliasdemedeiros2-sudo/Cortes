@@ -1,7 +1,7 @@
 {
   "name": "clipforge-pro-backend",
-  "version": "16.2.0",
-  "description": "Backend comercial consolidado para corte e processamento de videos com IA",
+  "version": "16.2.1",
+  "description": "Backend MP4-only do ClipForge Pro com cortes inteligentes e segmentos de ate 60 segundos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,7 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
+  }
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
