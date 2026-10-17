@@ -6,7 +6,7 @@
 
     <title>ClipForge Pro — Cortes com IA</title>
 
-    <meta name="description" content="Crie cortes profissionais enviando arquivos MP4 ou via YouTube com inteligência artificial.">
+    <meta name="description" content="Crie cortes profissionais enviando arquivos MP4 com análise inteligente e segmentos de até 1 minuto.">
     <meta name="theme-color" content="#08090d">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -317,33 +317,26 @@
                     </h1>
 
                     <p class="max-w-2xl mx-auto mt-6 text-zinc-400 text-sm sm:text-base leading-7">
-                        Envie um arquivo MP4 diretamente do seu computador/celular ou insira o link de um vídeo do YouTube.
+                        Envie um vídeo MP4 e escolha como deseja gerar seus cortes.
                     </p>
                 </div>
 
                 <!-- TABS DE MODO -->
                 <div class="max-w-3xl mx-auto mt-10">
 
-                    <div class="flex items-center justify-center gap-2 mb-3">
-
-                        <button
-                            id="tabUpload"
-                            onclick="alternarModo('upload')"
-                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg"
-                        >
-                            <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>
-                            Enviar MP4
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                        <button id="modeSmart" type="button" onclick="selecionarModoCorte('smart')" aria-pressed="true" class="text-left rounded-2xl border border-white/30 bg-white/[.09] p-4 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                                <div><div class="font-bold text-sm">Cortes inteligentes</div><div class="text-xs text-zinc-400 mt-1">Encontra momentos de destaque</div></div>
+                            </div>
                         </button>
-
-                        <button
-                            id="tabYoutube"
-                            onclick="alternarModo('youtube')"
-                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light"
-                        >
-                            <i class="fa-brands fa-youtube mr-1.5"></i>
-                            Link do YouTube
+                        <button id="modeMinute" type="button" onclick="selecionarModoCorte('minute')" aria-pressed="false" class="text-left rounded-2xl border border-white/[.08] bg-white/[.025] p-4 transition hover:bg-white/[.05]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-white/[.07] text-white flex items-center justify-center"><i class="fa-solid fa-clock"></i></div>
+                                <div><div class="font-bold text-sm">Cortes de 1 minuto</div><div class="text-xs text-zinc-400 mt-1">Segmentos de até 60 segundos</div></div>
+                            </div>
                         </button>
-
                     </div>
 
                     <div class="glass rounded-2xl p-3 sm:p-4 shadow-2xl">
@@ -388,42 +381,28 @@
 
                         </div>
 
-                        <!-- MODO YOUTUBE -->
-                        <div
-                            id="modoYoutubeArea"
-                            class="hidden flex-col sm:flex-row gap-2"
-                        >
-
-                            <div class="relative flex-1">
-
-                                <i class="fa-brands fa-youtube absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"></i>
-
-                                <input
-                                    id="videoUrl"
-                                    type="url"
-                                    autocomplete="off"
-                                    spellcheck="false"
-                                    placeholder="Cole aqui o link do YouTube..."
-                                    class="input-dark w-full rounded-xl h-14 pl-11 pr-4 text-sm"
-                                    onkeydown="if(event.key==='Enter') gerarCortesYoutube()"
-                                >
-
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 p-1">
+                            <div>
+                                <label for="clipFormat" class="block text-xs font-semibold text-zinc-400 mb-2">Formato do vídeo</label>
+                                <select id="clipFormat" class="input-dark w-full h-11 rounded-xl px-3 text-sm">
+                                    <option value="9:16">9:16 — Reels / Shorts / TikTok</option>
+                                    <option value="1:1">1:1 — Quadrado</option>
+                                    <option value="16:9">16:9 — Horizontal</option>
+                                </select>
                             </div>
-
-                            <button
-                                id="btnGerarYoutube"
-                                onclick="gerarCortesYoutube()"
-                                class="btn-main h-14 px-7 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-                            >
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                                <span>Gerar cortes</span>
-                            </button>
-
+                            <div>
+                                <label for="clipCount" class="block text-xs font-semibold text-zinc-400 mb-2">Quantidade de cortes</label>
+                                <select id="clipCount" class="input-dark w-full h-11 rounded-xl px-3 text-sm">
+                                    <option value="3">3 cortes</option>
+                                    <option value="5" selected>5 cortes</option>
+                                    <option value="8">8 cortes (máximo)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
                     <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4 text-[11px] text-zinc-600">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise com IA</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt"></i> Análise inteligente</span>
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-scissors"></i> Cortes automáticos</span>
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-download"></i> Exportação em MP4</span>
                     </div>
@@ -602,7 +581,7 @@
                 <div class="flex items-center gap-4 text-xs text-zinc-600">
                     <span>IA para criadores</span>
                     <span>•</span>
-                    <span>v13.3.6</span>
+                    <span>v16.2.1</span>
                 </div>
             </div>
         </div>
@@ -862,7 +841,7 @@
 
 <script>
 /* =========================================================
-   CLIPFORGE PRO V13.3.6 — FRONTEND CONSOLIDADO
+   CLIPFORGE PRO V16.2.1 — FRONTEND MP4 ONLY
 ========================================================= */
 
 const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
@@ -879,10 +858,9 @@ let usuario = {
     isVip: false
 };
 
-let modoAtual = "upload";
+let cutModeAtual = "smart";
+let formatoAtual = "9:16";
 let uploadIdAtual = null;
-let videoAtualId = "";
-let videoAtualUrl = "";
 let clipsAtuais = [];
 let pagamentoAtual = null;
 let pollingPix = null;
@@ -993,34 +971,24 @@ async function fetchJson(url, options = {}) {
 }
 
 /* =========================================================
-   CONTROLE DE MODOS
+   MODO DE CORTE
 ========================================================= */
 
-function alternarModo(modo) {
-    modoAtual = modo;
+function selecionarModoCorte(modo) {
+    cutModeAtual = modo === "minute" ? "minute" : "smart";
+    const smart = cutModeAtual === "smart";
+    const smartButton = $("modeSmart");
+    const minuteButton = $("modeMinute");
+
+    smartButton.setAttribute("aria-pressed", String(smart));
+    minuteButton.setAttribute("aria-pressed", String(!smart));
+    smartButton.className = smart
+        ? "text-left rounded-2xl border border-white/30 bg-white/[.09] p-4 transition"
+        : "text-left rounded-2xl border border-white/[.08] bg-white/[.025] p-4 transition hover:bg-white/[.05]";
+    minuteButton.className = !smart
+        ? "text-left rounded-2xl border border-white/30 bg-white/[.09] p-4 transition"
+        : "text-left rounded-2xl border border-white/[.08] bg-white/[.025] p-4 transition hover:bg-white/[.05]";
     fecharErro();
-
-    if (modo === "upload") {
-        $("tabUpload").className =
-            "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
-
-        $("tabYoutube").className =
-            "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
-
-        $("modoUploadArea").classList.remove("hidden");
-        $("modoYoutubeArea").classList.add("hidden");
-
-    } else {
-
-        $("tabYoutube").className =
-            "px-5 py-2.5 rounded-xl text-xs font-bold transition bg-white text-black shadow-lg";
-
-        $("tabUpload").className =
-            "px-5 py-2.5 rounded-xl text-xs font-bold transition text-zinc-400 hover:text-white glass-light";
-
-        $("modoUploadArea").classList.add("hidden");
-        $("modoYoutubeArea").classList.remove("hidden");
-    }
 }
 
 /* =========================================================
@@ -1128,7 +1096,9 @@ async function selecionarArquivo(file) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    uploadId: uploadIdAtual
+                    uploadId: uploadIdAtual,
+                    cutMode: cutModeAtual,
+                    clipCount: Number($("clipCount").value) || 5
                 })
             }
         );
@@ -1144,8 +1114,6 @@ async function selecionarArquivo(file) {
         }
 
         clipsAtuais = analiseData.clips;
-        videoAtualId = "";
-        videoAtualUrl = "";
 
         $("loadingBar").style.width = "100%";
 
@@ -1220,132 +1188,6 @@ function inicializarDragAndDrop() {
 }
 
 /* =========================================================
-   YOUTUBE
-========================================================= */
-
-function extrairYouTubeId(url) {
-    if (!url) return null;
-
-    const value = String(url).trim();
-
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i,
-        /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i
-    ];
-
-    for (const pattern of patterns) {
-
-        const match = value.match(pattern);
-
-        if (match) {
-            return match[1];
-        }
-    }
-
-    return null;
-}
-
-async function gerarCortesYoutube() {
-
-    const input = $("videoUrl");
-    const url = input.value.trim();
-
-    fecharErro();
-
-    if (!url) {
-        mostrarErro("Cole o link de um vídeo do YouTube.");
-        input.focus();
-        return;
-    }
-
-    const videoId = extrairYouTubeId(url);
-
-    if (!videoId) {
-        mostrarErro(
-            "O link informado não parece ser um link válido do YouTube."
-        );
-
-        input.focus();
-        return;
-    }
-
-    uploadIdAtual = null;
-    videoAtualId = videoId;
-    videoAtualUrl = url;
-
-    $("resultados").classList.add("hidden");
-    $("loadingArea").classList.remove("hidden");
-
-    $("loadingTitle").textContent =
-        "A IA está analisando o YouTube";
-
-    /* ALTERADO: Interactions API → IA */
-    $("loadingText").textContent =
-        "Identificando trechos de impacto com inteligência artificial...";
-
-    $("loadingBar").style.width = "45%";
-
-    $("btnGerarYoutube").disabled = true;
-
-    try {
-
-        const data = await fetchJson(
-            `${BACKEND_URL}/api/analisar`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    url: url
-                })
-            }
-        );
-
-        if (
-            !data?.clips ||
-            !Array.isArray(data.clips) ||
-            !data.clips.length
-        ) {
-            throw new Error(
-                "A IA não encontrou cortes com o critério solicitado."
-            );
-        }
-
-        $("loadingBar").style.width = "100%";
-
-        clipsAtuais = data.clips;
-
-        renderizarCortes(clipsAtuais);
-
-        mostrarToast(
-            `${clipsAtuais.length} cortes encontrados!`,
-            "success"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Erro na análise do YouTube:",
-            error
-        );
-
-        mostrarErro(
-            error.message ||
-            "Não foi possível analisar o vídeo."
-        );
-
-    } finally {
-
-        $("loadingArea").classList.add("hidden");
-        $("btnGerarYoutube").disabled = false;
-    }
-}
-
-/* =========================================================
    RENDERIZAÇÃO DOS CARDS
 ========================================================= */
 
@@ -1377,7 +1219,7 @@ function renderizarCortes(clips) {
 
         duration =
             Math.min(
-                90,
+                60,
                 Math.max(
                     10,
                     Math.round(duration)
@@ -1401,24 +1243,14 @@ function renderizarCortes(clips) {
             clip.score ??
             85;
 
-        let thumbSrc = "";
-
-        if (videoAtualId) {
-
-            thumbSrc =
-                `https://i.ytimg.com/vi/${encodeURIComponent(videoAtualId)}/hqdefault.jpg`;
-
-        } else {
-
-            thumbSrc =
-                "data:image/svg+xml;utf8," +
-                encodeURIComponent(`
-                    <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" fill="#111217">
-                        <rect width="640" height="360"/>
-                        <text x="50%" y="50%" fill="#666" font-size="24" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">Vídeo MP4 Carregado</text>
-                    </svg>
-                `);
-        }
+        const thumbSrc =
+            "data:image/svg+xml;utf8," +
+            encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" fill="#111217">
+                    <rect width="640" height="360"/>
+                    <text x="50%" y="50%" fill="#666" font-size="24" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">ClipForge Pro</text>
+                </svg>
+            `);
 
         const card =
             document.createElement("article");
@@ -1467,18 +1299,7 @@ function renderizarCortes(clips) {
                     ${escapeHtml(description)}
                 </p>
 
-                <div class="grid ${videoAtualId ? "grid-cols-2" : "grid-cols-1"} gap-2 mt-5">
-
-                    ${videoAtualId ? `
-                        <button
-                            onclick="abrirYouTube(${start})"
-                            class="btn-dark h-11 rounded-xl text-xs font-semibold"
-                        >
-                            <i class="fa-brands fa-youtube mr-1.5"></i>
-                            Assistir
-                        </button>
-                    ` : ""}
-
+                <div class="grid grid-cols-1 gap-2 mt-5">
                     <button
                         id="btnDl_${index}"
                         onclick="baixarCorte(${start}, ${duration}, ${index})"
@@ -1509,20 +1330,6 @@ function renderizarCortes(clips) {
         behavior: "smooth",
         block: "start"
     });
-}
-
-function abrirYouTube(start) {
-
-    if (!videoAtualId) return;
-
-    const url =
-        `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}&t=${Math.floor(start)}s`;
-
-    window.open(
-        url,
-        "_blank",
-        "noopener,noreferrer"
-    );
 }
 
 /* =========================================================
@@ -1559,22 +1366,16 @@ async function baixarCorte(start, duration, index) {
 
     try {
 
+        if (!uploadIdAtual) {
+            throw new Error("Envie um arquivo MP4 antes de baixar o corte.");
+        }
+
         const payload = {
             start: start,
-            duration: duration
+            duration: Math.min(60, duration),
+            format: $("clipFormat").value || formatoAtual,
+            uploadId: uploadIdAtual
         };
-
-        if (uploadIdAtual) {
-
-            payload.uploadId =
-                uploadIdAtual;
-
-        } else {
-
-            payload.url =
-                videoAtualUrl ||
-                `https://www.youtube.com/watch?v=${encodeURIComponent(videoAtualId)}`;
-        }
 
         let response =
             await fetch(
@@ -1651,7 +1452,7 @@ async function baixarCorte(start, duration, index) {
         a.href = objectUrl;
 
         a.download =
-            `clipforge_${uploadIdAtual ? "corte" : videoAtualId}_${Math.floor(start)}s.mp4`;
+            `clipforge_corte_${Math.floor(start)}s.mp4`;
 
         document.body.appendChild(a);
 
@@ -2427,16 +2228,11 @@ function novoVideo() {
         .innerHTML = "";
 
     uploadIdAtual = null;
-    videoAtualId = "";
-    videoAtualUrl = "";
     clipsAtuais = [];
     pagamentoAtual = null;
 
     $("uploadFileLabel").textContent =
         "Clique ou arraste um vídeo MP4 aqui";
-
-    $("videoUrl").value =
-        "";
 
     $("fileInput").value =
         "";
