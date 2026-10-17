@@ -1,18 +1,18 @@
 /**
  * ============================================================
- * CLIPFORGE PRO — BACKEND V16.2.0 MOTOR LOCAL CONSOLIDADO
+ * CLIPFORGE PRO — BACKEND V16.2.1 MP4 ONLY + CORTES DE 60 SEGUNDOS
  * ============================================================
  * Base: V16.0.1
  *
  * PRINCIPAIS CORREÇÕES:
- * - URL YouTube sem Markdown
+ * - Somente upload MP4; removidas rotas de YouTube
  * - CORS sem Markdown
  * - Proteção de transações de pontos
  * - Commit/estorno seguro no download
  * - PIX idempotente com validação de usuário
  * - Proteção de external_reference
  * - Limpeza de uploads protegendo jobs ativos
- * - Cookies yt-dlp com permissão restrita
+ * - Cortes inteligentes e segmentos de ate 60 segundos
  * - Persistência PostgreSQL reforçada
  * - Mantida compatibilidade com frontend existente
  * ============================================================
@@ -204,7 +204,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.1.2-commercial-engine-watermark";
+const VERSION = "16.2.1-mp4-only-60s";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -401,70 +401,9 @@ const ADMIN_PASSWORD =
     "";
 
 /* ============================================================
-   YT-DLP COOKIES
+   FONTES DE VIDEO
+   Somente arquivos MP4 enviados pelo usuario.
 ============================================================ */
-
-let YTDLP_COOKIES_FILE =
-    process.env.YTDLP_COOKIES_FILE ||
-    process.env.YOUTUBE_COOKIES_FILE ||
-    "";
-
-const YTDLP_COOKIES_BASE64 =
-    process.env.YTDLP_COOKIES_BASE64 ||
-    "";
-
-const YTDLP_COOKIES_URL =
-    process.env.YTDLP_COOKIES_URL ||
-    "";
-
-const YTDLP_USERNAME =
-    process.env.YTDLP_USERNAME ||
-    "";
-
-const YTDLP_PASSWORD =
-    process.env.YTDLP_PASSWORD ||
-    "";
-
-/* ============================================================
-   TIMEOUTS
-============================================================ */
-
-const YOUTUBE_SOURCE_TIMEOUT_MS = Number(
-    process.env.YOUTUBE_SOURCE_TIMEOUT_MS || 15000
-);
-
-const YOUTUBE_DOWNLOAD_TIMEOUT_MS = Number(
-    process.env.YOUTUBE_DOWNLOAD_TIMEOUT_MS || 300000
-);
-
-/* ============================================================
-   FALLBACKS YOUTUBE
-============================================================ */
-
-const PIPED_API_URLS = (
-    process.env.PIPED_API_URLS ||
-    [
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.leptons.xyz",
-        "https://pipedapi.tokhmi.xyz"
-    ].join(",")
-)
-    .split(",")
-    .map((x) => x.trim().replace(/\/+$/, ""))
-    .filter(Boolean);
-
-const INVIDIOUS_API_URLS = (
-    process.env.INVIDIOUS_API_URLS ||
-    [
-        "https://inv.nadeko.net",
-        "https://invidious.nerdvpn.de",
-        "https://yt.chocolatemoo53.com",
-        "https://invidious.tiekoetter.com"
-    ].join(",")
-)
-    .split(",")
-    .map((x) => x.trim().replace(/\/+$/, ""))
-    .filter(Boolean);
 
 /* ============================================================
    BINÁRIOS
@@ -472,9 +411,6 @@ const INVIDIOUS_API_URLS = (
 
 let FFMPEG_BIN = "ffmpeg";
 let FFPROBE_BIN = "ffprobe";
-
-let YTDLP_BIN =
-    path.join(__dirname, "bin", "yt-dlp");
 
 /* ============================================================
    ESTADOS
@@ -1114,80 +1050,7 @@ async function resolveBinaries() {
         }
     }
 
-    const ytdlpCandidates = [
-        path.join(
-            __dirname,
-            "bin",
-            "yt-dlp"
-        ),
-        process.env.YTDLP_BIN,
-        process.env.YTDLP_PATH,
-        path.join(
-            process.cwd(),
-            "bin",
-            "yt-dlp"
-        ),
-        "yt-dlp"
-    ];
 
-    for (
-        const cand
-        of ytdlpCandidates
-    ) {
-        if (!cand) continue;
-
-        if (fs.existsSync(cand)) {
-            try {
-                fs.chmodSync(
-                    cand,
-                    0o755
-                );
-            } catch (_) {}
-        }
-
-        if (
-            await commandExists(
-                cand,
-                ["--version"]
-            )
-        ) {
-            YTDLP_BIN = cand;
-            break;
-        }
-    }
-
-    console.log(
-        `[Binaries] FFmpeg: ${
-            await commandExists(
-                FFMPEG_BIN,
-                ["-version"]
-            )
-                ? FFMPEG_BIN
-                : "AUSENTE"
-        }`
-    );
-
-    console.log(
-        `[Binaries] FFprobe: ${
-            await commandExists(
-                FFPROBE_BIN,
-                ["-version"]
-            )
-                ? FFPROBE_BIN
-                : "AUSENTE"
-        }`
-    );
-
-    console.log(
-        `[Binaries] yt-dlp: ${
-            await commandExists(
-                YTDLP_BIN,
-                ["--version"]
-            )
-                ? YTDLP_BIN
-                : "AUSENTE"
-        }`
-    );
 }
 
 /* ============================================================
@@ -2549,1001 +2412,6 @@ app.use(
 );
 
 /* ============================================================
-   COOKIES YT-DLP
-============================================================ */
-
-async function setupYtdlpCookies() {
-    try {
-        if (
-            YTDLP_COOKIES_BASE64
-        ) {
-            const cookiesPath =
-                path.join(
-                    TEMP_ROOT,
-                    "ytdlp_cookies_base64.txt"
-                );
-
-            const decoded =
-                Buffer.from(
-                    YTDLP_COOKIES_BASE64,
-                    "base64"
-                ).toString(
-                    "utf-8"
-                );
-
-            if (!decoded.trim()) {
-                throw new Error(
-                    "YTDLP_COOKIES_BASE64 resultou em arquivo vazio."
-                );
-            }
-
-            await fsp.writeFile(
-                cookiesPath,
-                decoded,
-                {
-                    encoding:
-                        "utf-8",
-                    mode: 0o600
-                }
-            );
-
-            try {
-                await fsp.chmod(
-                    cookiesPath,
-                    0o600
-                );
-            } catch (_) {}
-
-            YTDLP_COOKIES_FILE =
-                cookiesPath;
-
-            console.log(
-                "[yt-dlp] Cookies carregados de YTDLP_COOKIES_BASE64."
-            );
-
-            return;
-        }
-
-        if (
-            YTDLP_COOKIES_URL
-        ) {
-            const cookiesPath =
-                path.join(
-                    TEMP_ROOT,
-                    "ytdlp_cookies_remote.txt"
-                );
-
-            const response =
-                await fetch(
-                    YTDLP_COOKIES_URL,
-                    {
-                        signal:
-                            AbortSignal.timeout(
-                                15000
-                            )
-                    }
-                );
-
-            if (!response.ok) {
-                throw new Error(
-                    `Falha ao baixar cookies: HTTP ${response.status}`
-                );
-            }
-
-            const text =
-                await response.text();
-
-            if (!text.trim()) {
-                throw new Error(
-                    "Arquivo remoto de cookies esta vazio."
-                );
-            }
-
-            await fsp.writeFile(
-                cookiesPath,
-                text,
-                {
-                    encoding:
-                        "utf-8",
-                    mode: 0o600
-                }
-            );
-
-            try {
-                await fsp.chmod(
-                    cookiesPath,
-                    0o600
-                );
-            } catch (_) {}
-
-            YTDLP_COOKIES_FILE =
-                cookiesPath;
-
-            console.log(
-                "[yt-dlp] Cookies carregados de YTDLP_COOKIES_URL."
-            );
-
-            return;
-        }
-
-        if (
-            YTDLP_COOKIES_FILE &&
-            fs.existsSync(
-                YTDLP_COOKIES_FILE
-            )
-        ) {
-            console.log(
-                "[yt-dlp] Usando cookies do arquivo configurado."
-            );
-        }
-    } catch (error) {
-        console.warn(
-            "[yt-dlp] Aviso na inicializacao de cookies:",
-            error.message
-        );
-    }
-}
-
-/* ============================================================
-   YOUTUBE ID
-============================================================ */
-
-function getYouTubeId(
-    value
-) {
-    const input =
-        safeString(value).trim();
-
-    if (
-        /^[A-Za-z0-9_-]{11}$/.test(
-            input
-        )
-    ) {
-        return input;
-    }
-
-    try {
-        const url =
-            new URL(input);
-
-        const host =
-            url.hostname.toLowerCase();
-
-        if (
-            host === "youtu.be" ||
-            host === "www.youtu.be"
-        ) {
-            const id =
-                url.pathname
-                    .replace(
-                        /^\//,
-                        ""
-                    )
-                    .split("/")[0];
-
-            return /^[A-Za-z0-9_-]{11}$/.test(
-                id
-            )
-                ? id
-                : null;
-        }
-
-        if (
-            host === "youtube.com" ||
-            host.endsWith(
-                ".youtube.com"
-            )
-        ) {
-            const v =
-                url.searchParams.get(
-                    "v"
-                );
-
-            if (
-                v &&
-                /^[A-Za-z0-9_-]{11}$/.test(
-                    v
-                )
-            ) {
-                return v;
-            }
-
-            const parts =
-                url.pathname
-                    .split("/")
-                    .filter(Boolean);
-
-            const index =
-                parts.findIndex(
-                    (part) =>
-                        [
-                            "shorts",
-                            "embed",
-                            "live"
-                        ].includes(
-                            part.toLowerCase()
-                        )
-                );
-
-            if (
-                index >= 0 &&
-                parts[index + 1]
-            ) {
-                const id =
-                    parts[
-                        index + 1
-                    ];
-
-                if (
-                    /^[A-Za-z0-9_-]{11}$/.test(
-                        id
-                    )
-                ) {
-                    return id;
-                }
-            }
-        }
-    } catch (_) {}
-
-    return null;
-}
-
-function normalizeYouTubeUrl(
-    value
-) {
-    const id =
-        getYouTubeId(value);
-
-    if (!id) return null;
-
-    /*
-     * CORRIGIDO:
-     * URL real, sem Markdown.
-     */
-    return (
-        "https://www.youtube.com/watch?v=" +
-        id
-    );
-}
-
-/* ============================================================
-   AUXILIARES DE STREAM YOUTUBE
-============================================================ */
-
-function normalizeQualityNumber(
-    value
-) {
-    const text =
-        safeString(value);
-
-    const match =
-        text.match(
-            /(\d{3,4})/
-        );
-
-    if (!match) return 0;
-
-    return Number(
-        match[1]
-    );
-}
-
-function isMp4Stream(
-    stream
-) {
-    const mime =
-        safeString(
-            stream?.mimeType ||
-                stream?.mime ||
-                stream?.type
-        ).toLowerCase();
-
-    const url =
-        safeString(
-            stream?.url
-        ).toLowerCase();
-
-    return (
-        mime.includes(
-            "video/mp4"
-        ) ||
-        mime.includes(
-            "video/mp4;"
-        ) ||
-        url.includes(
-            ".mp4"
-        ) ||
-        url.includes(
-            "mime=video%2fmp4"
-        )
-    );
-}
-
-async function downloadRemoteVideo(
-    url,
-    outputFile
-) {
-    const response =
-        await fetch(
-            url,
-            {
-                headers: {
-                    "User-Agent":
-                        "ClipForge-Pro/16.1.2",
-                    Accept:
-                        "video/mp4,video/*,*/*"
-                },
-                signal:
-                    AbortSignal.timeout(
-                        YOUTUBE_DOWNLOAD_TIMEOUT_MS
-                    )
-            }
-        );
-
-    if (!response.ok) {
-        throw new Error(
-            `Download remoto falhou: HTTP ${response.status}`
-        );
-    }
-
-    if (!response.body) {
-        throw new Error(
-            "Servidor remoto nao retornou corpo de video."
-        );
-    }
-
-    const fileHandle =
-        await fsp.open(
-            outputFile,
-            "w"
-        );
-
-    try {
-        const reader =
-            response.body.getReader();
-
-        const writable =
-            fileHandle.createWriteStream();
-
-        while (true) {
-            const {
-                done,
-                value
-            } =
-                await reader.read();
-
-            if (done) break;
-
-            if (value) {
-                if (
-                    !writable.write(
-                        Buffer.from(
-                            value
-                        )
-                    )
-                ) {
-                    await new Promise(
-                        (resolve) =>
-                            writable.once(
-                                "drain",
-                                resolve
-                            )
-                    );
-                }
-            }
-        }
-
-        await new Promise(
-            (resolve, reject) => {
-                writable.end(
-                    resolve
-                );
-
-                writable.on(
-                    "error",
-                    reject
-                );
-            }
-        );
-    } finally {
-        await fileHandle.close();
-    }
-}
-
-/* ============================================================
-   YT-DLP
-============================================================ */
-
-async function downloadYouTubeWithYtDlp(
-    url,
-    outputDir
-) {
-    await fsp.mkdir(
-        outputDir,
-        {
-            recursive: true
-        }
-    );
-
-    const outputTemplate =
-        path.join(
-            outputDir,
-            "source.%(ext)s"
-        );
-
-    const args = [
-        "--no-playlist",
-        "--no-warnings",
-        "--no-mtime",
-        "--restrict-filenames",
-        "--force-ipv4",
-        "--geo-bypass",
-        "--extractor-args",
-        "youtube:player_client=android,ios,web",
-        "-f",
-        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
-        "--merge-output-format",
-        "mp4",
-        "-o",
-        outputTemplate
-    ];
-
-    if (
-        YTDLP_COOKIES_FILE &&
-        fs.existsSync(
-            YTDLP_COOKIES_FILE
-        )
-    ) {
-        args.push(
-            "--cookies",
-            YTDLP_COOKIES_FILE
-        );
-    }
-
-    if (
-        YTDLP_USERNAME &&
-        YTDLP_PASSWORD
-    ) {
-        args.push(
-            "--username",
-            YTDLP_USERNAME,
-            "--password",
-            YTDLP_PASSWORD
-        );
-    }
-
-    args.push(url);
-
-    const result =
-        await spawnCapture(
-            YTDLP_BIN,
-            args,
-            {
-                timeoutMs:
-                    YOUTUBE_DOWNLOAD_TIMEOUT_MS
-            }
-        );
-
-    if (
-        result.code !== 0
-    ) {
-        const errorOut =
-            (
-                result.stderr ||
-                result.stdout ||
-                "Erro desconhecido"
-            ).slice(
-                0,
-                1500
-            );
-
-        throw new Error(
-            errorOut
-        );
-    }
-
-    const files =
-        await fsp.readdir(
-            outputDir
-        );
-
-    let candidate =
-        files.find(
-            (file) =>
-                file.toLowerCase() ===
-                "source.mp4"
-        );
-
-    if (!candidate) {
-        candidate =
-            files.find(
-                (file) =>
-                    /^source\.mp4$/i.test(
-                        file
-                    )
-            );
-    }
-
-    if (!candidate) {
-        candidate =
-            files.find(
-                (file) =>
-                    /\.mp4$/i.test(
-                        file
-                    )
-            );
-    }
-
-    if (!candidate) {
-        throw new Error(
-            "yt-dlp terminou sem gerar arquivo MP4 no diretorio exclusivo."
-        );
-    }
-
-    const filePath =
-        path.join(
-            outputDir,
-            candidate
-        );
-
-    const metadata =
-        await validateVideoFile(
-            filePath
-        );
-
-    return {
-        filePath,
-        title: "",
-        duration:
-            metadata.duration,
-        source: "yt-dlp"
-    };
-}
-
-/* ============================================================
-   PIPED
-============================================================ */
-
-async function tryPipedDownload(
-    videoId,
-    outputFile
-) {
-    let lastError = null;
-
-    for (
-        const apiBase
-        of PIPED_API_URLS
-    ) {
-        try {
-            const response =
-                await fetch(
-                    `${apiBase}/streams/${encodeURIComponent(
-                        videoId
-                    )}`,
-                    {
-                        headers: {
-                            Accept:
-                                "application/json",
-                            "User-Agent":
-                                "ClipForge-Pro/16.1.2"
-                        },
-                        signal:
-                            AbortSignal.timeout(
-                                YOUTUBE_SOURCE_TIMEOUT_MS
-                            )
-                    }
-                );
-
-            if (!response.ok) {
-                continue;
-            }
-
-            const data =
-                await response.json();
-
-            const streams =
-                Array.isArray(
-                    data?.videoStreams
-                )
-                    ? data.videoStreams
-                    : [];
-
-            const candidates =
-                streams
-                    .filter(
-                        (stream) =>
-                            stream?.url &&
-                            stream.videoOnly !==
-                                true &&
-                            isMp4Stream(
-                                stream
-                            )
-                    )
-                    .map(
-                        (stream) => ({
-                            ...stream,
-                            qualityNumber:
-                                normalizeQualityNumber(
-                                    stream.quality ||
-                                        stream.qualityLabel ||
-                                        stream.resolution
-                                )
-                        })
-                    )
-                    .filter(
-                        (stream) =>
-                            stream.qualityNumber >
-                                0 &&
-                            stream.qualityNumber <=
-                                720
-                    );
-
-            candidates.sort(
-                (a, b) =>
-                    b.qualityNumber -
-                    a.qualityNumber
-            );
-
-            if (
-                !candidates[0]?.url
-            ) {
-                continue;
-            }
-
-            await downloadRemoteVideo(
-                candidates[0].url,
-                outputFile
-            );
-
-            const metadata =
-                await validateVideoFile(
-                    outputFile
-                );
-
-            return {
-                filePath:
-                    outputFile,
-                title:
-                    safeString(
-                        data?.title,
-                        ""
-                    ),
-                duration:
-                    metadata.duration,
-                source: "piped"
-            };
-        } catch (error) {
-            lastError = error;
-
-            await safeRemove(
-                outputFile
-            );
-        }
-    }
-
-    throw (
-        lastError ||
-        new Error(
-            "Piped indisponivel."
-        )
-    );
-}
-
-/* ============================================================
-   INVIDIOUS
-============================================================ */
-
-async function tryInvidiousDownload(
-    videoId,
-    outputFile
-) {
-    let lastError = null;
-
-    for (
-        const apiBase
-        of INVIDIOUS_API_URLS
-    ) {
-        try {
-            const response =
-                await fetch(
-                    `${apiBase}/api/v1/videos/${encodeURIComponent(
-                        videoId
-                    )}?region=BR`,
-                    {
-                        headers: {
-                            Accept:
-                                "application/json",
-                            "User-Agent":
-                                "ClipForge-Pro/16.1.2"
-                        },
-                        signal:
-                            AbortSignal.timeout(
-                                YOUTUBE_SOURCE_TIMEOUT_MS
-                            )
-                    }
-                );
-
-            if (!response.ok) {
-                continue;
-            }
-
-            const data =
-                await response.json();
-
-            const streams =
-                Array.isArray(
-                    data?.formatStreams
-                )
-                    ? data.formatStreams
-                    : [];
-
-            const candidates =
-                streams
-                    .filter(
-                        (stream) =>
-                            stream?.url &&
-                            isMp4Stream(
-                                stream
-                            )
-                    )
-                    .map(
-                        (stream) => ({
-                            ...stream,
-                            qualityNumber:
-                                normalizeQualityNumber(
-                                    stream.qualityLabel ||
-                                        stream.quality ||
-                                        stream.resolution
-                                )
-                        })
-                    )
-                    .filter(
-                        (stream) =>
-                            stream.qualityNumber >
-                                0 &&
-                            stream.qualityNumber <=
-                                720
-                    );
-
-            candidates.sort(
-                (a, b) =>
-                    b.qualityNumber -
-                    a.qualityNumber
-            );
-
-            if (
-                !candidates[0]?.url
-            ) {
-                continue;
-            }
-
-            await downloadRemoteVideo(
-                candidates[0].url,
-                outputFile
-            );
-
-            const metadata =
-                await validateVideoFile(
-                    outputFile
-                );
-
-            return {
-                filePath:
-                    outputFile,
-                title:
-                    safeString(
-                        data?.title,
-                        ""
-                    ),
-                duration:
-                    metadata.duration,
-                source:
-                    "invidious"
-            };
-        } catch (error) {
-            lastError = error;
-
-            await safeRemove(
-                outputFile
-            );
-        }
-    }
-
-    throw (
-        lastError ||
-        new Error(
-            "Invidious indisponivel."
-        )
-    );
-}
-
-/* ============================================================
-   DOWNLOAD YOUTUBE
-============================================================ */
-
-async function downloadYouTubeVideo(
-    url,
-    targetDirectory
-) {
-    const videoId =
-        getYouTubeId(url);
-
-    if (!videoId) {
-        throw new Error(
-            "ID do YouTube invalido."
-        );
-    }
-
-    console.log(
-        `[YouTube] URL: ${url}`
-    );
-
-    console.log(
-        `[YouTube] ID identificado: ${videoId}`
-    );
-
-    await fsp.mkdir(
-        targetDirectory,
-        {
-            recursive: true
-        }
-    );
-
-    const outputFile =
-        path.join(
-            targetDirectory,
-            "source.mp4"
-        );
-
-    const errors = [];
-
-    try {
-        console.log(
-            "[YouTube] [1/3] Tentando yt-dlp nativo..."
-        );
-
-        const result =
-            await downloadYouTubeWithYtDlp(
-                url,
-                targetDirectory
-            );
-
-        console.log(
-            `[YouTube] yt-dlp OK (${result.duration}s).`
-        );
-
-        return result;
-    } catch (error) {
-        console.warn(
-            `[YouTube] yt-dlp falhou: ${error.message}`
-        );
-
-        errors.push(
-            `yt-dlp: ${error.message}`
-        );
-
-        await safeRemove(
-            outputFile
-        );
-    }
-
-    try {
-        console.log(
-            "[YouTube] [2/3] Tentando fallback Piped..."
-        );
-
-        const result =
-            await tryPipedDownload(
-                videoId,
-                outputFile
-            );
-
-        console.log(
-            `[YouTube] Piped OK (${result.duration}s).`
-        );
-
-        return result;
-    } catch (error) {
-        console.warn(
-            `[YouTube] Piped falhou: ${error.message}`
-        );
-
-        errors.push(
-            `Piped: ${error.message}`
-        );
-
-        await safeRemove(
-            outputFile
-        );
-    }
-
-    try {
-        console.log(
-            "[YouTube] [3/3] Tentando fallback Invidious..."
-        );
-
-        const result =
-            await tryInvidiousDownload(
-                videoId,
-                outputFile
-            );
-
-        console.log(
-            `[YouTube] Invidious OK (${result.duration}s).`
-        );
-
-        return result;
-    } catch (error) {
-        console.warn(
-            `[YouTube] Invidious falhou: ${error.message}`
-        );
-
-        errors.push(
-            `Invidious: ${error.message}`
-        );
-
-        await safeRemove(
-            outputFile
-        );
-    }
-
-    const isBotChallenge =
-        errors.some(
-            (entry) => {
-                const lower =
-                    entry.toLowerCase();
-
-                return (
-                    lower.includes(
-                        "confirm you’re not a bot"
-                    ) ||
-                    lower.includes(
-                        "confirm you're not a bot"
-                    ) ||
-                    lower.includes(
-                        "sign in to confirm"
-                    ) ||
-                    lower.includes(
-                        "captcha"
-                    ) ||
-                    lower.includes(
-                        "bot detection"
-                    ) ||
-                    lower.includes(
-                        "http error 429"
-                    ) ||
-                    lower.includes(
-                        "http error 403"
-                    ) ||
-                    lower.includes(
-                        "login required"
-                    ) ||
-                    lower.includes(
-                        "please sign in"
-                    ) ||
-                    lower.includes(
-                        "this content isn't available"
-                    ) ||
-                    lower.includes(
-                        "video unavailable"
-                    )
-                );
-            }
-        );
-
-    const botAdvice =
-        isBotChallenge
-            ? "\n[Aviso Bot] O YouTube bloqueou a requisicao por verificacao de robo. Configure YTDLP_COOKIES_BASE64 no Render."
-            : "";
-
-    throw new Error(
-        `Falha no download do YouTube:${botAdvice}\n${errors.join(
-            "\n"
-        )}`
-    );
-}
-
-/* ============================================================
    PROMPT IA
 ============================================================ */
 
@@ -3555,7 +2423,7 @@ function buildClipPrompt(
             videoDuration
         ) || 0;
 
-    return `Voce e um editor profissional de videos virais para TikTok, YouTube Shorts e Instagram Reels.
+    return `Voce e um editor profissional de videos virais para TikTok, Shorts e Instagram Reels.
 Analise o video e encontre os melhores momentos para gerar cortes.
 Duracao total do video: ${duration.toFixed(
         1
@@ -3563,7 +2431,7 @@ Duracao total do video: ${duration.toFixed(
 
 REGRAS OBRIGATORIAS:
 1. Retorne ate ${MAX_CLIPS} cortes.
-2. Cada corte deve ter entre 10 e 90 segundos quando o video tiver pelo menos 10 segundos.
+2. Cada corte deve ter entre 10 e 60 segundos quando o video tiver pelo menos 10 segundos.
 3. Para videos menores que 10 segundos, use o maximo possivel da duracao real.
 4. Nunca ultrapasse a duracao total do video.
 5. Nao sobreponha cortes.
@@ -3697,7 +2565,7 @@ function normalizeClipsScoreFirst(
                     const maxViable =
                         total >= 10
                             ? Math.min(
-                                  90,
+                                  60,
                                   total
                               )
                             : total;
@@ -4707,6 +3575,29 @@ async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
 }
 
 /* ============================================================
+   CORTES FIXOS DE ATE 60 SEGUNDOS
+============================================================ */
+function createOneMinuteClips(totalDuration, requestedCount = MAX_CLIPS) {
+    const total = Number(totalDuration) || 0;
+    if (!Number.isFinite(total) || total <= 0) return [];
+
+    const countLimit = Math.min(MAX_CLIPS, Math.max(1, Number(requestedCount) || MAX_CLIPS));
+    const clips = [];
+    for (let start = 0; start < total && clips.length < countLimit; start += 60) {
+        const end = Math.min(total, start + 60);
+        clips.push({
+            start: Number(start.toFixed(2)),
+            end: Number(end.toFixed(2)),
+            duration: Number((end - start).toFixed(2)),
+            title: `Corte de 1 minuto ${clips.length + 1}`,
+            description: "Segmento sequencial do MP4, com duracao maxima de 60 segundos.",
+            score: 80
+        });
+    }
+    return clips;
+}
+
+/* ============================================================
    WORKER
 ============================================================ */
 
@@ -4756,60 +3647,16 @@ async function runAnalysisWorker(
     try {
         setStage(
             "downloading",
-            "Obtendo video original...",
+            "Preparando o MP4 enviado...",
             20
         );
 
-        let sourceFile = "";
-        let duration = 0;
-        let title = "";
+        const sourceFile = payload.filePath;
+        let duration = payload.duration;
+        const title = payload.originalName || "Video MP4";
 
-        if (
-            payload.type ===
-            "youtube"
-        ) {
-            workDir =
-                await fsp.mkdtemp(
-                    path.join(
-                        TEMP_ROOT,
-                        "job_yt_"
-                    )
-                );
-
-            const dl =
-                await downloadYouTubeVideo(
-                    payload.url,
-                    workDir
-                );
-
-            sourceFile =
-                dl.filePath;
-
-            duration =
-                dl.duration;
-
-            title =
-                dl.title ||
-                "Video do YouTube";
-        } else {
-            sourceFile =
-                payload.filePath;
-
-            duration =
-                payload.duration;
-
-            title =
-                payload.originalName ||
-                "Video MP4";
-
-            const metadata =
-                await validateVideoFile(
-                    sourceFile
-                );
-
-            duration =
-                metadata.duration;
-        }
+        const metadata = await validateVideoFile(sourceFile);
+        duration = metadata.duration;
 
         if (
             !duration ||
@@ -4833,13 +3680,14 @@ async function runAnalysisWorker(
         const requestedCount = Number(
             payload.clipCount || payload.quantity || process.env.DEFAULT_CLIP_COUNT || 5
         );
-        let clips = await analyzeLocalMoments(
-            sourceFile,
-            duration,
-            requestedCount
-        );
-
-        clips = completeClipsWithFallback(clips, duration);
+        const cutMode = String(payload.cutMode || payload.mode || "smart").toLowerCase();
+        let clips;
+        if (["minute", "1min", "60s", "one-minute", "1-minute"].includes(cutMode)) {
+            clips = createOneMinuteClips(duration, requestedCount);
+        } else {
+            clips = await analyzeLocalMoments(sourceFile, duration, requestedCount);
+            clips = completeClipsWithFallback(clips, duration);
+        }
 
         console.log(
             `[MotorLocal] ${clips.length} corte(s) selecionado(s) para ${duration.toFixed(1)}s de vídeo.`
@@ -4893,10 +3741,6 @@ async function runAnalysisWorker(
 
             uploadId:
                 payload.uploadId ||
-                null,
-
-            url:
-                payload.url ||
                 null,
 
             title
@@ -5476,10 +4320,12 @@ app.post(
         metrics.analyses++;
 
         const {
-            url,
-            uploadId
-        } =
-            req.body || {};
+            uploadId,
+            cutMode = "smart",
+            mode,
+            clipCount,
+            quantity
+        } = req.body || {};
 
         const reserved =
             await reservePoints(
@@ -5517,46 +4363,16 @@ app.post(
                 }
 
                 payload = {
-                    type:
-                        "upload",
-
+                    type: "upload",
                     uploadId,
-
-                    filePath:
-                        upload.filePath,
-
-                    duration:
-                        upload
-                            .metadata
-                            .duration,
-
-                    originalName:
-                        upload
-                            .originalName
-                };
-            } else if (url) {
-                const normalized =
-                    normalizeYouTubeUrl(
-                        url
-                    );
-
-                if (!normalized) {
-                    throw new Error(
-                        "URL do YouTube invalida."
-                    );
-                }
-
-                payload = {
-                    type:
-                        "youtube",
-
-                    url:
-                        normalized
+                    filePath: upload.filePath,
+                    duration: upload.metadata.duration,
+                    originalName: upload.originalName,
+                    cutMode: mode || cutMode,
+                    clipCount: clipCount || quantity
                 };
             } else {
-                throw new Error(
-                    "Informe url ou uploadId."
-                );
+                throw new Error("Envie um arquivo MP4 primeiro.");
             }
         } catch (error) {
             try {
@@ -5740,10 +4556,8 @@ app.post(
             duration,
             format =
                 "9:16",
-            uploadId,
-            url
-        } =
-            req.body || {};
+            uploadId
+        } = req.body || {};
 
         const nStart =
             parseNumber(
@@ -5768,6 +4582,8 @@ app.post(
             );
         }
 
+        nDuration = Math.min(60, nDuration);
+
         const reserved =
             await reservePoints(
                 req.user,
@@ -5791,68 +4607,16 @@ app.post(
             let sourceDuration =
                 0;
 
-            if (uploadId) {
-                const upload =
-                    uploads.get(
-                        uploadId
-                    );
-
-                if (
-                    !upload ||
-                    upload.userId !==
-                        req.user.id
-                ) {
-                    throw new Error(
-                        "Upload nao encontrado."
-                    );
-                }
-
-                sourceFile =
-                    upload.filePath;
-
-                sourceDuration =
-                    upload
-                        .metadata
-                        .duration;
-            } else if (url) {
-                const normalized =
-                    normalizeYouTubeUrl(
-                        url
-                    );
-
-                if (!normalized) {
-                    throw new Error(
-                        "URL do YouTube invalida."
-                    );
-                }
-
-                const workDir =
-                    await fsp.mkdtemp(
-                        path.join(
-                            TEMP_ROOT,
-                            "render_yt_"
-                        )
-                    );
-
-                const download =
-                    await downloadYouTubeVideo(
-                        normalized,
-                        workDir
-                    );
-
-                sourceFile =
-                    download.filePath;
-
-                sourceDuration =
-                    download.duration;
-
-                temporarySource =
-                    workDir;
-            } else {
-                throw new Error(
-                    "Informe uploadId ou url."
-                );
+            if (!uploadId) {
+                throw new Error("Envie um arquivo MP4 antes de baixar o corte.");
             }
+
+            const upload = uploads.get(uploadId);
+            if (!upload || upload.userId !== req.user.id) {
+                throw new Error("Upload nao encontrado.");
+            }
+            sourceFile = upload.filePath;
+            sourceDuration = upload.metadata.duration;
 
             if (
                 !sourceDuration
@@ -7650,21 +6414,6 @@ app.get(
                     await commandExists(
                         FFPROBE_BIN,
                         ["-version"]
-                    ),
-
-                ytDlp:
-                    await commandExists(
-                        YTDLP_BIN,
-                        ["--version"]
-                    )
-            },
-
-            cookies: {
-                configured:
-                    Boolean(
-                        YTDLP_COOKIES_FILE ||
-                        YTDLP_COOKIES_BASE64 ||
-                        YTDLP_COOKIES_URL
                     )
             },
 
@@ -8020,8 +6769,6 @@ async function startServer() {
         await initDatabase();
 
         await resolveBinaries();
-
-        await setupYtdlpCookies();
 
         if (
             IS_PROD &&
