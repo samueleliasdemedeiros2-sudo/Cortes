@@ -204,7 +204,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.2.2-auth-session-drawtext-fix";
+const VERSION = "16.2.3-fixed-60-second-clips";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -2431,8 +2431,8 @@ Duracao total do video: ${duration.toFixed(
 
 REGRAS OBRIGATORIAS:
 1. Retorne ate ${MAX_CLIPS} cortes.
-2. Cada corte deve ter entre 10 e 60 segundos quando o video tiver pelo menos 10 segundos.
-3. Para videos menores que 10 segundos, use o maximo possivel da duracao real.
+2. Cada corte deve ter EXATAMENTE 60 segundos quando o video tiver 60 segundos ou mais.
+3. Se o video tiver menos de 60 segundos, use a maior duracao real disponivel, sem inventar tempo.
 4. Nunca ultrapasse a duracao total do video.
 5. Nao sobreponha cortes.
 6. Priorize: ganchos fortes, momentos de retencao, emocao, surpresa e frases de impacto.
@@ -2562,42 +2562,25 @@ function normalizeClipsScoreFirst(
                             );
                     }
 
-                    const maxViable =
-                        total >= 10
-                            ? Math.min(
-                                  60,
-                                  total
-                              )
-                            : total;
+                    // Regra do produto: cortes de 60s sempre que o MP4
+                    // tiver 60s ou mais. A duracao retornada pela IA nao
+                    // pode encurtar o arquivo final para 35s, 45s etc.
+                    const targetDuration = Math.min(60, total);
 
-                    const minViable =
-                        total >= 10
-                            ? 10
-                            : 1;
+                    duration = targetDuration;
 
-                    duration =
-                        clamp(
-                            duration,
-                            minViable,
-                            maxViable
-                        );
+                    // Mantem o inicio sugerido pela IA quando possivel;
+                    // se faltar espaco no fim, desloca o corte para caber.
+                    start = clamp(
+                        start,
+                        0,
+                        Math.max(0, total - targetDuration)
+                    );
 
-                    if (
-                        start +
-                            duration >
-                        total
-                    ) {
-                        start =
-                            Math.max(
-                                0,
-                                total -
-                                    duration
-                            );
-
-                        duration =
-                            total -
-                            start;
-                    }
+                    duration = Math.min(
+                        targetDuration,
+                        total - start
+                    );
 
                     if (
                         duration <= 0
@@ -3497,7 +3480,8 @@ async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
     if (!sourceFile || total <= 0) throw new Error("Vídeo inválido para análise local.");
 
     const count = Math.min(MAX_CLIPS, Math.max(1, Number(requestedCount) || 5));
-    const clipLength = Math.min(60, Math.max(10, Math.min(35, Math.floor(total / Math.max(1, Math.min(count, Math.floor(total / 10)))))));
+    // A duracao padrao agora e 60s; somente videos menores geram cortes menores.
+    const clipLength = Math.min(60, total);
     const usableLength = Math.min(total, clipLength);
     if (total <= usableLength + 1) {
         return [{ start: 0, end: Number(total.toFixed(2)), duration: Number(total.toFixed(2)), title: "Melhor momento", description: "O vídeo é curto; trecho completo selecionado automaticamente.", score: 82 }];
