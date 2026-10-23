@@ -204,7 +204,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.2.1-mp4-only-60s";
+const VERSION = "16.2.2-auth-session-drawtext-fix";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -341,7 +341,7 @@ const OPENROUTER_SITE_NAME =
 ============================================================ */
 
 const WATERMARK_ENABLED =
-    String(process.env.WATERMARK_ENABLED || "true").toLowerCase() !== "false";
+    String(process.env.WATERMARK_ENABLED || "false").toLowerCase() === "true";
 
 const WATERMARK_TEXT =
     process.env.WATERMARK_TEXT || "ClipForge";
@@ -4122,24 +4122,10 @@ app.post(
             }
         }
 
-        if (
-            requestedId &&
-            users.has(
-                requestedId
-            )
-        ) {
-            if (
-                !user ||
-                user.id !==
-                    requestedId
-            ) {
-                return jsonError(
-                    res,
-                    403,
-                    "Nao e permitido assumir um identificador existente sem sessao valida."
-                );
-            }
-        }
+        // Este produto usa identificador local de visitante (sem login por senha).
+        // Ao perder a sessao em memoria apos reinicio do servidor, permita renovar
+        // o token para o mesmo ID persistido no navegador, em vez de bloquear a conta.
+        // Para contas com dados sensiveis, substituir por autenticacao real.
 
         if (!user) {
             user =
