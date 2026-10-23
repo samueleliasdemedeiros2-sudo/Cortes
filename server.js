@@ -204,7 +204,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.2.3-fixed-60-second-clips";
+const VERSION = "16.2.4-speed-720p-cache-metadata";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -258,6 +258,12 @@ const POINTS_PACKAGE_AMOUNT = Number(
 const MAX_CLIPS = Number(
     process.env.MAX_CLIPS || 8
 );
+
+// 720p por padrao para acelerar a renderizacao no Render Free.
+// Defina CLIP_OUTPUT_SIZE=1080 no Render para priorizar qualidade.
+const CLIP_OUTPUT_SIZE = [720, 1080].includes(Number(process.env.CLIP_OUTPUT_SIZE))
+    ? Number(process.env.CLIP_OUTPUT_SIZE)
+    : 720;
 
 const CONCURRENT_JOBS_LIMIT = 1;
 
@@ -3259,22 +3265,24 @@ async function renderClip(
     }
 
     let vf = "";
+    const shortSide = CLIP_OUTPUT_SIZE;
+    const longSide = Math.round(shortSide * 16 / 9);
 
     if (
         format === "9:16"
     ) {
         vf =
-            "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
+            `scale=${shortSide}:${longSide}:force_original_aspect_ratio=decrease,pad=${shortSide}:${longSide}:(ow-iw)/2:(oh-ih)/2:color=black`;
     } else if (
         format === "1:1"
     ) {
         vf =
-            "scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2:color=black";
+            `scale=${shortSide}:${shortSide}:force_original_aspect_ratio=decrease,pad=${shortSide}:${shortSide}:(ow-iw)/2:(oh-ih)/2:color=black`;
     } else if (
         format === "16:9"
     ) {
         vf =
-            "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black";
+            `scale=${longSide}:${shortSide}:force_original_aspect_ratio=decrease,pad=${longSide}:${shortSide}:(ow-iw)/2:(oh-ih)/2:color=black`;
     } else {
         throw new Error(
             `Formato '${format}' invalido. Escolha entre 9:16, 1:1 ou 16:9.`
@@ -3639,7 +3647,10 @@ async function runAnalysisWorker(
         let duration = payload.duration;
         const title = payload.originalName || "Video MP4";
 
-        const metadata = await validateVideoFile(sourceFile);
+        // O upload ja validou o arquivo e guardou os metadados. Reutilize-os
+        // no worker para evitar uma segunda chamada ao ffprobe. Se nao houver
+        // metadados (compatibilidade), mantenha a validacao original.
+        const metadata = payload.metadata || await validateVideoFile(sourceFile);
         duration = metadata.duration;
 
         if (
@@ -4337,6 +4348,7 @@ app.post(
                     uploadId,
                     filePath: upload.filePath,
                     duration: upload.metadata.duration,
+                    metadata: upload.metadata,
                     originalName: upload.originalName,
                     cutMode: mode || cutMode,
                     clipCount: clipCount || quantity
