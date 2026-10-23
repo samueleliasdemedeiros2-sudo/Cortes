@@ -830,6 +830,20 @@
                         class="grid grid-cols-2 gap-3"
                     ></div>
 
+                    <div class="rounded-2xl border border-white/[.09] bg-white/[.025] p-4 mt-4">
+                        <div class="font-bold text-sm">Acesso da sua conta</div>
+                        <p class="text-xs text-zinc-500 mt-1">Ative o VIP permanente na conta que está aberta neste navegador. Isso não altera os pontos existentes.</p>
+                        <button
+                            id="adminUnlimitedBtn"
+                            onclick="alternarAcessoIlimitado()"
+                            class="btn-main w-full h-11 rounded-xl mt-3 text-xs font-bold"
+                        >
+                            <i class="fa-solid fa-infinity mr-2"></i>
+                            Ativar acesso ilimitado
+                        </button>
+                        <p id="adminUnlimitedStatus" class="text-xs text-zinc-500 mt-2 text-center" aria-live="polite"></p>
+                    </div>
+
                     <button
                         onclick="carregarDashboard()"
                         class="btn-dark w-full h-11 rounded-xl mt-4 text-xs font-semibold"
@@ -2137,6 +2151,17 @@ async function fazerLoginAdmin() {
 
 async function carregarDashboard() {
 
+    const unlimitedButton = $("adminUnlimitedBtn");
+    if (unlimitedButton) {
+        unlimitedButton.innerHTML = usuario.isVip
+            ? `<i class="fa-solid fa-ban mr-2"></i> Desativar acesso ilimitado`
+            : `<i class="fa-solid fa-infinity mr-2"></i> Ativar acesso ilimitado`;
+    }
+    const unlimitedStatus = $("adminUnlimitedStatus");
+    if (unlimitedStatus && usuario.isVip) {
+        unlimitedStatus.textContent = "Esta conta já está com VIP ativo.";
+    }
+
     const stats =
         $("adminStats");
 
@@ -2216,6 +2241,56 @@ async function carregarDashboard() {
         );
 
         logoutAdmin();
+    }
+}
+
+async function alternarAcessoIlimitado() {
+    const button = $("adminUnlimitedBtn");
+    const status = $("adminUnlimitedStatus");
+    const userId = usuario && usuario.userId;
+
+    if (!adminToken) {
+        status.textContent = "Entre novamente na área administrativa.";
+        return;
+    }
+    if (!userId) {
+        status.textContent = "Não encontrei a conta deste navegador. Recarregue o app e tente novamente.";
+        return;
+    }
+
+    const currentlyVip = Boolean(usuario.isVip);
+    const enabled = !currentlyVip;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = `<div class="loader mx-auto"></div>`;
+    status.textContent = "Atualizando acesso...";
+
+    try {
+        const data = await fetchJson(`${BACKEND_URL}/api/admin/user-vip`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${adminToken}`,
+                "X-Admin-Session": adminToken
+            },
+            body: JSON.stringify({ userId, enabled }),
+            skipAuthRefresh: true
+        });
+
+        usuario.isVip = Boolean(data.isVip);
+        if (data.isVip) {
+            status.textContent = "Acesso ilimitado ativado nesta conta.";
+            button.innerHTML = `<i class="fa-solid fa-ban mr-2"></i> Desativar acesso ilimitado`;
+        } else {
+            status.textContent = "Acesso ilimitado desativado. O saldo foi preservado.";
+            button.innerHTML = `<i class="fa-solid fa-infinity mr-2"></i> Ativar acesso ilimitado`;
+        }
+        atualizarInterfaceUsuario();
+    } catch (error) {
+        status.textContent = error.message || "Não foi possível atualizar o acesso.";
+        button.innerHTML = originalText;
+    } finally {
+        button.disabled = false;
     }
 }
 
