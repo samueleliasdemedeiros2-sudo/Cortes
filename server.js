@@ -6000,6 +6000,37 @@ app.get(
     }
 );
 
+app.post(
+    "/api/admin/user-vip",
+    requireAdmin,
+    async (req, res) => {
+        const userId = safeString(req.body?.userId).trim();
+        const enabled = req.body?.enabled === true;
+
+        if (!userId) {
+            return jsonError(res, 400, "ID da conta nao informado.");
+        }
+
+        const user = users.get(userId);
+        if (!user) {
+            return jsonError(res, 404, "Conta nao encontrada. Abra o app nessa conta e tente novamente.");
+        }
+
+        user.vip = enabled;
+        // null significa VIP sem data de expiracao no verificador atual.
+        user.vipUntil = null;
+
+        try {
+            await persistUserData(user);
+        } catch (error) {
+            console.error("[Admin] Falha ao salvar VIP administrativo:", error.message);
+            return jsonError(res, 500, "Nao foi possivel salvar o acesso. Tente novamente.");
+        }
+
+        return res.json({ ok: true, userId: user.id, isVip: isUserVip(user) });
+    }
+);
+
 /* ============================================================
    HTTP RANGE
 ============================================================ */
