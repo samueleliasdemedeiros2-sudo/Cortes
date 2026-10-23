@@ -767,7 +767,17 @@
 
                 <div id="adminLoginArea">
 
-                    <label class="text-xs text-zinc-500">Senha administrativa</label>
+                    <label for="adminEmail" class="text-xs text-zinc-500">E-mail administrativo</label>
+                    <input
+                        id="adminEmail"
+                        type="email"
+                        autocomplete="username"
+                        class="input-dark w-full h-12 rounded-xl px-4 text-sm mt-2"
+                        placeholder="admin@clipforge.local"
+                        onkeydown="if(event.key==='Enter') fazerLoginAdmin()"
+                    >
+
+                    <label for="adminPassword" class="text-xs text-zinc-500 block mt-4">Senha administrativa</label>
 
                     <div class="relative mt-2">
                         <input
@@ -2033,12 +2043,22 @@ function toggleAdminPassword() {
 
 async function fazerLoginAdmin() {
 
+    const email =
+        $("adminEmail")
+            .value
+            .trim()
+            .toLowerCase();
+
     const password =
         $("adminPassword")
             .value
             .trim();
 
-    if (!password) return;
+    if (!email || !password) {
+        $("adminLoginError").textContent = "Informe o e-mail e a senha administrativa.";
+        $("adminLoginError").classList.remove("hidden");
+        return;
+    }
 
     const button =
         $("btnAdminLogin");
@@ -2070,6 +2090,7 @@ async function fazerLoginAdmin() {
 
                     body:
                         JSON.stringify({
+                            email,
                             password
                         }),
 
