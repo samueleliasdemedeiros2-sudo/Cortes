@@ -3497,7 +3497,7 @@ async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
 
     let sceneTimes = [];
     try {
-        // Reduz a análise para 2 quadros/segundo para limitar o custo no Render.
+        // Analisa 1 quadro/segundo em baixa resolução para limitar o custo no Render.
         const result = await spawnCapture(FFMPEG_BIN, [
             "-hide_banner", "-nostats", "-loglevel", "info", "-i", sourceFile,
             "-vf", "fps=1,scale=320:-2,select='gt(scene,0.20)',showinfo",
@@ -3528,17 +3528,23 @@ async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
     const candidates = [...candidateStarts].map(start => {
         const end = Math.min(total, start + usableLength);
         const inWindow = sceneTimes.filter(t => t >= start && t <= end);
+        const bucketCount = 6;
+        const bucketWidth = Math.max(1, usableLength / bucketCount);
+        const activeBuckets = new Set(inWindow.map(t => Math.min(bucketCount - 1, Math.floor((t - start) / bucketWidth))));
+        const coverage = activeBuckets.size / bucketCount;
         const density = inWindow.length / Math.max(1, usableLength / 10);
         const middle = (start + end) / 2;
         const nearest = sceneTimes.reduce((best, t) => Math.min(best, Math.abs(t - middle)), Infinity);
         const centerBonus = Number.isFinite(nearest) ? Math.max(0, 1 - nearest / Math.max(1, usableLength / 2)) : 0;
-        const score = Math.min(98, 60 + Math.min(25, density * 8) + centerBonus * 8 + (sceneTimes.length ? 5 : 0));
-        return { start, end, duration: end - start, score, sceneCount: inWindow.length };
+        // Prefere cenas variadas ao longo do trecho, sem premiar apenas um aglomerado de mudanças.
+        const score = Math.min(98, 55 + Math.min(18, density * 4) + coverage * 15 + centerBonus * 7 + (sceneTimes.length ? 3 : 0));
+        return { start, end, duration: end - start, score, sceneCount: inWindow.length, coverage };
     }).filter(c => c.duration >= Math.min(5, total));
 
     candidates.sort((a, b) => b.score - a.score || a.start - b.start);
     const selected = [];
-    const minGap = usableLength * 0.65;
+    // Evita cortes muito sobrepostos: permite pequena margem, mas exige 90% de separação.
+    const minGap = usableLength * 0.90;
     for (const candidate of candidates) {
         if (selected.every(item => Math.abs(item.start - candidate.start) >= minGap)) selected.push(candidate);
         if (selected.length >= count) break;
