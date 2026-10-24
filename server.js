@@ -3500,7 +3500,7 @@ async function analyzeLocalMoments(sourceFile, duration, requestedCount = 5) {
         // Reduz a análise para 2 quadros/segundo para limitar o custo no Render.
         const result = await spawnCapture(FFMPEG_BIN, [
             "-hide_banner", "-nostats", "-loglevel", "info", "-i", sourceFile,
-            "-vf", "fps=2,select='gt(scene,0.20)',showinfo",
+            "-vf", "fps=1,scale=320:-2,select='gt(scene,0.20)',showinfo",
             "-an", "-f", "null", "-"
         ], { timeoutMs: Math.min(180000, Math.max(30000, total * 250)) });
         const log = `${result.stderr || ""}\n${result.stdout || ""}`;
