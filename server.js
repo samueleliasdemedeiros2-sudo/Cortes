@@ -211,11 +211,10 @@ const VERSION = "16.2.6-fast-download-500mb";
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
-// Limite padrão de upload: 500 MB. No Render, MAX_UPLOAD_MB pode sobrescrever este valor.
-const configuredUploadLimit = Number(process.env.MAX_UPLOAD_MB || 500);
-const MAX_UPLOAD_MB = Number.isFinite(configuredUploadLimit)
-    ? Math.min(1024, Math.max(1, Math.floor(configuredUploadLimit)))
-    : 500;
+// Limite de upload do ClipForge: 500 MB por vídeo.
+// O limite é fixo para evitar que uma variável antiga MAX_UPLOAD_MB=150
+// no painel de hospedagem reduza silenciosamente o limite do site.
+const MAX_UPLOAD_MB = 500;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 const UPLOAD_TTL_MS = 2 * 60 * 60 * 1000;
