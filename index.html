@@ -368,7 +368,7 @@
                             </div>
 
                             <div class="text-xs text-zinc-500 mt-1 pointer-events-none">
-                                Limite de 150 MB • Formato MP4
+                                Limite de 500 MB • Formato MP4
                             </div>
 
                             <button
@@ -869,6 +869,7 @@
 ========================================================= */
 
 const BACKEND_URL = "https://clipforge-server-ikai.onrender.com";
+const MAX_UPLOAD_MB = 500;
 
 const SESSION_STORAGE_KEY = "clipforge_session_v13";
 const ADMIN_STORAGE_KEY = "clipforge_admin_session_v13";
@@ -1030,8 +1031,8 @@ async function selecionarArquivo(file) {
         return;
     }
 
-    if (file.size > 150 * 1024 * 1024) {
-        mostrarErro("O arquivo ultrapassa o limite permitido de 150 MB.");
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        mostrarErro(`O arquivo ultrapassa o limite permitido de ${MAX_UPLOAD_MB} MB.`);
         $("fileInput").value = "";
         return;
     }
