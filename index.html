@@ -385,7 +385,8 @@
                             <div>
                                 <label for="clipFormat" class="block text-xs font-semibold text-zinc-400 mb-2">Formato do vídeo</label>
                                 <select id="clipFormat" class="input-dark w-full h-11 rounded-xl px-3 text-sm">
-                                    <option value="9:16">9:16 — Reels / Shorts / TikTok</option>
+                                    <option value="9:16">9:16 — Reels / Shorts / TikTok (com bordas)</option>
+                                    <option value="9:16-auto">9:16 — Enquadramento vertical automático (centralizado)</option>
                                     <option value="1:1">1:1 — Quadrado</option>
                                     <option value="16:9">16:9 — Horizontal</option>
                                 </select>
@@ -554,8 +555,33 @@
 Cada linha vira uma legenda." class="mt-2 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white text-sm"></textarea>
                 </label>
                 <div class="flex flex-wrap items-center gap-3 mt-4">
+                    <select id="subtitleStyle" class="rounded-xl bg-black/30 border border-white/10 p-3 text-white text-xs" onchange="atualizarPreviewLegenda()"><option value="classic">Clássica</option><option value="bold">Impacto</option><option value="neon">Neon</option></select>
                     <button onclick="baixarArquivoSRT()" class="btn-main rounded-xl px-5 py-3 text-xs font-bold"><i class="fa-solid fa-download mr-2"></i>Baixar legendas .SRT</button>
                     <span id="subtitleStatus" class="text-xs text-zinc-500">As legendas são distribuídas igualmente no intervalo selecionado.</span>
+                </div>
+                <div id="subtitlePreview" class="mt-4 rounded-xl bg-black min-h-16 flex items-center justify-center p-4 text-center font-black text-white">Prévia das legendas</div>
+            </div>
+
+            <!-- FERRAMENTAS DE CRIAÇÃO -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
+                <div class="card rounded-2xl p-5">
+                    <h3 class="text-lg font-black">Títulos e hashtags</h3>
+                    <p class="text-xs text-zinc-500 mt-1">Gera sugestões locais usando os títulos e descrições dos cortes, sem contratar outra IA.</p>
+                    <button onclick="gerarTitulosHashtags()" class="btn-main rounded-xl px-4 py-3 text-xs font-bold mt-4">Gerar sugestões</button>
+                    <textarea id="titleHashtagOutput" rows="7" readonly placeholder="As sugestões aparecem aqui..." class="mt-3 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white text-sm"></textarea>
+                    <button onclick="copiarSugestoes()" class="btn-dark rounded-xl px-4 py-2 text-xs mt-2">Copiar sugestões</button>
+                </div>
+                <div class="card rounded-2xl p-5">
+                    <h3 class="text-lg font-black">Remover silêncios</h3>
+                    <p class="text-xs text-zinc-500 mt-1">Detecta trechos silenciosos do vídeo com FFmpeg e mostra os intervalos para revisão.</p>
+                    <button onclick="detectarSilencios()" id="btnSilenceDetect" class="btn-main rounded-xl px-4 py-3 text-xs font-bold mt-4">Analisar silêncios</button>
+                    <div id="silenceResults" class="text-sm text-zinc-400 mt-3">Envie e analise um vídeo primeiro.</div>
+                </div>
+                <div class="card rounded-2xl p-5 lg:col-span-2">
+                    <h3 class="text-lg font-black">Download em lote</h3>
+                    <p class="text-xs text-zinc-500 mt-1">Renderiza e baixa todos os cortes encontrados, um por vez, respeitando o custo de pontos de cada download.</p>
+                    <button onclick="baixarTodosCortes()" id="btnBatchDownload" class="btn-main rounded-xl px-4 py-3 text-xs font-bold mt-4">Baixar todos os cortes</button>
+                    <span id="batchStatus" class="text-xs text-zinc-500 ml-3"></span>
                 </div>
             </div>
 
@@ -1452,6 +1478,70 @@ function baixarArquivoSRT() {
     URL.revokeObjectURL(url);
     $("subtitleStatus").textContent = `${linhas.length} legendas exportadas em SRT.`;
     mostrarToast("Arquivo SRT gerado!", "success");
+}
+
+function atualizarPreviewLegenda() {
+    const preview = $("subtitlePreview");
+    if (!preview) return;
+    const style = $("subtitleStyle")?.value || "classic";
+    const line = ($("subtitleText")?.value || "").split(/\r?\n/).find(x => x.trim()) || "Prévia das legendas";
+    preview.textContent = line;
+    preview.className = "mt-4 rounded-xl bg-black min-h-16 flex items-center justify-center p-4 text-center font-black";
+    if (style === "neon") preview.classList.add("text-cyan-300", "[text-shadow:0_0_12px_#22d3ee]");
+    else if (style === "bold") preview.classList.add("text-yellow-300", "uppercase", "[text-shadow:2px_2px_0_#000]");
+    else preview.classList.add("text-white", "[text-shadow:1px_2px_3px_#000]");
+}
+$("subtitleText")?.addEventListener("input", atualizarPreviewLegenda);
+
+function gerarTitulosHashtags() {
+    if (!clipsAtuais?.length) return mostrarToast("Analise um vídeo primeiro.", "error");
+    const tags = new Set(["#cortes", "#viral", "#shorts", "#reels", "#tiktok", "#clipforge"]);
+    const linhas = clipsAtuais.map((clip, i) => {
+        const titulo = String(clip.title || `Momento ${i + 1}`).trim();
+        const desc = String(clip.description || "").trim();
+        (titulo + " " + desc).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 5 && !["sobre","porque","quando","muito","video","corte"].includes(w)).slice(0, 4).forEach(w => tags.add("#" + w));
+        return `${i + 1}. ${titulo}\n${desc ? desc + "\n" : ""}`;
+    });
+    $("titleHashtagOutput").value = linhas.join("\n") + "\nHashtags sugeridas:\n" + [...tags].join(" ");
+}
+function copiarSugestoes() {
+    const value = $("titleHashtagOutput")?.value || "";
+    if (!value) return mostrarToast("Gere as sugestões primeiro.", "error");
+    navigator.clipboard?.writeText(value).then(() => mostrarToast("Sugestões copiadas!", "success")).catch(() => mostrarToast("Não foi possível copiar automaticamente.", "error"));
+}
+
+async function detectarSilencios() {
+    if (!uploadIdAtual) return mostrarToast("Envie um vídeo primeiro.", "error");
+    const btn = $("btnSilenceDetect"); btn.disabled = true; btn.textContent = "Analisando áudio...";
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/silencios`, {method:"POST", headers:{"Content-Type":"application/json", ...authHeaders()}, body:JSON.stringify({uploadId:uploadIdAtual})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Falha ao analisar silêncios.");
+        const el = $("silenceResults");
+        el.innerHTML = data.silences.length ? `<p class="mb-2">${data.silences.length} trecho(s) silencioso(s) detectado(s):</p>` + data.silences.map(x => `<div class="py-1">${formatarTempo(x.start)} – ${formatarTempo(x.end)} (${(x.end-x.start).toFixed(1)}s)</div>`).join("") : "Nenhum silêncio longo detectado.";
+    } catch(e) { mostrarToast(e.message, "error"); }
+    finally { btn.disabled = false; btn.textContent = "Analisar silêncios"; }
+}
+
+async function baixarTodosCortes() {
+    if (!uploadIdAtual || !clipsAtuais?.length) return mostrarToast("Envie e analise um vídeo primeiro.", "error");
+    const btn = $("btnBatchDownload"); btn.disabled = true;
+    const status = $("batchStatus");
+    try {
+        for (let i=0; i<clipsAtuais.length; i++) {
+            const c=clipsAtuais[i], start=Math.max(0, Number(c.start)||0);
+            const duration=Math.min(60, Math.max(1, Number(c.duration)||((Number(c.end)||start+30)-start)));
+            status.textContent = `Renderizando ${i+1}/${clipsAtuais.length}...`;
+            const response=await fetch(`${BACKEND_URL}/api/download`, {method:"POST", headers:{"Content-Type":"application/json", ...authHeaders()}, body:JSON.stringify({start,duration,format:$("clipFormat").value||formatoAtual,uploadId:uploadIdAtual})});
+            if (!response.ok) { let j={}; try{j=await response.json()}catch{}; throw new Error(j.error||`Falha no corte ${i+1}`); }
+            const blob=await response.blob(), url=URL.createObjectURL(blob), a=document.createElement("a");
+            a.href=url; a.download=`clipforge_corte_${String(i+1).padStart(2,"0")}.mp4`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),30000);
+            await new Promise(r=>setTimeout(r,700));
+        }
+        status.textContent = `${clipsAtuais.length} cortes enviados para download.`;
+        mostrarToast("Lote concluído!", "success");
+    } catch(e) { status.textContent=e.message; mostrarToast(e.message,"error"); }
+    finally { btn.disabled=false; }
 }
 
 /* =========================================================
