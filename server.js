@@ -3278,6 +3278,9 @@ async function renderClip(
     ) {
         vf =
             `scale=${shortSide}:${longSide}:force_original_aspect_ratio=decrease,pad=${shortSide}:${longSide}:(ow-iw)/2:(oh-ih)/2:color=black`;
+    } else if (format === "9:16-auto") {
+        // Reenquadramento vertical centralizado: nao faz rastreamento facial.
+        vf = `scale=${longSide}:${longSide}:force_original_aspect_ratio=increase,crop=${shortSide}:${longSide}:(iw-${shortSide})/2:(ih-${longSide})/2`;
     } else if (
         format === "1:1"
     ) {
@@ -3290,7 +3293,7 @@ async function renderClip(
             `scale=${longSide}:${shortSide}:force_original_aspect_ratio=decrease,pad=${longSide}:${shortSide}:(ow-iw)/2:(oh-ih)/2:color=black`;
     } else {
         throw new Error(
-            `Formato '${format}' invalido. Escolha entre 9:16, 1:1 ou 16:9.`
+            `Formato '${format}' invalido. Escolha entre 9:16, 9:16-auto, 1:1 ou 16:9.`
         );
     }
 
@@ -4526,6 +4529,24 @@ app.post(
 /* ============================================================
    DOWNLOAD
 ============================================================ */
+
+app.post(
+    "/api/silencios",
+    requireUser,
+    rateLimitMiddleware(5, 60000),
+    async (req, res) => {
+        try {
+            const upload = uploads.get(req.body?.uploadId);
+            if (!upload || upload.userId !== req.user.id) return jsonError(res, 404, "Upload nao encontrado.");
+            const result = await spawnCapture(FFMPEG_BIN, ["-hide_banner", "-i", upload.filePath, "-af", "silencedetect=noise=-35dB:d=0.45", "-f", "null", "-"], { timeoutMs: 180000 });
+            const log = `${result.stderr || ""}\n${result.stdout || ""}`;
+            const starts = [...log.matchAll(/silence_start:\s*([0-9.]+)/g)].map(m => Number(m[1]));
+            const ends = [...log.matchAll(/silence_end:\s*([0-9.]+)/g)].map(m => Number(m[1]));
+            const silences = starts.map((start, i) => ({ start, end: ends[i] ?? Number(upload.metadata?.duration || start) })).filter(x => x.end > x.start);
+            return res.json({ silences, threshold: "-35 dB", minimumDuration: 0.45 });
+        } catch (error) { return jsonError(res, 500, error.message || "Falha na deteccao de silencio."); }
+    }
+);
 
 app.post(
     "/api/download",
