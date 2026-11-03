@@ -1,7 +1,7 @@
 {
   "name": "clipforge-pro-backend",
-  "version": "16.2.5",
-  "description": "Backend MP4-only do ClipForge Pro com upload de até 500 MB, cortes inteligentes e segmentos de até 60 segundos",
+  "version": "16.2.6",
+  "description": "Backend MP4-only do ClipForge Pro com cortes inteligentes e segmentos de ate 60 segundos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
