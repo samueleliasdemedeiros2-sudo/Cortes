@@ -206,7 +206,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.2.5-upload-500mb-universal-port";
+const VERSION = "16.2.6-fast-download-500mb";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
@@ -3329,16 +3329,16 @@ async function renderClip(
         "ultrafast",
 
         "-threads",
-        "2",
+        "0",
 
         "-crf",
-        "24",
+        "26",
 
         "-c:a",
         "aac",
 
         "-b:a",
-        "128k",
+        "96k",
 
         "-avoid_negative_ts",
         "make_zero",
