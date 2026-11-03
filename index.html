@@ -530,6 +530,35 @@
                 class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             ></div>
 
+            <!-- EDITOR DE LEGENDAS: edição manual e exportação SRT -->
+            <div class="card rounded-2xl p-5 sm:p-6 mt-8">
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-closed-captioning"></i>
+                    <span class="text-[11px] uppercase tracking-[.18em] text-zinc-500 font-bold">Novo · Editor de legendas</span>
+                </div>
+                <h3 class="text-xl font-black">Crie e exporte legendas</h3>
+                <p class="text-sm text-zinc-500 mt-2 leading-6">Edite o texto do seu corte, divida em linhas (uma legenda por linha) e baixe um arquivo .SRT sincronizado com o intervalo escolhido.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                    <label class="text-xs text-zinc-400">Corte
+                        <select id="subtitleClip" onchange="atualizarIntervaloLegenda()" class="mt-2 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white"></select>
+                    </label>
+                    <label class="text-xs text-zinc-400">Início (segundos)
+                        <input id="subtitleStart" type="number" min="0" step="0.1" class="mt-2 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white" value="0">
+                    </label>
+                    <label class="text-xs text-zinc-400">Fim (segundos)
+                        <input id="subtitleEnd" type="number" min="0.1" step="0.1" class="mt-2 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white" value="30">
+                    </label>
+                </div>
+                <label class="block text-xs text-zinc-400 mt-4">Texto das legendas · uma frase por linha
+                    <textarea id="subtitleText" rows="5" placeholder="Cole ou digite aqui as falas do vídeo.
+Cada linha vira uma legenda." class="mt-2 w-full rounded-xl bg-black/30 border border-white/10 p-3 text-white text-sm"></textarea>
+                </label>
+                <div class="flex flex-wrap items-center gap-3 mt-4">
+                    <button onclick="baixarArquivoSRT()" class="btn-main rounded-xl px-5 py-3 text-xs font-bold"><i class="fa-solid fa-download mr-2"></i>Baixar legendas .SRT</button>
+                    <span id="subtitleStatus" class="text-xs text-zinc-500">As legendas são distribuídas igualmente no intervalo selecionado.</span>
+                </div>
+            </div>
+
         </section>
 
         <!-- FEATURES -->
@@ -1356,11 +1385,73 @@ function renderizarCortes(clips) {
     });
 
     $("resultados").classList.remove("hidden");
+    inicializarEditorLegendas();
 
     $("resultados").scrollIntoView({
         behavior: "smooth",
         block: "start"
     });
+}
+
+
+/* =========================================================
+   EDITOR DE LEGENDAS E EXPORTAÇÃO SRT (EDIÇÃO MANUAL)
+========================================================= */
+function inicializarEditorLegendas() {
+    const select = $("subtitleClip");
+    if (!select) return;
+    select.innerHTML = clipsAtuais.map((clip, i) => {
+        const start = Math.max(0, Number(clip.start) || 0);
+        const duration = Math.min(60, Math.max(10, Number(clip.duration) || ((Number(clip.end) || start + 30) - start)));
+        return `<option value="${i}">Corte ${i + 1} · ${formatarTempo(start)} – ${formatarTempo(start + duration)}</option>`;
+    }).join("");
+    atualizarIntervaloLegenda();
+}
+
+function atualizarIntervaloLegenda() {
+    const index = Number($("subtitleClip")?.value || 0);
+    const clip = clipsAtuais[index];
+    if (!clip) return;
+    const start = Math.max(0, Number(clip.start) || 0);
+    const duration = Math.min(60, Math.max(10, Number(clip.duration) || ((Number(clip.end) || start + 30) - start)));
+    $("subtitleStart").value = start.toFixed(1);
+    $("subtitleEnd").value = (start + duration).toFixed(1);
+}
+
+function tempoSRT(segundos) {
+    const msTotal = Math.max(0, Math.round(Number(segundos) * 1000));
+    const horas = Math.floor(msTotal / 3600000);
+    const minutos = Math.floor((msTotal % 3600000) / 60000);
+    const segundosInteiros = Math.floor((msTotal % 60000) / 1000);
+    const ms = msTotal % 1000;
+    return `${String(horas).padStart(2, "0")}:${String(minutos).padStart(2, "0")}:${String(segundosInteiros).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
+}
+
+function baixarArquivoSRT() {
+    const linhas = $("subtitleText").value.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+    const inicio = Number($("subtitleStart").value);
+    const fim = Number($("subtitleEnd").value);
+    if (!linhas.length) return mostrarToast("Digite ao menos uma linha de legenda.", "error");
+    if (!Number.isFinite(inicio) || !Number.isFinite(fim) || inicio < 0 || fim <= inicio) {
+        return mostrarToast("Confira os tempos de início e fim.", "error");
+    }
+    const intervalo = (fim - inicio) / linhas.length;
+    const conteudo = linhas.map((linha, i) => {
+        const a = inicio + intervalo * i;
+        const b = i === linhas.length - 1 ? fim : inicio + intervalo * (i + 1);
+        return `${i + 1}\r\n${tempoSRT(a)} --> ${tempoSRT(b)}\r\n${linha}\r\n`;
+    }).join("\r\n");
+    const blob = new Blob(["\uFEFF" + conteudo], { type: "text/srt;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `clipforge-legendas-corte-${Number($("subtitleClip").value) + 1}.srt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    $("subtitleStatus").textContent = `${linhas.length} legendas exportadas em SRT.`;
+    mostrarToast("Arquivo SRT gerado!", "success");
 }
 
 /* =========================================================
