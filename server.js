@@ -201,15 +201,21 @@ const app = express();
    CONFIGURAÇÃO PRINCIPAL
 ============================================================ */
 
+// Porta dinâmica do provedor (Render) e bind em todas as interfaces.
+// Não fixe uma porta manualmente: todos os dispositivos acessam a mesma URL HTTPS.
 const PORT = Number(process.env.PORT || 10000);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const VERSION = "16.2.4-speed-720p-cache-metadata";
+const VERSION = "16.2.5-upload-500mb-universal-port";
 
 const IS_PROD =
     String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
-const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 150);
+// Limite padrão de upload: 500 MB. No Render, MAX_UPLOAD_MB pode sobrescrever este valor.
+const configuredUploadLimit = Number(process.env.MAX_UPLOAD_MB || 500);
+const MAX_UPLOAD_MB = Number.isFinite(configuredUploadLimit)
+    ? Math.min(1024, Math.max(1, Math.floor(configuredUploadLimit)))
+    : 500;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 const UPLOAD_TTL_MS = 2 * 60 * 60 * 1000;
