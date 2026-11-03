@@ -368,7 +368,7 @@
                             </div>
 
                             <div class="text-xs text-zinc-500 mt-1 pointer-events-none">
-                                Limite de 150 MB • Formato MP4
+                                Limite de 500 MB • Formato MP4
                             </div>
 
                             <button
@@ -578,10 +578,17 @@
                 <div class="text-xs text-zinc-600">
                     © <span id="anoAtual"></span> ClipForge Pro
                 </div>
-                <div class="flex items-center gap-4 text-xs text-zinc-600">
+                <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-zinc-400">
                     <span>IA para criadores</span>
-                    <span>•</span>
-                    <span>v16.2.1</span>
+                    <a href="https://www.instagram.com/clipforge_pro" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 hover:text-white transition" aria-label="Instagram ClipForge Pro">
+                        <i class="fa-brands fa-instagram"></i> Instagram
+                    </a>
+                    <a href="https://www.tiktok.com/@clipforge_cortes" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 hover:text-white transition" aria-label="TikTok ClipForge Cortes">
+                        <i class="fa-brands fa-tiktok"></i> TikTok
+                    </a>
+                    <span class="text-zinc-600">v16.2.2</span>
                 </div>
             </div>
         </div>
@@ -1030,8 +1037,8 @@ async function selecionarArquivo(file) {
         return;
     }
 
-    if (file.size > 150 * 1024 * 1024) {
-        mostrarErro("O arquivo ultrapassa o limite permitido de 150 MB.");
+    if (file.size > 500 * 1024 * 1024) {
+        mostrarErro("O arquivo ultrapassa o limite permitido de 500 MB.");
         $("fileInput").value = "";
         return;
     }
